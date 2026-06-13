@@ -13,7 +13,7 @@ export default function AdminDashboard() {
     const [error, setError] = useState('');
 
     // Admin Login Handler
-    const handleLogin = (e) => {
+    const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         if (password === process.env.NEXT_PUBLIC_ADMIN_PASSWORD) {
             setIsAuthenticated(true);
