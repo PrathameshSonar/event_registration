@@ -1,15 +1,20 @@
-// app/api/razorpay/route.js
 import Razorpay from 'razorpay';
 import { NextResponse } from 'next/server';
 
 const razorpay = new Razorpay({
-    key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID, 
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
 export async function POST(request) {
-    
-    try {
+  try {
+    // --- ADD THIS TEMPORARY DEBUG LOG ---
+    console.log("Checking Keys on Server:");
+    console.log("KEY ID:", process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID);
+    console.log("SECRET EXISTS?", !!process.env.RAZORPAY_KEY_SECRET);
+    // ------------------------------------
+
+    const { amount } = await request.json();
         const { amount } = await request.json();
 
         const options = {
