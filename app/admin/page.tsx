@@ -1,14 +1,35 @@
-// app/admin/page.js
-"use client";
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Lock, Download, Users, IndianRupee, Activity, CheckCircle, XCircle, RotateCcw } from 'lucide-react';
 
+interface Registration {
+    id: string;
+    created_at: string;
+    payment_status: 'pending' | 'completed' | 'failed' | 'refunded';
+    first_name: string;
+    last_name: string;
+    salutation: string;
+    gender: string;
+    date_of_birth: string;
+    phone: string;
+    email: string;
+    pincode: string;
+    taluka: string;
+    state: string;
+    problem_samasya: string;
+    attendees_count: number;
+    donation_amount: number;
+    total_amount: number;
+    razorpay_payment_id: string | null;
+    categories: {
+        title: string;
+    } | null;
+}
+
 export default function AdminDashboard() {
     const [password, setPassword] = useState('');
     const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [registrations, setRegistrations] = useState([]);
+    const [registrations, setRegistrations] = useState<Registration[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -178,9 +199,9 @@ export default function AdminDashboard() {
                             </thead>
                             <tbody className="divide-y divide-neutral-100">
                                 {loading ? (
-                                    <tr><td colSpan="6" className="px-6 py-8 text-center text-neutral-500">Loading records...</td></tr>
+                                    <tr><td colSpan={6} className="px-6 py-8 text-center text-neutral-500">Loading records...</td></tr>
                                 ) : registrations.length === 0 ? (
-                                    <tr><td colSpan="6" className="px-6 py-8 text-center text-neutral-500">No registrations found yet.</td></tr>
+                                    <tr><td colSpan={6} className="px-6 py-8 text-center text-neutral-500">No registrations found yet.</td></tr>
                                 ) : (
                                     registrations.map((reg) => (
                                         <tr key={reg.id} className="hover:bg-neutral-50 transition">
