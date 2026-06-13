@@ -1,6 +1,10 @@
-import { useState, useEffect } from 'react';
+// app/admin/page.tsx
+"use client";
+
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Lock, Download, Users, IndianRupee, Activity, CheckCircle, XCircle, RotateCcw } from 'lucide-react';
+// Added Search and Filter to our icons!
+import { Lock, Download, Users, IndianRupee, Activity, CheckCircle, XCircle, RotateCcw, Search, Filter } from 'lucide-react';
 
 interface Registration {
     id: string;
@@ -33,7 +37,11 @@ export default function AdminDashboard() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // Admin Login Handler
+    // --- NEW STATE FOR FILTERS ---
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all');
+    // -----------------------------
+
     const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         if (password === process.env.NEXT_PUBLIC_ADMIN_PASSWORD) {
@@ -44,7 +52,6 @@ export default function AdminDashboard() {
         }
     };
 
-    // Fetch all registrations from database
     const fetchRegistrations = async () => {
         setLoading(true);
         const { data, error } = await supabase
@@ -56,21 +63,20 @@ export default function AdminDashboard() {
             console.error("Fetch error:", error);
             alert("Failed to load data.");
         } else {
-            setRegistrations(data);
+            setRegistrations(data as Registration[]);
         }
         setLoading(false);
     };
 
-    // Export to CSV Function
     const downloadCSV = () => {
-        // Define the headers you want in the Excel file
+        // ... (Keep your exact same CSV logic here)
         const headers = [
             "Date", "Status", "Title", "First Name", "Last Name", "Gender", "DOB",
             "Phone", "Email", "Pincode", "Taluka", "State",
             "Category", "Attendees", "Donation", "Total Paid", "Issue/Samasya", "Razorpay ID"
         ];
 
-        // Map the database data to match the headers
+        // Export ALL data, or you can change this to filteredRegistrations to only export what's on screen!
         const csvData = registrations.map(reg => [
             new Date(reg.created_at).toLocaleDateString(),
             reg.payment_status.toUpperCase(),
@@ -88,14 +94,11 @@ export default function AdminDashboard() {
             reg.attendees_count || 1,
             reg.donation_amount || 0,
             reg.total_amount || 0,
-            `"${(reg.problem_samasya || '').replace(/"/g, '""')}"`, // Handle commas in text
+            `"${(reg.problem_samasya || '').replace(/"/g, '""')}"`,
             reg.razorpay_payment_id || 'N/A'
         ]);
 
-        // Combine headers and data
         const csvContent = [headers.join(","), ...csvData.map(row => row.join(","))].join("\n");
-
-        // Trigger the download
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
@@ -103,14 +106,23 @@ export default function AdminDashboard() {
         link.click();
     };
 
-    // Calculate Dashboard Statistics
+    // --- NEW FILTERING LOGIC ---
+    const filteredRegistrations = registrations.filter(reg => {
+        const fullName = `${reg.first_name} ${reg.last_name}`.toLowerCase();
+        const phone = reg.phone || '';
+        const matchesSearch = fullName.includes(searchTerm.toLowerCase()) || phone.includes(searchTerm);
+        const matchesStatus = statusFilter === 'all' || reg.payment_status === statusFilter;
+
+        return matchesSearch && matchesStatus;
+    });
+    // ---------------------------
+
     const totalRevenue = registrations
         .filter(r => r.payment_status === 'completed')
         .reduce((sum, r) => sum + Number(r.total_amount || 0), 0);
 
     const completedCount = registrations.filter(r => r.payment_status === 'completed').length;
 
-    // Render Login Screen if not authenticated
     if (!isAuthenticated) {
         return (
             <div className="min-h-screen bg-neutral-100 flex items-center justify-center p-4">
@@ -139,12 +151,10 @@ export default function AdminDashboard() {
         );
     }
 
-    // Render Main Dashboard Screen
     return (
         <div className="min-h-screen bg-neutral-50 p-4 md:p-8 font-sans">
             <div className="max-w-7xl mx-auto">
 
-                {/* Top Navigation */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                     <div>
                         <h1 className="text-3xl font-bold text-neutral-900">Mahotsav Dashboard</h1>
@@ -158,7 +168,6 @@ export default function AdminDashboard() {
                     </button>
                 </div>
 
-                {/* Statistics Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <div className="bg-white border border-neutral-200 p-6 rounded-xl shadow-sm flex items-center gap-4">
                         <div className="p-4 bg-orange-100 text-orange-600 rounded-lg"><Users className="w-6 h-6" /></div>
@@ -183,7 +192,39 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
-                {/* Data Table */}
+                {/* --- NEW SEARCH AND FILTER BAR --- */}
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-neutral-200 mb-6 flex flex-col md:flex-row gap-4 justify-between items-center">
+
+                    {/* Search Input */}
+                    <div className="relative w-full md:w-96">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                        <input
+                            type="text"
+                            placeholder="Search by name or phone..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600 transition"
+                        />
+                    </div>
+
+                    {/* Status Filter */}
+                    <div className="flex items-center gap-2 w-full md:w-auto">
+                        <Filter className="w-4 h-4 text-neutral-400" />
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="w-full md:w-auto px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600 transition appearance-none cursor-pointer"
+                        >
+                            <option value="all">All Statuses</option>
+                            <option value="completed">Completed Only</option>
+                            <option value="pending">Pending Only</option>
+                            <option value="failed">Failed Only</option>
+                            <option value="refunded">Refunded Only</option>
+                        </select>
+                    </div>
+
+                </div>
+
                 <div className="bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm whitespace-nowrap">
@@ -200,10 +241,11 @@ export default function AdminDashboard() {
                             <tbody className="divide-y divide-neutral-100">
                                 {loading ? (
                                     <tr><td colSpan={6} className="px-6 py-8 text-center text-neutral-500">Loading records...</td></tr>
-                                ) : registrations.length === 0 ? (
-                                    <tr><td colSpan={6} className="px-6 py-8 text-center text-neutral-500">No registrations found yet.</td></tr>
+                                ) : filteredRegistrations.length === 0 ? (
+                                    <tr><td colSpan={6} className="px-6 py-8 text-center text-neutral-500">No matching registrations found.</td></tr>
                                 ) : (
-                                    registrations.map((reg) => (
+                                    // WE CHANGED THIS FROM `registrations.map` TO `filteredRegistrations.map`
+                                    filteredRegistrations.map((reg) => (
                                         <tr key={reg.id} className="hover:bg-neutral-50 transition">
                                             <td className="px-6 py-4">
                                                 {reg.payment_status === 'completed' && <span className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-medium bg-green-100 text-green-700"><CheckCircle className="w-3.5 h-3.5" /> Paid</span>}
