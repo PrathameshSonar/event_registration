@@ -2,20 +2,62 @@
 "use client";
 
 import { useState } from 'react';
-import { User, Mail, Phone, Users, ShieldCheck, AlertCircle } from 'lucide-react';
+import { ShieldCheck, AlertCircle, MapPin, Calendar, MessageSquare, User, Mail, Phone, Users, Heart } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { TextField, MenuItem, InputAdornment, Button } from '@mui/material';
 
 export default function CheckoutForm({ category }) {
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
-        fullName: '',
+        salutation: '',
+        firstName: '',
+        lastName: '',
+        gender: '',
+        dob: '',
         email: '',
         phone: '',
+        pincode: '',
+        taluka: '',
+        state: '',
+        problem: '',
         attendeesCount: 1,
+        donation: '', // New donation field
     });
+
+    // Calculate dynamic total
+    const donationValue = parseFloat(formData.donation) || 0;
+    const totalAmount = category.price + donationValue;
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handlePincodeChange = async (e) => {
+        const value = e.target.value.replace(/\D/g, '');
+        if (value.length > 6) return;
+
+        setFormData((prev) => ({ ...prev, pincode: value }));
+
+        if (value.length === 6) {
+            try {
+                const response = await fetch(`https://api.postalpincode.in/pincode/${value}`);
+                const data = await response.json();
+
+                if (data[0].Status === "Success") {
+                    const postOffice = data[0].PostOffice[0];
+                    setFormData((prev) => ({
+                        ...prev,
+                        taluka: postOffice.Block || postOffice.Name || '',
+                        state: postOffice.State || ''
+                    }));
+                } else {
+                    alert("Invalid Pincode. Please check and try again.");
+                    setFormData((prev) => ({ ...prev, taluka: '', state: '' }));
+                }
+            } catch (error) {
+                console.error("Pincode API Error:", error);
+            }
+        }
     };
 
     const loadRazorpayScript = () => {
@@ -32,42 +74,50 @@ export default function CheckoutForm({ category }) {
         e.preventDefault();
         setLoading(true);
 
-        // 1. Load the Razorpay Script
         const res = await loadRazorpayScript();
         if (!res) {
             alert('Razorpay SDK failed to load. Please check your internet connection.');
-            setLoading(false);
-            return;
+            setLoading(false); return;
         }
 
-        // 2. Generate the Razorpay Order ID from our backend
+        // Pass the calculated totalAmount to the backend, NOT the base category price
         const orderResponse = await fetch('/api/razorpay', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: category.price }),
+            body: JSON.stringify({ amount: totalAmount }),
         });
 
         const orderData = await orderResponse.json();
 
         if (!orderData.order) {
             alert("Server error generating order. Please try again.");
-            setLoading(false);
-            return;
+            setLoading(false); return;
         }
 
-        // 3. CRITICAL STEP: Save the "Pending" registration to Supabase FIRST
-        // This ensures if the user closes the window after paying, the Webhook can still find their data.
+        const fullNameCombined = `${formData.salutation} ${formData.firstName} ${formData.lastName}`;
+
         const { data: pendingRecord, error: dbError } = await supabase
             .from('registrations')
             .insert([
                 {
                     category_id: category.id,
-                    full_name: formData.fullName,
+                    full_name: fullNameCombined,
+                    salutation: formData.salutation,
+                    first_name: formData.firstName,
+                    last_name: formData.lastName,
+                    gender: formData.gender,
+                    date_of_birth: formData.dob,
                     email: formData.email,
                     phone: formData.phone,
+                    pincode: formData.pincode,
+                    taluka: formData.taluka,
+                    state: formData.state,
+                    problem_samasya: formData.problem,
                     attendees_count: formData.attendeesCount,
+                    donation_amount: donationValue,
+                    total_amount: totalAmount,
                     razorpay_order_id: orderData.order.id,
-                    payment_status: 'pending' // Explicitly marking as pending
+                    payment_status: 'pending'
                 }
             ])
             .select()
@@ -76,24 +126,18 @@ export default function CheckoutForm({ category }) {
         if (dbError) {
             console.error("Database Error:", dbError);
             alert("Failed to initialize registration. Please try again.");
-            setLoading(false);
-            return;
+            setLoading(false); return;
         }
 
-        // 4. Configure Razorpay Popup options
         const options = {
             key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
             amount: orderData.order.amount,
             currency: "INR",
             name: "Shankhnad Mahotsav",
-            description: `Registration for ${category.title}`,
+            description: `Registration & Contribution`,
             order_id: orderData.order.id,
 
-            // 5. This handler runs ONLY if the user successfully pays in the popup
             handler: async function (response) {
-
-                // Optimistically update the database to 'completed' from the frontend.
-                // If this fails (e.g., browser crash), our Webhook will do it automatically!
                 await supabase
                     .from('registrations')
                     .update({
@@ -103,26 +147,18 @@ export default function CheckoutForm({ category }) {
                     .eq('id', pendingRecord.id);
 
                 alert(`Success! Your payment is confirmed. Reference: ${response.razorpay_payment_id}`);
-
-                // Reset form or redirect to a success page
-                setFormData({ fullName: '', email: '', phone: '', attendeesCount: 1 });
-                // window.location.href = '/success'; (Optional: Create this page later)
+                window.location.reload();
             },
             prefill: {
-                name: formData.fullName,
+                name: fullNameCombined,
                 email: formData.email,
                 contact: formData.phone,
             },
-            theme: { color: "#ea580c" }, // Tailwind orange-600
+            theme: { color: "#ea580c" },
         };
 
-        // 6. Open the payment popup
         const paymentObject = new window.Razorpay(options);
-
-        // Handle if user manually closes the popup without paying
-        paymentObject.on('payment.failed', function (response) {
-            console.error(response.error.description);
-            // The record stays 'pending' in Supabase, which is correct!
+        paymentObject.on('payment.failed', function () {
             alert("Payment was not completed. You can try again.");
         });
 
@@ -131,69 +167,130 @@ export default function CheckoutForm({ category }) {
     };
 
     return (
-        <form onSubmit={handlePayment} className="space-y-6">
+        <form onSubmit={handlePayment} className="space-y-8">
 
-            {/* High-Value Warning for UPI Limits */}
-            {category.price >= 100000 && (
+            {totalAmount >= 100000 && (
                 <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg flex items-start gap-3 text-sm">
                     <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                    <p>
-                        <strong>Note:</strong> This transaction exceeds standard daily UPI limits (₹1,00,000).
-                        Please select <strong>Netbanking</strong> or <strong>Card</strong> inside the Razorpay popup to ensure your payment does not fail.
-                    </p>
+                    <p><strong>Note:</strong> Exceeds daily UPI limits. Use <strong>Netbanking</strong> or <strong>Card</strong>.</p>
                 </div>
             )}
 
-            {/* Full Name */}
+            {/* --- PERSONAL DETAILS --- */}
             <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">Full Name</label>
-                <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                    <input type="text" name="fullName" value={formData.fullName} required onChange={handleChange} placeholder="Enter your full name" className="w-full pl-10 pr-4 py-3 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600 transition" />
+                <h4 className="text-sm font-bold text-neutral-900 mb-4 uppercase tracking-wider">Personal Details</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                    <div className="col-span-1 md:col-span-2 flex gap-4">
+                        <TextField select label="Title" name="salutation" required value={formData.salutation} onChange={handleChange} variant="outlined" size="medium" sx={{ width: '120px' }}>
+                            <MenuItem value="Shri">Shri</MenuItem>
+                            <MenuItem value="Smt">Smt</MenuItem>
+                            <MenuItem value="Kumari">Kumari</MenuItem>
+                            <MenuItem value="Mr">Mr.</MenuItem>
+                            <MenuItem value="Ms">Ms.</MenuItem>
+                            <MenuItem value="Dr">Dr.</MenuItem>
+                        </TextField>
+                        <TextField fullWidth label="First Name" name="firstName" required value={formData.firstName} onChange={handleChange} variant="outlined" />
+                    </div>
+
+                    <TextField fullWidth label="Last Name" name="lastName" required value={formData.lastName} onChange={handleChange} variant="outlined" />
+
+                    <TextField select fullWidth label="Gender" name="gender" required value={formData.gender} onChange={handleChange} variant="outlined">
+                        <MenuItem value="Male">Male</MenuItem>
+                        <MenuItem value="Female">Female</MenuItem>
+                        <MenuItem value="Other">Other</MenuItem>
+                    </TextField>
+
+                    <TextField fullWidth label="Date of Birth" name="dob" type="date" required value={formData.dob} onChange={handleChange} variant="outlined" InputLabelProps={{ shrink: true }} InputProps={{ startAdornment: <InputAdornment position="start"><Calendar className="w-5 h-5 text-neutral-400" /></InputAdornment> }} />
                 </div>
             </div>
 
-            {/* Email Address */}
+            {/* --- CONTACT & LOCATION --- */}
             <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">Email Address</label>
-                <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                    <input type="email" name="email" value={formData.email} required onChange={handleChange} placeholder="name@example.com" className="w-full pl-10 pr-4 py-3 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600 transition" />
+                <h4 className="text-sm font-bold text-neutral-900 mb-4 uppercase tracking-wider">Contact & Location</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                    <TextField fullWidth label="WhatsApp Number" name="phone" type="tel" required value={formData.phone} onChange={handleChange} variant="outlined" InputProps={{ startAdornment: <InputAdornment position="start"><Phone className="w-5 h-5 text-neutral-400" /></InputAdornment> }} />
+
+                    <TextField fullWidth label="Email Address" name="email" type="email" required value={formData.email} onChange={handleChange} variant="outlined" InputProps={{ startAdornment: <InputAdornment position="start"><Mail className="w-5 h-5 text-neutral-400" /></InputAdornment> }} />
+
+                    <TextField fullWidth label="Pincode" name="pincode" required value={formData.pincode} onChange={handlePincodeChange} variant="outlined" inputProps={{ maxLength: 6 }} InputProps={{ startAdornment: <InputAdornment position="start"><MapPin className="w-5 h-5 text-neutral-400" /></InputAdornment> }} />
+
+                    <div className="flex gap-2">
+                        <TextField fullWidth label="Taluka (Auto)" name="taluka" required value={formData.taluka} variant="filled" InputProps={{ readOnly: true }} />
+                        <TextField fullWidth label="State (Auto)" name="state" required value={formData.state} variant="filled" InputProps={{ readOnly: true }} />
+                    </div>
+
                 </div>
             </div>
 
-            {/* Phone Number */}
+            {/* --- ADDITIONAL DETAILS & DONATION --- */}
             <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">WhatsApp Number</label>
-                <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                    <input type="tel" name="phone" value={formData.phone} required onChange={handleChange} placeholder="10-digit mobile number" className="w-full pl-10 pr-4 py-3 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600 transition" />
+                <h4 className="text-sm font-bold text-neutral-900 mb-4 uppercase tracking-wider">Event Details & Contribution</h4>
+                <div className="grid grid-cols-1 gap-4">
+
+                    <TextField fullWidth label="Problem / Issue / Samasya" name="problem" required multiline rows={3} value={formData.problem} onChange={handleChange} variant="outlined" InputProps={{ startAdornment: <InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: 1.5 }}><MessageSquare className="w-5 h-5 text-neutral-400" /></InputAdornment> }} />
+
+                    <TextField select fullWidth label="Total Attendees" name="attendeesCount" required value={formData.attendeesCount} onChange={handleChange} variant="outlined" InputProps={{ startAdornment: <InputAdornment position="start"><Users className="w-5 h-5 text-neutral-400" /></InputAdornment> }}>
+                        <MenuItem value="1">1 Person</MenuItem>
+                        <MenuItem value="2">2 People</MenuItem>
+                        <MenuItem value="3">3 People</MenuItem>
+                        <MenuItem value="4">4 People</MenuItem>
+                        <MenuItem value="5">5 People</MenuItem>
+                    </TextField>
+
+                    {/* VOLUNTARY DONATION FIELD */}
+                    <div className="mt-4 p-6 border border-orange-100 bg-orange-50/50 rounded-xl">
+                        <h4 className="text-sm font-bold text-orange-900 mb-2 flex items-center gap-2">
+                            <Heart className="w-4 h-4 text-orange-600" />
+                            Additional Contribution (Optional)
+                        </h4>
+                        <p className="text-xs text-orange-700 mb-4">
+                            Your support helps us organize better facilities and expand our community outreach.
+                        </p>
+                        <TextField
+                            fullWidth
+                            label="Donation Amount"
+                            name="donation"
+                            type="number"
+                            value={formData.donation}
+                            onChange={handleChange}
+                            variant="outlined"
+                            placeholder="0"
+                            InputProps={{
+                                startAdornment: <InputAdornment position="start">₹</InputAdornment>
+                            }}
+                        />
+                    </div>
+
                 </div>
             </div>
 
-            {/* Attendees */}
+            {/* --- SUBMISSION --- */}
             <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">Total Attendees</label>
-                <div className="relative">
-                    <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                    <select name="attendeesCount" value={formData.attendeesCount} onChange={handleChange} className="w-full pl-10 pr-4 py-3 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600 transition appearance-none">
-                        <option value="1">1 Person</option>
-                        <option value="2">2 People</option>
-                        <option value="3">3 People</option>
-                        <option value="4">4 People</option>
-                        <option value="5">5 People</option>
-                    </select>
+                <Button
+                    type="submit"
+                    variant="contained"
+                    disabled={loading}
+                    fullWidth
+                    sx={{
+                        py: 1.5,
+                        backgroundColor: '#171717',
+                        '&:hover': { backgroundColor: '#ea580c' },
+                        textTransform: 'none',
+                        fontSize: '1.05rem',
+                        fontWeight: 600
+                    }}
+                >
+                    {loading ? "Processing Securely..." : `Pay ₹${totalAmount} Securely`}
+                </Button>
+
+                <div className="flex items-center justify-center gap-2 text-xs text-neutral-400 pt-3">
+                    <ShieldCheck className="w-4 h-4 text-green-600" />
+                    <span>Secured transaction via Razorpay</span>
                 </div>
             </div>
 
-            <button type="submit" disabled={loading} className="w-full bg-neutral-900 text-white font-medium py-3 rounded-lg hover:bg-orange-600 transition flex items-center justify-center gap-2 mt-4 disabled:opacity-70">
-                {loading ? "Processing Securely..." : `Pay ₹${category.price} Securely`}
-            </button>
-
-            <div className="flex items-center justify-center gap-2 text-xs text-neutral-400 pt-2">
-                <ShieldCheck className="w-4 h-4 text-green-600" />
-                <span>Secured transaction via Razorpay</span>
-            </div>
         </form>
     );
 }
