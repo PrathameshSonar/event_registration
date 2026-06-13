@@ -137,7 +137,9 @@ export default function CheckoutForm({ category }) {
             description: `Registration & Contribution`,
             order_id: orderData.order.id,
 
+            // components/CheckoutForm.js inside the options block:
             handler: async function (response) {
+                // 1. Update status to completed in your Supabase DB logs
                 await supabase
                     .from('registrations')
                     .update({
@@ -146,7 +148,27 @@ export default function CheckoutForm({ category }) {
                     })
                     .eq('id', pendingRecord.id);
 
-                alert(`Success! Your payment is confirmed. Reference: ${response.razorpay_payment_id}`);
+                // 2. Trigger the automated digital email ticket payload delivery
+                try {
+                    await fetch('/api/send-ticket', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            email: formData.email,
+                            firstName: formData.firstName,
+                            lastName: formData.lastName,
+                            categoryTitle: category.title,
+                            totalAmount: totalAmount,
+                            paymentId: response.razorpay_payment_id,
+                            attendeesCount: formData.attendeesCount
+                        })
+                    });
+                } catch (emailErr) {
+                    console.error("Silent notification channel error:", emailErr);
+                    // Failing to send an email shouldn't break the user's interface experience since they already paid
+                }
+
+                alert(`Success! Your payment is confirmed. Your digital ticket pass has been dispatched to ${formData.email}`);
                 window.location.reload();
             },
             prefill: {
