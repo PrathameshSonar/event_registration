@@ -24,9 +24,12 @@ export default function CheckoutForm({ category }) {
         donation: '', // New donation field
     });
 
-    // Calculate dynamic total
-    const donationValue = parseFloat(formData.donation) || 0;
-    const totalAmount = category.price + donationValue;
+    // NEW: Check if this is an Enquiry-Only tier
+    const isEnquiry = category.is_enquiry_only === true;
+
+    // Calculate dynamic total (Force to 0 if it's an enquiry)
+    const donationValue = isEnquiry ? 0 : (parseFloat(formData.donation) || 0);
+    const totalAmount = isEnquiry ? 0 : (category.price + donationValue);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -74,10 +77,56 @@ export default function CheckoutForm({ category }) {
         e.preventDefault();
         setLoading(true);
 
+        const fullNameCombined = `${formData.salutation} ${formData.firstName} ${formData.lastName}`;
+
+        // ==========================================
+        // 🚨 ENQUIRY BYPASS LOGIC
+        // ==========================================
+        if (isEnquiry) {
+            const { error: dbError } = await supabase
+                .from('registrations')
+                .insert([
+                    {
+                        category_id: category.id,
+                        full_name: fullNameCombined,
+                        salutation: formData.salutation,
+                        first_name: formData.firstName,
+                        last_name: formData.lastName,
+                        gender: formData.gender,
+                        date_of_birth: formData.dob,
+                        email: formData.email,
+                        phone: formData.phone,
+                        pincode: formData.pincode,
+                        taluka: formData.taluka,
+                        state: formData.state,
+                        problem_samasya: formData.problem,
+                        attendees_count: formData.attendeesCount,
+                        donation_amount: 0,
+                        total_amount: 0,
+                        payment_status: 'enquired' // Special status for enquiries
+                    }
+                ]);
+
+            if (dbError) {
+                console.error("Database Error:", dbError);
+                alert("Failed to submit enquiry. Please try again.");
+                setLoading(false);
+                return;
+            }
+
+            alert("✅ Enquiry submitted successfully! Our team will connect with you on WhatsApp shortly.");
+            window.location.reload();
+            return; // Stop execution here, do NOT load Razorpay
+        }
+
+        // ==========================================
+        // STANDARD PAID CHECKOUT LOGIC
+        // ==========================================
         const res = await loadRazorpayScript();
         if (!res) {
             alert('Razorpay SDK failed to load. Please check your internet connection.');
-            setLoading(false); return;
+            setLoading(false);
+            return;
         }
 
         // Pass the calculated totalAmount to the backend, NOT the base category price
@@ -89,7 +138,7 @@ export default function CheckoutForm({ category }) {
 
         const orderData = await orderResponse.json();
 
-        // 🚨 NEW ERROR HANDLING: Reveal the exact backend error to the user
+        // Reveal the exact backend error to the user
         if (!orderResponse.ok) {
             console.error("Payment API Error Data:", orderData);
             alert(`🚨 Payment Gateway Error: ${orderData.error || "Unknown server error."}`);
@@ -97,17 +146,15 @@ export default function CheckoutForm({ category }) {
             return;
         }
 
-        // 🚨 SAFTEY CHECK: Handle order structure properly (whether it's nested or direct)
+        // Handle order structure properly (whether it's nested or direct)
         const finalOrderId = orderData.id || (orderData.order && orderData.order.id);
         const finalOrderAmount = orderData.amount || (orderData.order && orderData.order.amount);
 
         if (!finalOrderId) {
             alert("🚨 Payment Gateway Error: No Order ID was returned from the server.");
-            setLoading(false); 
+            setLoading(false);
             return;
         }
-
-        const fullNameCombined = `${formData.salutation} ${formData.firstName} ${formData.lastName}`;
 
         const { data: pendingRecord, error: dbError } = await supabase
             .from('registrations')
@@ -129,7 +176,7 @@ export default function CheckoutForm({ category }) {
                     attendees_count: formData.attendeesCount,
                     donation_amount: donationValue,
                     total_amount: totalAmount,
-                    razorpay_order_id: finalOrderId, // Updated to use the safe variable
+                    razorpay_order_id: finalOrderId,
                     payment_status: 'pending'
                 }
             ])
@@ -139,16 +186,17 @@ export default function CheckoutForm({ category }) {
         if (dbError) {
             console.error("Database Error:", dbError);
             alert("Failed to initialize registration. Please try again.");
-            setLoading(false); return;
+            setLoading(false);
+            return;
         }
 
         const options = {
             key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-            amount: finalOrderAmount, // Updated to use the safe variable
+            amount: finalOrderAmount,
             currency: "INR",
             name: "BaglaBhairav",
             description: `Registration & Contribution`,
-            order_id: finalOrderId, // Updated to use the safe variable
+            order_id: finalOrderId,
 
             handler: async function (response) {
                 // 1. Update status to completed in your Supabase DB logs
@@ -220,7 +268,7 @@ export default function CheckoutForm({ category }) {
     return (
         <form onSubmit={handlePayment} className="space-y-8">
 
-            {totalAmount >= 100000 && (
+            {totalAmount >= 100000 && !isEnquiry && (
                 <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg flex items-start gap-3 text-sm">
                     <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
                     <p><strong>Note:</strong> Exceeds daily UPI limits. Use <strong>Netbanking</strong> or <strong>Card</strong>.</p>
@@ -233,7 +281,17 @@ export default function CheckoutForm({ category }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
                     <div className="col-span-1 md:col-span-2 flex gap-4">
-                        <TextField select label="Title" name="salutation" required value={formData.salutation} onChange={handleChange} variant="outlined" size="medium" sx={{ width: '120px' }}>
+                        <TextField
+                            select
+                            label="Title"
+                            name="salutation"
+                            required
+                            value={formData.salutation}
+                            onChange={handleChange}
+                            variant="outlined"
+                            size="medium"
+                            sx={{ width: '120px' }}
+                        >
                             <MenuItem value="Shri">Shri</MenuItem>
                             <MenuItem value="Smt">Smt</MenuItem>
                             <MenuItem value="Kumari">Kumari</MenuItem>
@@ -241,18 +299,56 @@ export default function CheckoutForm({ category }) {
                             <MenuItem value="Ms">Ms.</MenuItem>
                             <MenuItem value="Dr">Dr.</MenuItem>
                         </TextField>
-                        <TextField fullWidth label="First Name" name="firstName" required value={formData.firstName} onChange={handleChange} variant="outlined" />
+                        <TextField
+                            fullWidth
+                            label="First Name"
+                            name="firstName"
+                            required
+                            value={formData.firstName}
+                            onChange={handleChange}
+                            variant="outlined"
+                        />
                     </div>
 
-                    <TextField fullWidth label="Last Name" name="lastName" required value={formData.lastName} onChange={handleChange} variant="outlined" />
+                    <TextField
+                        fullWidth
+                        label="Last Name"
+                        name="lastName"
+                        required
+                        value={formData.lastName}
+                        onChange={handleChange}
+                        variant="outlined"
+                    />
 
-                    <TextField select fullWidth label="Gender" name="gender" required value={formData.gender} onChange={handleChange} variant="outlined">
+                    <TextField
+                        select
+                        fullWidth
+                        label="Gender"
+                        name="gender"
+                        required
+                        value={formData.gender}
+                        onChange={handleChange}
+                        variant="outlined"
+                    >
                         <MenuItem value="Male">Male</MenuItem>
                         <MenuItem value="Female">Female</MenuItem>
                         <MenuItem value="Other">Other</MenuItem>
                     </TextField>
 
-                    <TextField fullWidth label="Date of Birth" name="dob" type="date" required value={formData.dob} onChange={handleChange} variant="outlined" InputLabelProps={{ shrink: true }} InputProps={{ startAdornment: <InputAdornment position="start"><Calendar className="w-5 h-5 text-neutral-400" /></InputAdornment> }} />
+                    <TextField
+                        fullWidth
+                        label="Date of Birth"
+                        name="dob"
+                        type="date"
+                        required
+                        value={formData.dob}
+                        onChange={handleChange}
+                        variant="outlined"
+                        InputLabelProps={{ shrink: true }}
+                        InputProps={{
+                            startAdornment: <InputAdornment position="start"><Calendar className="w-5 h-5 text-neutral-400" /></InputAdornment>
+                        }}
+                    />
                 </div>
             </div>
 
@@ -261,15 +357,67 @@ export default function CheckoutForm({ category }) {
                 <h4 className="text-sm font-bold text-neutral-900 mb-4 uppercase tracking-wider">Contact & Location</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                    <TextField fullWidth label="WhatsApp Number" name="phone" type="tel" required value={formData.phone} onChange={handleChange} variant="outlined" InputProps={{ startAdornment: <InputAdornment position="start"><Phone className="w-5 h-5 text-neutral-400" /></InputAdornment> }} />
+                    <TextField
+                        fullWidth
+                        label="WhatsApp Number"
+                        name="phone"
+                        type="tel"
+                        required
+                        value={formData.phone}
+                        onChange={handleChange}
+                        variant="outlined"
+                        InputProps={{
+                            startAdornment: <InputAdornment position="start"><Phone className="w-5 h-5 text-neutral-400" /></InputAdornment>
+                        }}
+                    />
 
-                    <TextField fullWidth label="Email Address" name="email" type="email" required value={formData.email} onChange={handleChange} variant="outlined" InputProps={{ startAdornment: <InputAdornment position="start"><Mail className="w-5 h-5 text-neutral-400" /></InputAdornment> }} />
+                    <TextField
+                        fullWidth
+                        label="Email Address"
+                        name="email"
+                        type="email"
+                        required
+                        value={formData.email}
+                        onChange={handleChange}
+                        variant="outlined"
+                        InputProps={{
+                            startAdornment: <InputAdornment position="start"><Mail className="w-5 h-5 text-neutral-400" /></InputAdornment>
+                        }}
+                    />
 
-                    <TextField fullWidth label="Pincode" name="pincode" required value={formData.pincode} onChange={handlePincodeChange} variant="outlined" inputProps={{ maxLength: 6 }} InputProps={{ startAdornment: <InputAdornment position="start"><MapPin className="w-5 h-5 text-neutral-400" /></InputAdornment> }} />
+                    <TextField
+                        fullWidth
+                        label="Pincode"
+                        name="pincode"
+                        required
+                        value={formData.pincode}
+                        onChange={handlePincodeChange}
+                        variant="outlined"
+                        inputProps={{ maxLength: 6 }}
+                        InputProps={{
+                            startAdornment: <InputAdornment position="start"><MapPin className="w-5 h-5 text-neutral-400" /></InputAdornment>
+                        }}
+                    />
 
                     <div className="flex gap-2">
-                        <TextField fullWidth label="Taluka (Auto)" name="taluka" required value={formData.taluka} variant="filled" InputProps={{ readOnly: true }} />
-                        <TextField fullWidth label="State (Auto)" name="state" required value={formData.state} variant="filled" InputProps={{ readOnly: true }} />
+                        <TextField
+                            fullWidth
+                            label="Taluka (Auto)"
+                            name="taluka"
+                            required
+                            value={formData.taluka}
+                            variant="filled"
+                            InputProps={{ readOnly: true }}
+                        />
+                        <TextField
+                            fullWidth
+                            label="State (Auto)"
+                            name="state"
+                            required
+                            value={formData.state}
+                            variant="filled"
+                            InputProps={{ readOnly: true }}
+                        />
                     </div>
 
                 </div>
@@ -280,9 +428,34 @@ export default function CheckoutForm({ category }) {
                 <h4 className="text-sm font-bold text-neutral-900 mb-4 uppercase tracking-wider">Event Details & Contribution</h4>
                 <div className="grid grid-cols-1 gap-4">
 
-                    <TextField fullWidth label="Problem / Issue / Samasya" name="problem" required multiline rows={3} value={formData.problem} onChange={handleChange} variant="outlined" InputProps={{ startAdornment: <InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: 1.5 }}><MessageSquare className="w-5 h-5 text-neutral-400" /></InputAdornment> }} />
+                    <TextField
+                        fullWidth
+                        label="Problem / Issue / Samasya"
+                        name="problem"
+                        required
+                        multiline
+                        rows={3}
+                        value={formData.problem}
+                        onChange={handleChange}
+                        variant="outlined"
+                        InputProps={{
+                            startAdornment: <InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: 1.5 }}><MessageSquare className="w-5 h-5 text-neutral-400" /></InputAdornment>
+                        }}
+                    />
 
-                    <TextField select fullWidth label="Total Attendees" name="attendeesCount" required value={formData.attendeesCount} onChange={handleChange} variant="outlined" InputProps={{ startAdornment: <InputAdornment position="start"><Users className="w-5 h-5 text-neutral-400" /></InputAdornment> }}>
+                    <TextField
+                        select
+                        fullWidth
+                        label="Total Attendees"
+                        name="attendeesCount"
+                        required
+                        value={formData.attendeesCount}
+                        onChange={handleChange}
+                        variant="outlined"
+                        InputProps={{
+                            startAdornment: <InputAdornment position="start"><Users className="w-5 h-5 text-neutral-400" /></InputAdornment>
+                        }}
+                    >
                         <MenuItem value="1">1 Person</MenuItem>
                         <MenuItem value="2">2 People</MenuItem>
                         <MenuItem value="3">3 People</MenuItem>
@@ -290,29 +463,31 @@ export default function CheckoutForm({ category }) {
                         <MenuItem value="5">5 People</MenuItem>
                     </TextField>
 
-                    {/* VOLUNTARY DONATION FIELD */}
-                    <div className="mt-4 p-6 border border-orange-100 bg-orange-50/50 rounded-xl">
-                        <h4 className="text-sm font-bold text-orange-900 mb-2 flex items-center gap-2">
-                            <Heart className="w-4 h-4 text-orange-600" />
-                            Additional Contribution (Optional)
-                        </h4>
-                        <p className="text-xs text-orange-700 mb-4">
-                            Your support helps us organize better facilities and expand our community outreach.
-                        </p>
-                        <TextField
-                            fullWidth
-                            label="Donation Amount"
-                            name="donation"
-                            type="number"
-                            value={formData.donation}
-                            onChange={handleChange}
-                            variant="outlined"
-                            placeholder="0"
-                            InputProps={{
-                                startAdornment: <InputAdornment position="start">₹</InputAdornment>
-                            }}
-                        />
-                    </div>
+                    {/* ONLY SHOW DONATION IF IT IS A STANDARD PAID TIER */}
+                    {!isEnquiry && (
+                        <div className="mt-4 p-6 border border-orange-100 bg-orange-50/50 rounded-xl">
+                            <h4 className="text-sm font-bold text-orange-900 mb-2 flex items-center gap-2">
+                                <Heart className="w-4 h-4 text-orange-600" />
+                                Additional Contribution (Optional)
+                            </h4>
+                            <p className="text-xs text-orange-700 mb-4">
+                                Your support helps us organize better facilities and expand our community outreach.
+                            </p>
+                            <TextField
+                                fullWidth
+                                label="Donation Amount"
+                                name="donation"
+                                type="number"
+                                value={formData.donation}
+                                onChange={handleChange}
+                                variant="outlined"
+                                placeholder="0"
+                                InputProps={{
+                                    startAdornment: <InputAdornment position="start">₹</InputAdornment>
+                                }}
+                            />
+                        </div>
+                    )}
 
                 </div>
             </div>
@@ -333,13 +508,15 @@ export default function CheckoutForm({ category }) {
                         fontWeight: 600
                     }}
                 >
-                    {loading ? "Processing Securely..." : `Pay ₹${totalAmount} Securely`}
+                    {loading ? "Processing Securely..." : (isEnquiry ? "Submit Enquiry via WhatsApp" : `Pay ₹${totalAmount} Securely`)}
                 </Button>
 
-                <div className="flex items-center justify-center gap-2 text-xs text-neutral-400 pt-3">
-                    <ShieldCheck className="w-4 h-4 text-green-600" />
-                    <span>Secured transaction via Razorpay</span>
-                </div>
+                {!isEnquiry && (
+                    <div className="flex items-center justify-center gap-2 text-xs text-neutral-400 pt-3">
+                        <ShieldCheck className="w-4 h-4 text-green-600" />
+                        <span>Secured transaction via Razorpay</span>
+                    </div>
+                )}
             </div>
 
         </form>

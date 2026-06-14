@@ -91,7 +91,7 @@ export default async function Home() {
                 <div>
                   <h4 className="text-xl font-bold mb-2 text-neutral-900">{category.title}</h4>
                   <div className="text-3xl font-black mb-4 text-orange-600">
-                    ₹{category.price.toLocaleString('en-IN')}
+                    {category.is_enquiry_only ? "Enquire now" : `₹${category.price.toLocaleString('en-IN')}`}
                   </div>
                   <p className="text-neutral-600 mb-8 text-sm leading-relaxed">
                     {category.description}
@@ -104,11 +104,8 @@ export default async function Home() {
                     Registrations Full
                   </div>
                 ) : (
-                  <Link
-                    href={`/register/${category.id}`}
-                    className="w-full block text-center bg-neutral-900 text-white font-semibold py-3 rounded-xl hover:bg-orange-600 transition text-sm shadow-sm"
-                  >
-                    Register Now
+                  <Link href={`/register/${category.id}`} className="w-full block text-center ...">
+                    {category.is_enquiry_only ? "Enquire Now" : "Register Now"}
                   </Link>
                 )}
               </div>
