@@ -146,7 +146,7 @@ export default function CheckoutForm({ category }) {
             key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
             amount: finalOrderAmount, // Updated to use the safe variable
             currency: "INR",
-            name: "Shankhnad Mahotsav",
+            name: "BaglaBhairav",
             description: `Registration & Contribution`,
             order_id: finalOrderId, // Updated to use the safe variable
 

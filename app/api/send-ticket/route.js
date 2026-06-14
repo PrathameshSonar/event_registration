@@ -15,14 +15,14 @@ export async function POST(request) {
 
     // Send the transactional ticket email
     const data = await resend.emails.send({
-      from: 'Shankhnad Mahotsav <onboarding@resend.dev>', 
+      from: 'BaglaBhairav <onboarding@resend.dev>', 
       to: [email],
-      subject: `✅ Confirmed: Your Ticket for Shankhnad Mahotsav`,
+      subject: `✅ Confirmed: Your Ticket for BaglaBhairav`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
           <div style="background-color: #171717; padding: 32px; text-align: center;">
             <span style="color: #ea580c; font-size: 12px; font-weight: bold; tracking: 0.1em; text-transform: uppercase;">Registration Confirmed</span>
-            <h1 style="color: #ffffff; margin: 8px 0 0 0; font-size: 28px; font-weight: 800;">Shankhnad Mahotsav</h1>
+            <h1 style="color: #ffffff; margin: 8px 0 0 0; font-size: 28px; font-weight: 800;">BaglaBhairav</h1>
           </div>
           
           <div style="padding: 32px; background-color: #ffffff;">

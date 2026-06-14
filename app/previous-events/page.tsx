@@ -27,7 +27,7 @@ export default async function PreviousEventsPage() {
             <header className="bg-white border-b border-neutral-200 py-6 px-4 md:px-8 sticky top-0 z-40 backdrop-blur-md bg-white/80">
                 <div className="max-w-5xl mx-auto flex justify-between items-center">
                     <Link href="/" className="hover:opacity-80 transition">
-                        <h1 className="text-xl font-bold tracking-tight text-neutral-900">Shankhnad Mahotsav</h1>
+                        <h1 className="text-xl font-bold tracking-tight text-neutral-900">BaglaBhairav</h1>
                     </Link>
                     <nav className="hidden md:flex gap-6 text-sm font-medium text-neutral-600">
                         <Link href="/" className="hover:text-orange-600 transition">Current Event</Link>

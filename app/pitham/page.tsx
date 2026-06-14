@@ -14,7 +14,7 @@ export default function PithamPage() {
         <div className="max-w-5xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3">
             <Link href="/" className="hover:opacity-80 transition">
-              <h1 className="text-xl font-bold tracking-tight text-neutral-900">Shankhnad Mahotsav</h1>
+              <h1 className="text-xl font-bold tracking-tight text-neutral-900">BaglaBhairav</h1>
             </Link>
           </div>
           <nav className="flex gap-6 text-sm font-medium text-neutral-600">
