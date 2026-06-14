@@ -200,48 +200,10 @@ export default function CheckoutForm({ category }) {
             order_id: finalOrderId,
 
             handler: async function (response) {
-                await supabase
-                    .from('registrations')
-                    .update({
-                        payment_status: 'completed',
-                        razorpay_payment_id: response.razorpay_payment_id
-                    })
-                    .eq('id', pendingRecord.id);
+                // The Webhook is now securely handling the Database Update, 
+                // the Email Delivery, and the WhatsApp Notification in the background!
 
-                try {
-                    const emailPromise = fetch('/api/send-ticket', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            email: formData.email,
-                            firstName: formData.firstName,
-                            lastName: formData.lastName,
-                            categoryTitle: category.title,
-                            totalAmount: totalAmount,
-                            paymentId: response.razorpay_payment_id,
-                            attendeesCount: formData.attendeesCount
-                        })
-                    });
-
-                    const whatsappPromise = fetch('/api/send-whatsapp', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            phone: formData.phone,
-                            firstName: formData.firstName,
-                            lastName: formData.lastName,
-                            categoryTitle: category.title,
-                            paymentId: response.razorpay_payment_id
-                        })
-                    });
-
-                    await Promise.all([emailPromise, whatsappPromise]);
-
-                } catch (notificationErr) {
-                    console.error("Silent notification channel error:", notificationErr);
-                }
-
-                alert(`Success! Your payment is confirmed. Your digital ticket pass has been dispatched to ${formData.email}`);
+                alert(`Success! Your payment is confirmed. Your digital ticket pass is being dispatched to ${formData.email}`);
                 window.location.reload();
             },
             prefill: {
