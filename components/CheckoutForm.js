@@ -89,9 +89,22 @@ export default function CheckoutForm({ category }) {
 
         const orderData = await orderResponse.json();
 
-        if (!orderData.order) {
-            alert("Server error generating order. Please try again.");
-            setLoading(false); return;
+        // 🚨 NEW ERROR HANDLING: Reveal the exact backend error to the user
+        if (!orderResponse.ok) {
+            console.error("Payment API Error Data:", orderData);
+            alert(`🚨 Payment Gateway Error: ${orderData.error || "Unknown server error."}`);
+            setLoading(false);
+            return;
+        }
+
+        // 🚨 SAFTEY CHECK: Handle order structure properly (whether it's nested or direct)
+        const finalOrderId = orderData.id || (orderData.order && orderData.order.id);
+        const finalOrderAmount = orderData.amount || (orderData.order && orderData.order.amount);
+
+        if (!finalOrderId) {
+            alert("🚨 Payment Gateway Error: No Order ID was returned from the server.");
+            setLoading(false); 
+            return;
         }
 
         const fullNameCombined = `${formData.salutation} ${formData.firstName} ${formData.lastName}`;
@@ -116,7 +129,7 @@ export default function CheckoutForm({ category }) {
                     attendees_count: formData.attendeesCount,
                     donation_amount: donationValue,
                     total_amount: totalAmount,
-                    razorpay_order_id: orderData.order.id,
+                    razorpay_order_id: finalOrderId, // Updated to use the safe variable
                     payment_status: 'pending'
                 }
             ])
@@ -131,13 +144,12 @@ export default function CheckoutForm({ category }) {
 
         const options = {
             key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-            amount: orderData.order.amount,
+            amount: finalOrderAmount, // Updated to use the safe variable
             currency: "INR",
             name: "Shankhnad Mahotsav",
             description: `Registration & Contribution`,
-            order_id: orderData.order.id,
+            order_id: finalOrderId, // Updated to use the safe variable
 
-            // components/CheckoutForm.js inside the options block:
             handler: async function (response) {
                 // 1. Update status to completed in your Supabase DB logs
                 await supabase
