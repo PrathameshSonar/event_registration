@@ -4,10 +4,11 @@
 import { useState } from 'react';
 import { ShieldCheck, AlertCircle, MapPin, Calendar, MessageSquare, User, Mail, Phone, Users, Heart } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { TextField, MenuItem, InputAdornment, Button } from '@mui/material';
+import { TextField, MenuItem, InputAdornment, Button, Checkbox, FormControlLabel } from '@mui/material';
 
 export default function CheckoutForm({ category }) {
     const [loading, setLoading] = useState(false);
+    const [agreedToTerms, setAgreedToTerms] = useState(false); // NEW: Terms Checkbox State
     const [formData, setFormData] = useState({
         salutation: '',
         firstName: '',
@@ -21,13 +22,10 @@ export default function CheckoutForm({ category }) {
         state: '',
         problem: '',
         attendeesCount: 1,
-        donation: '', // New donation field
+        donation: '',
     });
 
-    // NEW: Check if this is an Enquiry-Only tier
     const isEnquiry = category.is_enquiry_only === true;
-
-    // Calculate dynamic total (Force to 0 if it's an enquiry)
     const donationValue = isEnquiry ? 0 : (parseFloat(formData.donation) || 0);
     const totalAmount = isEnquiry ? 0 : (category.price + donationValue);
 
@@ -75,12 +73,18 @@ export default function CheckoutForm({ category }) {
 
     const handlePayment = async (e) => {
         e.preventDefault();
+
+        if (!agreedToTerms) {
+            alert("Please agree to the Terms & Conditions to proceed.");
+            return;
+        }
+
         setLoading(true);
 
         const fullNameCombined = `${formData.salutation} ${formData.firstName} ${formData.lastName}`;
 
         // ==========================================
-        // 🚨 ENQUIRY BYPASS LOGIC
+        // ENQUIRY BYPASS LOGIC
         // ==========================================
         if (isEnquiry) {
             const { error: dbError } = await supabase
@@ -103,7 +107,7 @@ export default function CheckoutForm({ category }) {
                         attendees_count: formData.attendeesCount,
                         donation_amount: 0,
                         total_amount: 0,
-                        payment_status: 'enquired' // Special status for enquiries
+                        payment_status: 'enquired'
                     }
                 ]);
 
@@ -116,7 +120,7 @@ export default function CheckoutForm({ category }) {
 
             alert("✅ Enquiry submitted successfully! Our team will connect with you on WhatsApp shortly.");
             window.location.reload();
-            return; // Stop execution here, do NOT load Razorpay
+            return;
         }
 
         // ==========================================
@@ -129,7 +133,6 @@ export default function CheckoutForm({ category }) {
             return;
         }
 
-        // Pass the calculated totalAmount to the backend, NOT the base category price
         const orderResponse = await fetch('/api/razorpay', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -138,7 +141,6 @@ export default function CheckoutForm({ category }) {
 
         const orderData = await orderResponse.json();
 
-        // Reveal the exact backend error to the user
         if (!orderResponse.ok) {
             console.error("Payment API Error Data:", orderData);
             alert(`🚨 Payment Gateway Error: ${orderData.error || "Unknown server error."}`);
@@ -146,7 +148,6 @@ export default function CheckoutForm({ category }) {
             return;
         }
 
-        // Handle order structure properly (whether it's nested or direct)
         const finalOrderId = orderData.id || (orderData.order && orderData.order.id);
         const finalOrderAmount = orderData.amount || (orderData.order && orderData.order.amount);
 
@@ -199,7 +200,6 @@ export default function CheckoutForm({ category }) {
             order_id: finalOrderId,
 
             handler: async function (response) {
-                // 1. Update status to completed in your Supabase DB logs
                 await supabase
                     .from('registrations')
                     .update({
@@ -208,9 +208,7 @@ export default function CheckoutForm({ category }) {
                     })
                     .eq('id', pendingRecord.id);
 
-                // 2. Trigger the automated digital email ticket payload delivery
                 try {
-                    // Fire Email
                     const emailPromise = fetch('/api/send-ticket', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -225,7 +223,6 @@ export default function CheckoutForm({ category }) {
                         })
                     });
 
-                    // Fire WhatsApp
                     const whatsappPromise = fetch('/api/send-whatsapp', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -238,7 +235,6 @@ export default function CheckoutForm({ category }) {
                         })
                     });
 
-                    // Run both simultaneously so the user isn't kept waiting
                     await Promise.all([emailPromise, whatsappPromise]);
 
                 } catch (notificationErr) {
@@ -492,17 +488,41 @@ export default function CheckoutForm({ category }) {
                 </div>
             </div>
 
+            {/* --- LEGAL CHECKBOX --- */}
+            <div className="pt-4 pb-2">
+                <FormControlLabel
+                    control={
+                        <Checkbox
+                            checked={agreedToTerms}
+                            onChange={(e) => setAgreedToTerms(e.target.checked)}
+                            sx={{
+                                color: '#a3a3a3',
+                                '&.Mui-checked': {
+                                    color: '#ea580c',
+                                },
+                            }}
+                        />
+                    }
+                    label={
+                        <span className="text-sm text-neutral-600">
+                            I agree to the <a href="/terms" className="text-orange-600 hover:underline" target="_blank">Terms & Conditions</a>, <a href="/privacy" className="text-orange-600 hover:underline" target="_blank">Privacy Policy</a>, and <a href="/refund" className="text-orange-600 hover:underline" target="_blank">Refund Policy</a>.
+                        </span>
+                    }
+                />
+            </div>
+
             {/* --- SUBMISSION --- */}
             <div>
                 <Button
                     type="submit"
                     variant="contained"
-                    disabled={loading}
+                    disabled={loading || !agreedToTerms}
                     fullWidth
                     sx={{
                         py: 1.5,
                         backgroundColor: '#171717',
                         '&:hover': { backgroundColor: '#ea580c' },
+                        '&:disabled': { backgroundColor: '#d4d4d4', color: '#737373' },
                         textTransform: 'none',
                         fontSize: '1.05rem',
                         fontWeight: 600

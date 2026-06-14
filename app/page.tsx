@@ -105,7 +105,7 @@ export default async function Home() {
                   </div>
                 ) : (
                   <Link href={`/register/${category.id}`} className="w-full block text-center ...">
-                    {category.is_enquiry_only ? "Enquire Now" : "Register Now"}
+                    {category.is_enquiry_only ? "Know More" : "Register Now"}
                   </Link>
                 )}
               </div>
