@@ -12,7 +12,7 @@ import {
 
 interface Registration {
     id: string; created_at: string;
-    payment_status: 'pending' | 'completed' | 'failed' | 'refunded' | 'enquired';
+    payment_status: 'pending' | 'completed' | 'failed' | 'refunded' | 'enquired' | 'contacted';
     first_name: string; last_name: string; salutation: string; gender: string;
     date_of_birth: string; phone: string; email: string; pincode: string;
     taluka: string; state: string; problem_samasya: string; attendees_count: number;
@@ -23,7 +23,7 @@ interface Registration {
 interface Category {
     id: string; title: string; price: number; description: string;
     detailed_description: string; media_url: string; is_full: boolean;
-    is_enquiry_only: boolean; // NEW ADDITION
+    is_enquiry_only: boolean;
 }
 
 interface EventItem { id: string; title: string; short_description: string; long_description: string; is_active: boolean; }
@@ -95,6 +95,24 @@ export default function AdminDashboard() {
         setLoading(false);
     };
 
+    // --- NEW: STATUS UPDATER HANDLER ---
+    const handleUpdateStatus = async (id: string, newStatus: string) => {
+        if (!confirm(`Are you sure you want to change this registration's status to ${newStatus.toUpperCase()}?`)) return;
+        setSaving(true);
+        const { error } = await supabase
+            .from('registrations')
+            .update({ payment_status: newStatus })
+            .eq('id', id);
+
+        if (error) {
+            alert("Failed to update status. Check database connection.");
+            console.error(error);
+        } else {
+            fetchAllData();
+        }
+        setSaving(false);
+    };
+
     // --- EVENT HANDLERS ---
     const handleCreateEvent = async (e: React.FormEvent) => {
         e.preventDefault(); setSaving(true);
@@ -143,7 +161,7 @@ export default function AdminDashboard() {
     const completedCount = filteredRegistrations.filter(r => r.payment_status === 'completed').length;
 
     const categoryMetrics = filteredRegistrations.reduce((acc, reg) => {
-        if (reg.payment_status === 'completed' || reg.payment_status === 'enquired') {
+        if (reg.payment_status === 'completed' || reg.payment_status === 'enquired' || reg.payment_status === 'contacted') {
             const catTitle = reg.categories?.title || 'Deleted Tier';
             acc[catTitle] = (acc[catTitle] || 0) + 1;
         }
@@ -274,7 +292,13 @@ export default function AdminDashboard() {
                                     <option value="all">All Categories</option>{uniqueCategories.map((cat, idx) => <option key={idx} value={cat as string}>{cat}</option>)}<option value="Deleted"> [Deleted Tiers]</option>
                                 </select>
                                 <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600">
-                                    <option value="all">All Statuses</option><option value="completed">Completed (Paid)</option><option value="enquired">Enquired (Pending Connect)</option><option value="pending">Pending Checkout</option><option value="failed">Failed Payment</option><option value="refunded">Refunded</option>
+                                    <option value="all">All Statuses</option>
+                                    <option value="completed">Completed (Paid)</option>
+                                    <option value="enquired">Enquired (Pending Connect)</option>
+                                    <option value="contacted">Contacted (In Progress)</option>
+                                    <option value="pending">Pending Checkout</option>
+                                    <option value="failed">Failed Payment</option>
+                                    <option value="refunded">Refunded</option>
                                 </select>
                                 <button onClick={downloadCSV} className="bg-neutral-900 hover:bg-orange-600 text-white px-5 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition"><Download className="w-4 h-4" /> Export CSV</button>
                             </div>
@@ -284,18 +308,40 @@ export default function AdminDashboard() {
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left text-sm whitespace-nowrap">
                                     <thead className="bg-neutral-100 text-neutral-600 font-medium border-b border-neutral-200">
-                                        <tr><th className="px-6 py-4">Status</th><th className="px-6 py-4">Name & Contact</th><th className="px-6 py-4">Category</th><th className="px-6 py-4">Amount</th><th className="px-6 py-4">Date</th><th className="px-6 py-4 text-center">Action</th></tr>
+                                        <tr>
+                                            <th className="px-6 py-4">Status</th>
+                                            <th className="px-6 py-4">Name & Contact</th>
+                                            <th className="px-6 py-4">Category</th>
+                                            <th className="px-6 py-4">Amount</th>
+                                            <th className="px-6 py-4">Date</th>
+                                            <th className="px-6 py-4 text-center">Action</th>
+                                        </tr>
                                     </thead>
                                     <tbody className="divide-y divide-neutral-100">
                                         {loading ? (<tr><td colSpan={6} className="px-6 py-8 text-center text-neutral-400">Loading ledger data...</td></tr>) : filteredRegistrations.length === 0 ? (<tr><td colSpan={6} className="px-6 py-8 text-center text-neutral-400">No records match your filters.</td></tr>) : (
                                             filteredRegistrations.map((reg) => (
                                                 <tr key={reg.id} className="hover:bg-neutral-50 transition">
                                                     <td className="px-6 py-4">
-                                                        {reg.payment_status === 'completed' && <span className="inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-xs font-semibold bg-green-100 text-green-700"><CheckCircle className="w-3.5 h-3.5" /> Paid</span>}
-                                                        {reg.payment_status === 'enquired' && <span className="inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-xs font-semibold bg-blue-100 text-blue-700"><MessageCircle className="w-3.5 h-3.5" /> Enquired</span>}
-                                                        {reg.payment_status === 'pending' && <span className="inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700"><RotateCcw className="w-3.5 h-3.5 animate-spin-slow" /> Pending</span>}
-                                                        {reg.payment_status === 'failed' && <span className="inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-xs font-semibold bg-red-100 text-red-700"><XCircle className="w-3.5 h-3.5" /> Failed</span>}
-                                                        {reg.payment_status === 'refunded' && <span className="inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-xs font-semibold bg-neutral-200 text-neutral-700"><RotateCcw className="w-3.5 h-3.5" /> Refunded</span>}
+                                                        {/* INTERACTIVE STATUS DROPDOWN */}
+                                                        <select
+                                                            value={reg.payment_status}
+                                                            onChange={(e) => handleUpdateStatus(reg.id, e.target.value)}
+                                                            disabled={saving}
+                                                            className={`py-1 px-2.5 rounded-full text-xs font-semibold cursor-pointer outline-none border hover:shadow-sm transition-all focus:ring-2 focus:ring-orange-500 disabled:opacity-50 ${reg.payment_status === 'completed' ? 'bg-green-100 text-green-700 border-green-200' :
+                                                                    reg.payment_status === 'enquired' ? 'bg-blue-100 text-blue-700 border-blue-200' :
+                                                                        reg.payment_status === 'contacted' ? 'bg-purple-100 text-purple-700 border-purple-200' :
+                                                                            reg.payment_status === 'pending' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' :
+                                                                                reg.payment_status === 'failed' ? 'bg-red-100 text-red-700 border-red-200' :
+                                                                                    'bg-neutral-200 text-neutral-700 border-neutral-300'
+                                                                }`}
+                                                        >
+                                                            <option value="completed">✔ Paid</option>
+                                                            <option value="enquired">💬 Enquired</option>
+                                                            <option value="contacted">📞 Contacted</option>
+                                                            <option value="pending">⏳ Pending</option>
+                                                            <option value="failed">✖ Failed</option>
+                                                            <option value="refunded">⏪ Refunded</option>
+                                                        </select>
                                                     </td>
                                                     <td className="px-6 py-4 font-medium text-neutral-900">{reg.first_name} {reg.last_name}<br /><span className="text-xs font-normal text-neutral-500">{reg.phone}</span></td>
                                                     <td className="px-6 py-4 text-neutral-600">{reg.categories?.title || 'Deleted Category'}</td>
@@ -321,7 +367,6 @@ export default function AdminDashboard() {
                         </div>
 
                         <div className="flex-1 p-6 lg:p-8 bg-white overflow-y-auto">
-
                             {settingsSubTab === 'events' && (
                                 <div className="max-w-3xl">
                                     <h2 className="text-2xl font-bold mb-6 border-b border-neutral-200 pb-4 text-neutral-900">Yearly Event Management</h2>
@@ -347,8 +392,6 @@ export default function AdminDashboard() {
                             {settingsSubTab === 'tiers' && (
                                 <div className="max-w-4xl">
                                     <h2 className="text-2xl font-bold mb-6 border-b border-neutral-200 pb-4 text-neutral-900">Ticket Categories & Pricing</h2>
-
-                                    {/* NEW CREATION FORM: Includes the Dropdown toggle */}
                                     <form onSubmit={handleCreateCategory} className="flex flex-col gap-4 mb-8 bg-neutral-50 p-6 rounded-xl border border-neutral-200">
                                         <div className="flex flex-col md:flex-row gap-4">
                                             <div className="flex-1">
@@ -369,7 +412,6 @@ export default function AdminDashboard() {
                                         </div>
                                         <button type="submit" disabled={saving} className="w-full bg-neutral-900 hover:bg-orange-600 text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition">Deploy New Tier</button>
                                     </form>
-
                                     <div className="space-y-6">
                                         {categoriesList.map((cat) => (
                                             <CategoryRow key={cat.id} category={cat} onUpdate={handleUpdateCategory} onDelete={handleDeleteCategory} />
@@ -407,7 +449,6 @@ export default function AdminDashboard() {
                                     </div>
                                 </div>
                             )}
-
                         </div>
                     </div>
                 )}
@@ -435,38 +476,29 @@ function CategoryRow({ category, onUpdate, onDelete }: { category: Category, onU
 
     return (
         <div className="border border-neutral-200 rounded-xl p-5 bg-white shadow-sm relative transition-all hover:border-neutral-300">
-
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
                 <h4 className="font-bold text-lg text-neutral-900 pr-8">{category.title}</h4>
-
                 <div className="flex flex-wrap items-center gap-3">
-
-                    {/* THE NEW ENQUIRY TOGGLE INSIDE EXISTING ROW */}
                     <select value={isEnquiry ? 'yes' : 'no'} onChange={(e) => { setIsEnquiry(e.target.value === 'yes'); setIsChanged(true); }} className={`text-xs border rounded-lg px-2.5 py-1.5 font-bold cursor-pointer outline-none transition ${isEnquiry ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-neutral-50 text-neutral-700 border-neutral-200'}`}>
                         <option value="no">💳 Standard Paid Tier</option>
                         <option value="yes">💬 Enquiry Only</option>
                     </select>
-
                     <select value={isFull ? 'full' : 'open'} onChange={(e) => { setIsFull(e.target.value === 'full'); setIsChanged(true); }} className={`text-xs border rounded-lg px-2.5 py-1.5 font-bold cursor-pointer outline-none transition ${isFull ? 'bg-red-50 text-red-700 border-red-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
                         <option value="open">🟢 Slots Open</option>
                         <option value="full">🔴 Capacity Full</option>
                     </select>
-
                     <button onClick={() => onDelete(category.id)} className="text-neutral-400 hover:text-red-600 p-1.5 border border-transparent hover:border-red-200 rounded bg-neutral-50 hover:bg-red-50 transition" title="Delete Category"><Trash2 className="w-4 h-4" /></button>
                 </div>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div><label className="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Fee Amount (₹)</label><input type="number" value={price} onChange={(e) => { setPrice(Number(e.target.value)); setIsChanged(true); }} disabled={isEnquiry} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition disabled:opacity-50" /></div>
                 <div><label className="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Thumbnail Media URL</label><input type="text" placeholder="https://..." value={mediaUrl} onChange={(e) => { setMediaUrl(e.target.value); setIsChanged(true); }} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
                 <div className="md:col-span-2"><label className="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Short Summary (Home Page)</label><input type="text" value={desc} onChange={(e) => { setDesc(e.target.value); setIsChanged(true); }} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
                 <div className="md:col-span-2"><label className="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Detailed Description (Perks)</label><textarea value={detailedDesc} onChange={(e) => { setDetailedDesc(e.target.value); setIsChanged(true); }} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition h-20 resize-none" /></div>
             </div>
-
             <div className="mt-5 pt-4 border-t border-neutral-100 flex justify-end">
                 <button onClick={handleUpdateClick} disabled={!isChanged} className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all ${isChanged ? 'bg-orange-600 text-white shadow-md hover:bg-orange-700' : 'bg-neutral-100 text-neutral-400 cursor-not-allowed border border-neutral-200'}`}><Save className="w-4 h-4" />{isChanged ? "Commit Updates" : "Up to date"}</button>
             </div>
-
         </div>
     );
 }
