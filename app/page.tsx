@@ -42,8 +42,9 @@ export default async function Home() {
         <div className="max-w-5xl mx-auto flex justify-between items-center">
           <h1 className="text-xl font-bold tracking-tight text-neutral-900">Shankhnad Mahotsav</h1>
           <nav className="flex gap-6 text-sm font-medium text-neutral-600">
-            <Link href="/" className="hover:text-orange-600 transition">Event Details</Link>
+            <Link href="/" className="text-orange-600 transition font-semibold">Event Details</Link>
             <Link href="/pitham" className="hover:text-orange-600 transition">Pitham</Link>
+            <Link href="/previous-events" className="hover:text-orange-600 transition">Past Events</Link>
             <Link href="#categories" className="hover:text-orange-600 transition">Register</Link>
           </nav>
         </div>
