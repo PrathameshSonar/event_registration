@@ -33,7 +33,7 @@ export default async function Home() {
     .in('payment_status', ['completed', 'contacted', 'enquired']); // Count paid & active enquiries
 
   // Calculate actual seats taken per category
-  const seatsTaken = {};
+  const seatsTaken: Record<string, number> = {};
   regs?.forEach(reg => {
     seatsTaken[reg.category_id] = (seatsTaken[reg.category_id] || 0) + (reg.attendees_count || 1);
   });
