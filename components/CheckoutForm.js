@@ -8,11 +8,12 @@ import { TextField, MenuItem, InputAdornment, Button, Checkbox, FormControlLabel
 
 export default function CheckoutForm({ category }) {
     const [loading, setLoading] = useState(false);
-    const [agreedToTerms, setAgreedToTerms] = useState(false); // NEW: Terms Checkbox State
+    const [agreedToTerms, setAgreedToTerms] = useState(false);
     const [formData, setFormData] = useState({
         salutation: '',
         firstName: '',
         lastName: '',
+        gotra: '', // NEW: Gotra Field
         gender: '',
         dob: '',
         email: '',
@@ -36,14 +37,12 @@ export default function CheckoutForm({ category }) {
     const handlePincodeChange = async (e) => {
         const value = e.target.value.replace(/\D/g, '');
         if (value.length > 6) return;
-
         setFormData((prev) => ({ ...prev, pincode: value }));
 
         if (value.length === 6) {
             try {
                 const response = await fetch(`https://api.postalpincode.in/pincode/${value}`);
                 const data = await response.json();
-
                 if (data[0].Status === "Success") {
                     const postOffice = data[0].PostOffice[0];
                     setFormData((prev) => ({
@@ -73,12 +72,10 @@ export default function CheckoutForm({ category }) {
 
     const handlePayment = async (e) => {
         e.preventDefault();
-
         if (!agreedToTerms) {
             alert("Please agree to the Terms & Conditions to proceed.");
             return;
         }
-
         setLoading(true);
 
         const fullNameCombined = `${formData.salutation} ${formData.firstName} ${formData.lastName}`;
@@ -96,6 +93,7 @@ export default function CheckoutForm({ category }) {
                         salutation: formData.salutation,
                         first_name: formData.firstName,
                         last_name: formData.lastName,
+                        gotra: formData.gotra, // Save Gotra
                         gender: formData.gender,
                         date_of_birth: formData.dob,
                         email: formData.email,
@@ -117,7 +115,6 @@ export default function CheckoutForm({ category }) {
                 setLoading(false);
                 return;
             }
-
             alert("✅ Enquiry submitted successfully! Our team will connect with you on WhatsApp shortly.");
             window.location.reload();
             return;
@@ -138,7 +135,6 @@ export default function CheckoutForm({ category }) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ amount: totalAmount }),
         });
-
         const orderData = await orderResponse.json();
 
         if (!orderResponse.ok) {
@@ -166,6 +162,7 @@ export default function CheckoutForm({ category }) {
                     salutation: formData.salutation,
                     first_name: formData.firstName,
                     last_name: formData.lastName,
+                    gotra: formData.gotra, // Save Gotra
                     gender: formData.gender,
                     date_of_birth: formData.dob,
                     email: formData.email,
@@ -198,11 +195,7 @@ export default function CheckoutForm({ category }) {
             name: "BaglaBhairav",
             description: `Registration & Contribution`,
             order_id: finalOrderId,
-
             handler: async function (response) {
-                // The Webhook is now securely handling the Database Update, 
-                // the Email Delivery, and the WhatsApp Notification in the background!
-
                 alert(`Success! Your payment is confirmed. Your digital ticket pass is being dispatched to ${formData.email}`);
                 window.location.reload();
             },
@@ -213,12 +206,10 @@ export default function CheckoutForm({ category }) {
             },
             theme: { color: "#ea580c" },
         };
-
         const paymentObject = new window.Razorpay(options);
         paymentObject.on('payment.failed', function () {
             alert("Payment was not completed. You can try again.");
         });
-
         paymentObject.open();
         setLoading(false);
     };
@@ -237,7 +228,6 @@ export default function CheckoutForm({ category }) {
             <div>
                 <h4 className="text-sm font-bold text-neutral-900 mb-4 uppercase tracking-wider">Personal Details</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
                     <div className="col-span-1 md:col-span-2 flex gap-4">
                         <TextField
                             select
@@ -267,13 +257,23 @@ export default function CheckoutForm({ category }) {
                             variant="outlined"
                         />
                     </div>
-
                     <TextField
                         fullWidth
                         label="Last Name"
                         name="lastName"
                         required
                         value={formData.lastName}
+                        onChange={handleChange}
+                        variant="outlined"
+                    />
+
+                    {/* NEW GOTRA FIELD */}
+                    <TextField
+                        fullWidth
+                        label="Gotra"
+                        name="gotra"
+                        required
+                        value={formData.gotra}
                         onChange={handleChange}
                         variant="outlined"
                     />
@@ -292,7 +292,6 @@ export default function CheckoutForm({ category }) {
                         <MenuItem value="Female">Female</MenuItem>
                         <MenuItem value="Other">Other</MenuItem>
                     </TextField>
-
                     <TextField
                         fullWidth
                         label="Date of Birth"
@@ -314,7 +313,6 @@ export default function CheckoutForm({ category }) {
             <div>
                 <h4 className="text-sm font-bold text-neutral-900 mb-4 uppercase tracking-wider">Contact & Location</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
                     <TextField
                         fullWidth
                         label="WhatsApp Number"
@@ -328,7 +326,6 @@ export default function CheckoutForm({ category }) {
                             startAdornment: <InputAdornment position="start"><Phone className="w-5 h-5 text-neutral-400" /></InputAdornment>
                         }}
                     />
-
                     <TextField
                         fullWidth
                         label="Email Address"
@@ -342,7 +339,6 @@ export default function CheckoutForm({ category }) {
                             startAdornment: <InputAdornment position="start"><Mail className="w-5 h-5 text-neutral-400" /></InputAdornment>
                         }}
                     />
-
                     <TextField
                         fullWidth
                         label="Pincode"
@@ -356,7 +352,6 @@ export default function CheckoutForm({ category }) {
                             startAdornment: <InputAdornment position="start"><MapPin className="w-5 h-5 text-neutral-400" /></InputAdornment>
                         }}
                     />
-
                     <div className="flex gap-2">
                         <TextField
                             fullWidth
@@ -377,7 +372,6 @@ export default function CheckoutForm({ category }) {
                             InputProps={{ readOnly: true }}
                         />
                     </div>
-
                 </div>
             </div>
 
@@ -385,7 +379,6 @@ export default function CheckoutForm({ category }) {
             <div>
                 <h4 className="text-sm font-bold text-neutral-900 mb-4 uppercase tracking-wider">Event Details & Contribution</h4>
                 <div className="grid grid-cols-1 gap-4">
-
                     <TextField
                         fullWidth
                         label="Problem / Issue / Samasya"
@@ -400,7 +393,6 @@ export default function CheckoutForm({ category }) {
                             startAdornment: <InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: 1.5 }}><MessageSquare className="w-5 h-5 text-neutral-400" /></InputAdornment>
                         }}
                     />
-
                     <TextField
                         select
                         fullWidth
@@ -446,7 +438,6 @@ export default function CheckoutForm({ category }) {
                             />
                         </div>
                     )}
-
                 </div>
             </div>
 
