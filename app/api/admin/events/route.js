@@ -12,16 +12,22 @@ export async function POST(request) {
     if (response) return response;
     const { title, short_description, long_description, title_hi, short_description_hi, long_description_hi, makeActive } = await request.json();
     if (!title) return NextResponse.json({ error: 'Title required.' }, { status: 400 });
-    const { error } = await supabaseAdmin.from('events').insert([{
+    // Build insert payload — only include _hi fields when present so the insert
+    // works even if add_hindi_columns.sql hasn't been run yet.
+    const insertData = {
         title,
         short_description: short_description || null,
         long_description: long_description || null,
-        title_hi: title_hi || null,
-        short_description_hi: short_description_hi || null,
-        long_description_hi: long_description_hi || null,
         is_active: !!makeActive,
-    }]);
-    if (error) return NextResponse.json({ error: 'Create failed.' }, { status: 500 });
+    };
+    if (title_hi) insertData.title_hi = title_hi;
+    if (short_description_hi) insertData.short_description_hi = short_description_hi;
+    if (long_description_hi) insertData.long_description_hi = long_description_hi;
+    const { error } = await supabaseAdmin.from('events').insert([insertData]);
+    if (error) {
+        console.error('Event create error:', error.code, error.message);
+        return NextResponse.json({ error: 'Create failed.', detail: error.message }, { status: 500 });
+    }
     return NextResponse.json({ ok: true });
 }
 

@@ -28,25 +28,34 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
         <main className="min-h-screen bg-neutral-50 text-neutral-900 font-sans selection:bg-orange-100">
 
             {/* HEADER */}
-            <header className="bg-white border-b border-neutral-200 py-6 px-4 md:px-8 sticky top-0 z-50 backdrop-blur-md bg-white/90">
-                <div className="max-w-5xl mx-auto flex justify-between items-center">
-                    <h1 className="text-xl font-bold tracking-tight text-neutral-900">{t('nav_brand')}</h1>
-                    <nav className="flex items-center gap-4 md:gap-6 text-sm font-medium text-neutral-600">
-                        <Link href="/" className="text-orange-600 transition font-semibold hidden md:block">{t('nav_event_details')}</Link>
-                        <Link href="/pitham" className="hover:text-orange-600 transition hidden md:block">{t('nav_pitham')}</Link>
-                        <Link href="/previous-events" className="hover:text-orange-600 transition hidden md:block">{t('nav_past_events')}</Link>
-                        <Link href="#categories" className="hover:text-orange-600 transition hidden md:block">{t('nav_register')}</Link>
-                        <LangToggle />
-                    </nav>
+            <header className="bg-white border-b border-neutral-200 sticky top-0 z-50 bg-white/90 backdrop-blur-md">
+                <div className="max-w-5xl mx-auto px-4 md:px-8">
+                    <div className="flex justify-between items-center py-4 md:py-6">
+                        <h1 className="text-xl font-bold tracking-tight text-neutral-900">{t('nav_brand')}</h1>
+                        <nav className="flex items-center gap-4 md:gap-6 text-sm font-medium text-neutral-600">
+                            <Link href="/" className="text-orange-600 transition font-semibold hidden md:block">{t('nav_event_details')}</Link>
+                            <Link href="/pitham" className="hover:text-orange-600 transition hidden md:block">{t('nav_pitham')}</Link>
+                            <Link href="/previous-events" className="hover:text-orange-600 transition hidden md:block">{t('nav_past_events')}</Link>
+                            <Link href="#categories" className="hover:text-orange-600 transition hidden md:block">{t('nav_register')}</Link>
+                            <LangToggle />
+                        </nav>
+                    </div>
+                    {/* Mobile-only scrollable sub-nav */}
+                    <div className="md:hidden flex items-center gap-2 overflow-x-auto pb-3 border-t border-neutral-100 pt-2 scrollbar-hide">
+                        <Link href="/" className="flex-shrink-0 text-xs font-semibold text-white bg-orange-600 px-3 py-1.5 rounded-full whitespace-nowrap">{t('nav_event_details')}</Link>
+                        <Link href="/pitham" className="flex-shrink-0 text-xs font-medium text-neutral-600 border border-neutral-200 bg-neutral-50 px-3 py-1.5 rounded-full whitespace-nowrap">{t('nav_pitham')}</Link>
+                        <Link href="/previous-events" className="flex-shrink-0 text-xs font-medium text-neutral-600 border border-neutral-200 bg-neutral-50 px-3 py-1.5 rounded-full whitespace-nowrap">{t('nav_past_events')}</Link>
+                        <Link href="#categories" className="flex-shrink-0 text-xs font-semibold text-orange-600 border border-orange-200 bg-orange-50 px-3 py-1.5 rounded-full whitespace-nowrap">{t('nav_register')}</Link>
+                    </div>
                 </div>
             </header>
 
             {/* HERO */}
-            <section className="max-w-4xl mx-auto px-4 py-16 md:py-24 text-center">
+            <section className="max-w-4xl mx-auto px-4 py-12 md:py-24 text-center">
                 <span className="text-orange-600 font-bold tracking-widest uppercase text-xs mb-4 block">
                     {t('hero_tagline')}
                 </span>
-                <h2 className="text-4xl md:text-6xl font-extrabold mb-6 leading-tight tracking-tight text-neutral-950">
+                <h2 className="text-3xl sm:text-4xl md:text-6xl font-extrabold mb-6 leading-tight tracking-tight text-neutral-950">
                     {eventTitle}
                 </h2>
                 <p className="text-base text-neutral-600 md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
@@ -81,7 +90,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                             const isEffectivelyFull = category.is_full || (isCapacityEnforced && remaining === 0);
 
                             return (
-                                <div key={category.id} className="border border-neutral-200 rounded-2xl p-8 hover:shadow-lg hover:border-neutral-300 transition flex flex-col justify-between bg-white relative overflow-hidden">
+                                <div key={category.id} className="border border-neutral-200 rounded-2xl p-5 md:p-8 hover:shadow-lg hover:border-neutral-300 transition flex flex-col justify-between bg-white relative overflow-hidden">
 
                                     {isCapacityEnforced && category.show_availability && !isEffectivelyFull && (
                                         <div className="absolute top-0 right-0 bg-orange-100 text-orange-800 text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-bl-xl border-b border-l border-orange-200 flex items-center gap-1">

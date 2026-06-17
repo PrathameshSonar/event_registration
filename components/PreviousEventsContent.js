@@ -22,17 +22,25 @@ export default function PreviousEventsContent({ pastEvents, allMedia }) {
         <main className="min-h-screen bg-neutral-50 text-neutral-900 font-sans selection:bg-orange-100">
 
             {/* HEADER */}
-            <header className="bg-white border-b border-neutral-200 py-6 px-4 md:px-8 sticky top-0 z-40 backdrop-blur-md bg-white/80">
-                <div className="max-w-5xl mx-auto flex justify-between items-center">
-                    <Link href="/" className="hover:opacity-80 transition">
-                        <h1 className="text-xl font-bold tracking-tight text-neutral-900">{t('nav_brand')}</h1>
-                    </Link>
-                    <nav className="flex items-center gap-4 md:gap-6 text-sm font-medium text-neutral-600">
-                        <Link href="/" className="hover:text-orange-600 transition hidden md:block">{t('nav_current_event')}</Link>
-                        <Link href="/pitham" className="hover:text-orange-600 transition hidden md:block">{t('nav_pitham')}</Link>
-                        <Link href="/previous-events" className="text-orange-600 transition font-semibold hidden md:block">{t('nav_past_events')}</Link>
-                        <LangToggle />
-                    </nav>
+            <header className="bg-white border-b border-neutral-200 sticky top-0 z-40 bg-white/80 backdrop-blur-md">
+                <div className="max-w-5xl mx-auto px-4 md:px-8">
+                    <div className="flex justify-between items-center py-4 md:py-6">
+                        <Link href="/" className="hover:opacity-80 transition">
+                            <h1 className="text-xl font-bold tracking-tight text-neutral-900">{t('nav_brand')}</h1>
+                        </Link>
+                        <nav className="flex items-center gap-4 md:gap-6 text-sm font-medium text-neutral-600">
+                            <Link href="/" className="hover:text-orange-600 transition hidden md:block">{t('nav_current_event')}</Link>
+                            <Link href="/pitham" className="hover:text-orange-600 transition hidden md:block">{t('nav_pitham')}</Link>
+                            <Link href="/previous-events" className="text-orange-600 transition font-semibold hidden md:block">{t('nav_past_events')}</Link>
+                            <LangToggle />
+                        </nav>
+                    </div>
+                    {/* Mobile-only scrollable sub-nav */}
+                    <div className="md:hidden flex items-center gap-2 overflow-x-auto pb-3 border-t border-neutral-100 pt-2 scrollbar-hide">
+                        <Link href="/" className="flex-shrink-0 text-xs font-medium text-neutral-600 border border-neutral-200 bg-neutral-50 px-3 py-1.5 rounded-full whitespace-nowrap">{t('nav_current_event')}</Link>
+                        <Link href="/pitham" className="flex-shrink-0 text-xs font-medium text-neutral-600 border border-neutral-200 bg-neutral-50 px-3 py-1.5 rounded-full whitespace-nowrap">{t('nav_pitham')}</Link>
+                        <Link href="/previous-events" className="flex-shrink-0 text-xs font-semibold text-white bg-orange-600 px-3 py-1.5 rounded-full whitespace-nowrap">{t('nav_past_events')}</Link>
+                    </div>
                 </div>
             </header>
 

@@ -28,7 +28,10 @@ export async function POST(request) {
     const values = sanitize(body);
     if (!values.title) return NextResponse.json({ error: 'Title required.' }, { status: 400 });
     const { error } = await supabaseAdmin.from('categories').insert([values]);
-    if (error) return NextResponse.json({ error: 'Create failed.' }, { status: 500 });
+    if (error) {
+        console.error('Category create error:', error.code, error.message);
+        return NextResponse.json({ error: 'Create failed.', detail: error.message }, { status: 500 });
+    }
     return NextResponse.json({ ok: true });
 }
 
