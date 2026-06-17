@@ -24,8 +24,8 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   async headers() {
     return [
-      { source: "/scan", headers: scanHeaders },
       { source: "/:path*", headers: baseHeaders },
+      { source: "/scan", headers: scanHeaders }, // must come AFTER /:path* to override camera policy
     ];
   },
 };
