@@ -11,7 +11,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 export const dynamic = 'force-dynamic';
 
 const MAX_DONATION = 1_000_000; // ₹10,00,000 sanity cap
-const MAX_ATTENDEES = 5;
+const GLOBAL_MAX_ATTENDEES = 20; // absolute ceiling regardless of category setting
 
 function badRequest(message) {
     return NextResponse.json({ error: message }, { status: 400 });
@@ -41,7 +41,6 @@ export async function POST(request) {
         }
         if (!/^\S+@\S+\.\S+$/.test(String(attendee.email))) return badRequest('Invalid email address.');
 
-        const seats = Math.min(MAX_ATTENDEES, Math.max(1, parseInt(attendeesCount, 10) || 1));
         const donationValue = Math.min(MAX_DONATION, Math.max(0, parseFloat(donation) || 0));
 
         // 1b. Rate limit: prevent duplicate pending orders for the same email+category within 3 minutes.
@@ -66,13 +65,17 @@ export async function POST(request) {
         // 2. Authoritative category lookup (price comes from the DB, never the client)
         const { data: category, error: catError } = await supabaseAdmin
             .from('categories')
-            .select('id, title, price, is_enquiry_only, is_full, max_capacity')
+            .select('id, title, price, is_enquiry_only, is_full, max_capacity, max_attendees_per_reg')
             .eq('id', categoryId)
             .single();
 
         if (catError || !category) return badRequest('Selected category does not exist.');
         if (category.is_enquiry_only) return badRequest('This category is enquiry-only and cannot be paid for.');
         if (category.is_full) return badRequest('Registrations for this category are full.');
+
+        // Clamp seats to the per-category limit set by admin (default 5, hard ceiling 20).
+        const maxPerReg = Math.min(GLOBAL_MAX_ATTENDEES, category.max_attendees_per_reg || 5);
+        const seats = Math.min(maxPerReg, Math.max(1, parseInt(attendeesCount, 10) || 1));
 
         // 3. Server-side capacity enforcement (prevents overselling)
         if (category.max_capacity && category.max_capacity > 0) {

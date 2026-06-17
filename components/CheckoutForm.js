@@ -380,11 +380,9 @@ export default function CheckoutForm({ category }) {
                             startAdornment: <InputAdornment position="start"><Users className="w-5 h-5 text-neutral-400" /></InputAdornment>
                         }}
                     >
-                        <MenuItem value="1">{t('form_attendees_1')}</MenuItem>
-                        <MenuItem value="2">{t('form_attendees_2')}</MenuItem>
-                        <MenuItem value="3">{t('form_attendees_3')}</MenuItem>
-                        <MenuItem value="4">{t('form_attendees_4')}</MenuItem>
-                        <MenuItem value="5">{t('form_attendees_5')}</MenuItem>
+                        {Array.from({ length: category.max_attendees_per_reg || 5 }, (_, i) => i + 1).map(n => (
+                            <MenuItem key={n} value={String(n)}>{n} {n === 1 ? 'Person' : 'People'}</MenuItem>
+                        ))}
                     </TextField>
 
                     {!isEnquiry && (
