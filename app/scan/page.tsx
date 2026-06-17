@@ -1,9 +1,8 @@
 // app/scan/page.tsx
-// Entry-staff QR scanner. Uses a PIN (separate from admin password) for auth.
+// Entry-staff QR scanner with PIN auth.
 // Set SCANNER_PIN env var on Vercel; share the PIN with staff on event day.
 //
-// ⚠ Scanning via Google Lens / camera app only VIEWS the entry pass.
-// Attendance is only marked when scanned through THIS page.
+// ⚠ Google Lens / camera app only VIEWS the entry pass. Only this page marks attendance.
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
@@ -33,9 +32,9 @@ function beep(ok: boolean) {
 }
 
 const CONFIG: Record<Status, { bg: string; badge: string; icon: string; label: string }> = {
-    NEW:       { bg: 'bg-green-600',    badge: 'bg-green-100 text-green-700',    icon: '✓', label: 'ENTRY GRANTED' },
-    DUPLICATE: { bg: 'bg-yellow-500',   badge: 'bg-yellow-100 text-yellow-700',  icon: '⚠', label: 'ALREADY CHECKED IN' },
-    NOT_PAID:  { bg: 'bg-red-600',      badge: 'bg-red-100 text-red-700',        icon: '✗', label: 'PAYMENT NOT COMPLETE' },
+    NEW:       { bg: 'bg-green-600',    badge: 'bg-green-100 text-green-700',     icon: '✓', label: 'ENTRY GRANTED' },
+    DUPLICATE: { bg: 'bg-yellow-500',   badge: 'bg-yellow-100 text-yellow-700',   icon: '⚠', label: 'ALREADY CHECKED IN' },
+    NOT_PAID:  { bg: 'bg-red-600',      badge: 'bg-red-100 text-red-700',         icon: '✗', label: 'PAYMENT NOT COMPLETE' },
     INVALID:   { bg: 'bg-neutral-700',  badge: 'bg-neutral-200 text-neutral-600', icon: '?', label: 'INVALID QR CODE' },
 };
 
@@ -54,6 +53,9 @@ function fmt(d: Date) {
     return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
+// A stable div ID for html5-qrcode — must stay in DOM and never be re-created
+const QR_READER_ID = 'bbmah-qr-reader';
+
 export default function ScanPage() {
     const [pin, setPin] = useState('');
     const [authed, setAuthed] = useState(false);
@@ -69,9 +71,7 @@ export default function ScanPage() {
     const lockRef = useRef(false);
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const storedPinRef = useRef('');
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const rafRef = useRef<number | null>(null);
-    const streamRef = useRef<MediaStream | null>(null);
+    const scannerRef = useRef<any>(null);
 
     const handleResult = useCallback((res: CheckInResult) => {
         setResult(res);
@@ -101,59 +101,47 @@ export default function ScanPage() {
         }
     }, [handleResult]);
 
-    // Start camera using native browser APIs (always triggers permission dialog)
+    // Start camera — html5-qrcode handles getUserMedia internally (triggers permission dialog)
+    const startCamera = useCallback(async () => {
+        setCameraError('');
+        setCameraReady(false);
+        try {
+            const { Html5Qrcode } = await import('html5-qrcode');
+            // Stop any previous instance
+            if (scannerRef.current) {
+                await scannerRef.current.stop().catch(() => {});
+                scannerRef.current = null;
+            }
+            const scanner = new Html5Qrcode(QR_READER_ID, { verbose: false });
+            scannerRef.current = scanner;
+            await scanner.start(
+                { facingMode: 'environment' },
+                { fps: 10, qrbox: { width: 240, height: 240 } },
+                onScan,
+                undefined
+            );
+            setCameraReady(true);
+        } catch (e: any) {
+            const msg = String(e?.message || e || 'Unknown error');
+            // html5-qrcode throws "NotAllowedError" when permission denied
+            if (msg.toLowerCase().includes('notallowed') || msg.toLowerCase().includes('permission')) {
+                setCameraError("Camera permission denied. Tap the lock/camera icon in the address bar to allow camera access, then tap Try Again.");
+            } else if (msg.toLowerCase().includes('notfound') || msg.toLowerCase().includes('no camera')) {
+                setCameraError("No camera found on this device.");
+            } else {
+                setCameraError(`Camera error: ${msg}`);
+            }
+        }
+    }, [onScan]);
+
     useEffect(() => {
         if (!authed) return;
-        let stopped = false;
-
-        const stop = () => {
-            stopped = true;
-            if (rafRef.current) cancelAnimationFrame(rafRef.current);
-            streamRef.current?.getTracks().forEach(t => t.stop());
+        startCamera();
+        return () => {
+            scannerRef.current?.stop().catch(() => {});
+            scannerRef.current = null;
         };
-
-        const start = async () => {
-            // Check BarcodeDetector support (Chrome 83+, Safari 17+)
-            if (!('BarcodeDetector' in window)) {
-                setCameraError('Your browser does not support the camera scanner. Please use Chrome or Safari 17+ on your phone.');
-                return;
-            }
-
-            let stream: MediaStream;
-            try {
-                // This call triggers the browser's native camera permission dialog
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } },
-                });
-            } catch (e: any) {
-                if (!stopped) setCameraError("Camera access denied. Tap the camera icon in your browser's address bar to allow access, then reload.");
-                return;
-            }
-
-            if (stopped) { stream.getTracks().forEach(t => t.stop()); return; }
-
-            streamRef.current = stream;
-            const video = videoRef.current!;
-            video.srcObject = stream;
-            await video.play();
-            setCameraReady(true);
-
-            const detector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
-
-            const scan = async () => {
-                if (stopped) return;
-                if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-                    const codes: any[] = await detector.detect(video).catch(() => []);
-                    if (codes.length > 0) await onScan(codes[0].rawValue);
-                }
-                rafRef.current = requestAnimationFrame(scan);
-            };
-            rafRef.current = requestAnimationFrame(scan);
-        };
-
-        start();
-        return () => stop();
-    }, [authed, onScan]);
+    }, [authed, startCamera]);
 
     const handlePin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -212,8 +200,8 @@ export default function ScanPage() {
                         </button>
                     </form>
                     <p className="mt-5 text-center text-xs text-neutral-400 leading-relaxed">
-                        ⚠ Use this page to scan QR codes.<br />
-                        <strong>Google Lens / camera app</strong> only views the pass — it does <strong>not</strong> mark attendance.
+                        ⚠ Use this page to mark attendance.<br />
+                        Google Lens only views the pass — it does <strong>not</strong> check people in.
                     </p>
                 </div>
             </main>
@@ -241,47 +229,51 @@ export default function ScanPage() {
                 </div>
             </div>
 
-            {/* Main area */}
-            <div className="flex-1 relative bg-black overflow-hidden">
-                {/* Camera feed — always mounted so stream stays active */}
-                <div className={showHistory ? 'hidden' : 'w-full h-full relative'}>
-                    <video
-                        ref={videoRef}
-                        className="w-full h-full object-cover"
-                        playsInline
-                        muted
-                    />
+            {/* Camera + overlay area — camera div must stay in DOM at all times for html5-qrcode */}
+            <div className="flex-1 relative overflow-hidden bg-black">
+                {/* The html5-qrcode container — never hidden, never conditionally rendered */}
+                <div
+                    id={QR_READER_ID}
+                    className="w-full h-full"
+                    style={{ minHeight: 0 }}
+                />
 
-                    {/* Scan frame overlay */}
-                    {cameraReady && !result && (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="relative w-64 h-64">
-                                <div className="absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 border-orange-500 rounded-tl-lg" />
-                                <div className="absolute top-0 right-0 w-10 h-10 border-t-4 border-r-4 border-orange-500 rounded-tr-lg" />
-                                <div className="absolute bottom-0 left-0 w-10 h-10 border-b-4 border-l-4 border-orange-500 rounded-bl-lg" />
-                                <div className="absolute bottom-0 right-0 w-10 h-10 border-b-4 border-r-4 border-orange-500 rounded-br-lg" />
-                            </div>
-                        </div>
-                    )}
+                {/* Overlay: loading */}
+                {!cameraReady && !cameraError && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-neutral-900 pointer-events-none">
+                        <p className="text-neutral-400 text-sm animate-pulse">Starting camera…</p>
+                    </div>
+                )}
 
-                    {cameraError && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-neutral-900 p-8 text-center gap-4">
-                            <span className="text-5xl">📷</span>
-                            <p className="text-red-400 font-bold">Camera Unavailable</p>
+                {/* Overlay: error */}
+                {cameraError && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-neutral-900 p-8 text-center gap-4">
+                        <span className="text-5xl">📷</span>
+                        <div>
+                            <p className="text-red-400 font-bold mb-2">Camera Unavailable</p>
                             <p className="text-neutral-400 text-sm leading-relaxed">{cameraError}</p>
                         </div>
-                    )}
+                        <button onClick={startCamera} className="bg-orange-600 text-white text-sm font-bold px-6 py-2 rounded-xl hover:bg-orange-700 transition">
+                            Try Again
+                        </button>
+                    </div>
+                )}
 
-                    {!cameraReady && !cameraError && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">
-                            <p className="text-neutral-400 text-sm animate-pulse">Starting camera…</p>
+                {/* Overlay: scan frame (shown when camera ready and not showing history) */}
+                {cameraReady && !cameraError && !showHistory && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="relative w-60 h-60">
+                            <div className="absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 border-orange-500 rounded-tl-lg" />
+                            <div className="absolute top-0 right-0 w-10 h-10 border-t-4 border-r-4 border-orange-500 rounded-tr-lg" />
+                            <div className="absolute bottom-0 left-0 w-10 h-10 border-b-4 border-l-4 border-orange-500 rounded-bl-lg" />
+                            <div className="absolute bottom-0 right-0 w-10 h-10 border-b-4 border-r-4 border-orange-500 rounded-br-lg" />
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
 
-                {/* History panel */}
+                {/* Overlay: history panel — sits on top, camera keeps running underneath */}
                 {showHistory && (
-                    <div className="absolute inset-0 bg-neutral-900 flex flex-col">
+                    <div className="absolute inset-0 bg-neutral-900 z-10 flex flex-col">
                         <div className="px-4 py-2 border-b border-neutral-800 flex items-center justify-between shrink-0">
                             <p className="text-xs text-neutral-400">
                                 <span className="text-green-400 font-bold">{admittedCount} in</span>
