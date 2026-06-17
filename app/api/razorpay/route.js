@@ -44,6 +44,25 @@ export async function POST(request) {
         const seats = Math.min(MAX_ATTENDEES, Math.max(1, parseInt(attendeesCount, 10) || 1));
         const donationValue = Math.min(MAX_DONATION, Math.max(0, parseFloat(donation) || 0));
 
+        // 1b. Rate limit: prevent duplicate pending orders for the same email+category within 3 minutes.
+        // This stops spam without requiring Redis — pending orders older than 3 min are expired naturally.
+        const threeMinAgo = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+        const { data: recentPending } = await supabaseAdmin
+            .from('registrations')
+            .select('id')
+            .eq('email', String(attendee.email).toLowerCase().trim())
+            .eq('category_id', categoryId)
+            .eq('payment_status', 'pending')
+            .gte('created_at', threeMinAgo)
+            .limit(1);
+
+        if (recentPending && recentPending.length > 0) {
+            return NextResponse.json(
+                { error: 'A checkout is already in progress for this email and category. Please complete or wait 3 minutes before trying again.' },
+                { status: 429 }
+            );
+        }
+
         // 2. Authoritative category lookup (price comes from the DB, never the client)
         const { data: category, error: catError } = await supabaseAdmin
             .from('categories')
@@ -106,7 +125,7 @@ export async function POST(request) {
                 gotra: attendee.gotra || null,
                 gender: attendee.gender || null,
                 date_of_birth: attendee.dob || null,
-                email: attendee.email,
+                email: String(attendee.email).toLowerCase().trim(),
                 phone: attendee.phone,
                 pincode: attendee.pincode || null,
                 taluka: attendee.taluka || null,

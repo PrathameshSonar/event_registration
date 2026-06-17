@@ -48,10 +48,23 @@ export async function PATCH(request) {
 export async function DELETE(request) {
     const { response } = await authorize({ requireAdmin: true });
     if (response) return response;
-    const { id, password } = await request.json();
+    const { id, password, force } = await request.json();
     if (!id) return NextResponse.json({ error: 'Missing id.' }, { status: 400 });
     if (!verifyAdminPassword(password)) {
         return NextResponse.json({ error: 'Re-enter the admin password to authorize deletion.' }, { status: 403 });
+    }
+    if (!force) {
+        const { count } = await supabaseAdmin
+            .from('registrations')
+            .select('id', { count: 'exact', head: true })
+            .eq('category_id', id)
+            .eq('payment_status', 'completed');
+        if (count && count > 0) {
+            return NextResponse.json(
+                { error: `This category has ${count} paid registration(s). Deleting it will orphan those records.`, hasPaid: true, count },
+                { status: 409 }
+            );
+        }
     }
     const { error } = await supabaseAdmin.from('categories').delete().eq('id', id);
     if (error) return NextResponse.json({ error: 'Delete failed.' }, { status: 500 });

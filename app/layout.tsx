@@ -14,13 +14,19 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.NEXT_PUBLIC_VERCEL_URL
+    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+    : 'http://localhost:3000');
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: "BaglaBhairav | Annual Mahotsav",
   description: "Join the BaglaBhairav Mahotsav. Reserve your pass, explore our Pitham principles, and connect with the community.",
   openGraph: {
     title: "BaglaBhairav | Annual Mahotsav",
     description: "Join the BaglaBhairav Mahotsav. Reserve your pass, explore our Pitham principles, and connect with the community.",
-    url: "https://yourdomain.com",
     siteName: "BaglaBhairav",
     images: [
       {

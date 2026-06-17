@@ -111,6 +111,8 @@ export default function AdminDashboard() {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [selectedRegistration, setSelectedRegistration] = useState<Registration | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const PAGE_SIZE = 50;
 
     // ----- Auth -----
     const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -155,7 +157,7 @@ export default function AdminDashboard() {
         }
     };
 
-    // Small helper for JSON mutations; returns parsed body and ok flag.
+    // Small helper for JSON mutations; returns parsed body, ok flag, and HTTP status code.
     const mutate = async (url: string, method: string, body: unknown) => {
         const res = await fetch(url, {
             method,
@@ -163,7 +165,7 @@ export default function AdminDashboard() {
             body: JSON.stringify(body),
         });
         const data = await res.json().catch(() => ({}));
-        return { ok: res.ok, data };
+        return { ok: res.ok, data, status: res.status };
     };
 
     // Prompt for the admin password to authorize a destructive action.
@@ -245,11 +247,26 @@ export default function AdminDashboard() {
         if (!ok) alert(data.error || 'Update failed.'); else { await fetchAllData(); alert('Tier parameters updated successfully.'); }
         setSaving(false);
     };
-    const handleDeleteCategory = async (id: string) => {
-        const pwd = confirmWithPassword('Delete this category? Registrations tied to it will be preserved safely.');
-        if (!pwd) return; setSaving(true);
-        const { ok, data } = await mutate('/api/admin/categories', 'DELETE', { id, password: pwd });
-        if (!ok) alert(data.error || 'Delete failed.'); else await fetchAllData();
+    const handleDeleteCategory = async (id: string, title: string) => {
+        const password = prompt(`Enter admin password to delete "${title}":`);
+        if (!password) return;
+        setSaving(true);
+        // First attempt (no force — server checks for paid registrations)
+        const { ok, data, status } = await mutate('/api/admin/categories', 'DELETE', { id, password });
+        if (!ok && status === 409 && data.hasPaid) {
+            const confirmed = confirm(
+                `⚠️ "${title}" has ${data.count} paid registration(s).\n\nDeleting will orphan those records (they stay in the DB but show "Deleted Tier").\n\nProceed anyway?`
+            );
+            if (confirmed) {
+                const forced = await mutate('/api/admin/categories', 'DELETE', { id, password, force: true });
+                if (!forced.ok) alert(forced.data.error || 'Delete failed.');
+                else await fetchAllData();
+            }
+        } else if (!ok) {
+            alert(data.error || 'Delete failed.');
+        } else {
+            await fetchAllData();
+        }
         setSaving(false);
     };
 
@@ -287,6 +304,9 @@ export default function AdminDashboard() {
     });
 
     const totalRevenue = filteredRegistrations.filter(r => r.payment_status === 'completed').reduce((sum, r) => sum + Number(r.total_amount || 0), 0);
+    const totalPages = Math.max(1, Math.ceil(filteredRegistrations.length / PAGE_SIZE));
+    const safePage = Math.min(currentPage, totalPages);
+    const pagedRegistrations = filteredRegistrations.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
     // Category sales breakdown — always over the FULL (unfiltered) dataset
     const categorySales = (() => {
@@ -467,14 +487,14 @@ export default function AdminDashboard() {
                             <div className="flex flex-col sm:flex-row gap-3">
                                 <div className="relative flex-1">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                                    <input type="text" placeholder="Search name, gotra, or phone..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600" />
+                                    <input type="text" placeholder="Search name, gotra, or phone..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="w-full pl-10 pr-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600" />
                                 </div>
                                 <button onClick={downloadCSV} className="bg-neutral-900 hover:bg-orange-600 text-white px-5 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><Download className="w-4 h-4" /> Export CSV</button>
                             </div>
                             <div className="flex flex-wrap gap-3 items-center">
                                 <div className="flex items-center gap-2 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus-within:border-orange-600 transition flex-wrap"><CalendarIcon className="w-4 h-4 text-neutral-400 flex-shrink-0" /><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-transparent focus:outline-none text-neutral-600 min-w-0" /><span className="text-neutral-400">–</span><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="bg-transparent focus:outline-none text-neutral-600 min-w-0" /></div>
-                                <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="flex-1 min-w-[140px] px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600"><option value="all">All Categories</option>{uniqueCategories.map((cat, idx) => <option key={idx} value={cat as string}>{cat}</option>)}<option value="Deleted"> [Deleted Tiers]</option></select>
-                                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="flex-1 min-w-[160px] px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600">
+                                <select value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value); setCurrentPage(1); }} className="flex-1 min-w-[140px] px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600"><option value="all">All Categories</option>{uniqueCategories.map((cat, idx) => <option key={idx} value={cat as string}>{cat}</option>)}<option value="Deleted"> [Deleted Tiers]</option></select>
+                                <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }} className="flex-1 min-w-[160px] px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600">
                                     <option value="all">All Statuses</option><option value="completed">Completed (Paid)</option><option value="enquired">Enquired</option><option value="contacted">Contacted</option><option value="pending">Pending Checkout</option><option value="failed">Failed Payment</option><option value="refunded">Refunded</option>
                                 </select>
                             </div>
@@ -488,7 +508,7 @@ export default function AdminDashboard() {
                                     </thead>
                                     <tbody className="divide-y divide-neutral-100">
                                         {loading ? (<tr><td colSpan={6} className="px-6 py-8 text-center text-neutral-400">Loading ledger data...</td></tr>) : filteredRegistrations.length === 0 ? (<tr><td colSpan={6} className="px-6 py-8 text-center text-neutral-400">No records match your filters.</td></tr>) : (
-                                            filteredRegistrations.map((reg) => {
+                                            pagedRegistrations.map((reg) => {
                                                 const locked = TERMINAL_STATUSES.includes(reg.payment_status);
                                                 const editable = isAdmin && !locked;
                                                 return (
@@ -521,6 +541,25 @@ export default function AdminDashboard() {
                                     </tbody>
                                 </table>
                             </div>
+                            {/* Pagination */}
+                            {totalPages > 1 && (
+                                <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-200 bg-neutral-50">
+                                    <span className="text-sm text-neutral-500">
+                                        Showing {((safePage - 1) * PAGE_SIZE) + 1}–{Math.min(safePage * PAGE_SIZE, filteredRegistrations.length)} of {filteredRegistrations.length}
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safePage === 1} className="px-3 py-1.5 text-sm font-medium border border-neutral-200 rounded-lg bg-white hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition">← Prev</button>
+                                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                            const start = Math.max(1, Math.min(safePage - 2, totalPages - 4));
+                                            const page = start + i;
+                                            return (
+                                                <button key={page} onClick={() => setCurrentPage(page)} className={`w-8 h-8 text-sm font-medium rounded-lg border transition ${page === safePage ? 'bg-neutral-900 text-white border-neutral-900' : 'bg-white border-neutral-200 hover:bg-neutral-50'}`}>{page}</button>
+                                            );
+                                        })}
+                                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages} className="px-3 py-1.5 text-sm font-medium border border-neutral-200 rounded-lg bg-white hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition">Next →</button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -650,7 +689,7 @@ export default function AdminDashboard() {
 // ============================================================================
 // COMPONENT: CategoryRow
 // ============================================================================
-function CategoryRow({ category, onUpdate, onDelete }: { category: Category, onUpdate: (id: string, updates: Partial<Category>) => void, onDelete: (id: string) => void }) {
+function CategoryRow({ category, onUpdate, onDelete }: { category: Category, onUpdate: (id: string, updates: Partial<Category>) => void, onDelete: (id: string, title: string) => void }) {
     const [price, setPrice] = useState(category.price);
     const [titleHi, setTitleHi] = useState(category.title_hi || '');
     const [mediaUrl, setMediaUrl] = useState(category.media_url || '');
@@ -685,7 +724,7 @@ function CategoryRow({ category, onUpdate, onDelete }: { category: Category, onU
                     <select value={isFull ? 'full' : 'open'} onChange={(e) => { setIsFull(e.target.value === 'full'); setIsChanged(true); }} className={`text-xs border rounded-lg px-2.5 py-1.5 font-bold cursor-pointer outline-none transition ${isFull ? 'bg-red-50 text-red-700 border-red-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
                         <option value="open">🟢 Slots Open</option><option value="full">🔴 Manual Lock (Full)</option>
                     </select>
-                    <button onClick={() => onDelete(category.id)} className="text-neutral-400 hover:text-red-600 p-1.5 border border-transparent hover:border-red-200 rounded bg-neutral-50 hover:bg-red-50 transition"><Trash2 className="w-4 h-4" /></button>
+                    <button onClick={() => onDelete(category.id, category.title)} className="text-neutral-400 hover:text-red-600 p-1.5 border border-transparent hover:border-red-200 rounded bg-neutral-50 hover:bg-red-50 transition"><Trash2 className="w-4 h-4" /></button>
                 </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-5">

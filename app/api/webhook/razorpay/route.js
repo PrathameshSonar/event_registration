@@ -67,6 +67,15 @@ export async function POST(request) {
                 return NextResponse.json({ status: "record_not_found_but_acknowledged" }, { status: 200 });
             }
 
+            // Fetch active event for venue/date to include in the confirmation email
+            const { data: activeEvent } = await supabaseAdmin
+                .from('events')
+                .select('venue, date_time')
+                .eq('is_active', true)
+                .single();
+            const eventVenue = activeEvent?.venue || null;
+            const eventDate = activeEvent?.date_time || null;
+
             // 2. Idempotency Guard (Prevents double-sending if Razorpay pings us twice)
             if (existingReg.payment_status === 'completed') {
                 console.log(`✅ Idempotency Guard: Order ${orderId} is already completed.`);
@@ -130,9 +139,14 @@ export async function POST(request) {
                                     <tr style="border-top: 1px solid #e5e7eb;"><td style="padding: 12px 0 0 0; font-weight: bold; color: #111827;">Total Paid:</td><td style="padding: 12px 0 0 0; font-weight: 800; color: #16a34a; text-align: right; font-size: 18px;">₹${totalAmount}</td></tr>
                                 </table>
                                 </div>
+                                ${eventVenue || eventDate ? `
+                                <div style="background-color: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 16px; margin: 16px 0;">
+                                    ${eventDate ? `<div style="font-size: 13px; color: #9a3412; margin-bottom: 6px;">📅 <strong>Date:</strong> ${eventDate}</div>` : ''}
+                                    ${eventVenue ? `<div style="font-size: 13px; color: #9a3412;">📍 <strong>Venue:</strong> ${eventVenue}</div>` : ''}
+                                </div>` : `
                                 <div style="font-size: 13px; color: #6b7280; line-height: 1.5; margin-bottom: 8px;">
-                                📍 <strong>Venue & Dates:</strong> To be broadcasted shortly via your registered WhatsApp contact line.
-                                </div>
+                                    📍 Venue & date will be communicated via your registered contact.
+                                </div>`}
                             </div>
                             <div style="background-color: #f3f4f6; padding: 16px; text-align: center; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af;">
                                 This is an automated operational billing transaction document verified via Razorpay Secured Pipelines.
