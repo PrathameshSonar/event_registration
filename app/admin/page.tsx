@@ -20,8 +20,6 @@ interface Registration {
     donation_amount: number; total_amount: number; razorpay_payment_id: string | null;
     gotra: string;
     categories: { title: string } | null;
-    checked_in_at: string | null;
-    checked_in_count: number;
 }
 
 interface Category {
@@ -72,7 +70,7 @@ export default function AdminDashboard() {
     const isAdmin = role === 'admin';
 
     const [activeTab, setActiveTab] = useState<'registrations' | 'settings'>('registrations');
-    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media'>('events');
+    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'checkpoints'>('events');
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -107,6 +105,33 @@ export default function AdminDashboard() {
     const [newCatIsEnquiry, setNewCatIsEnquiry] = useState(false);
     const [newCatCapacity, setNewCatCapacity] = useState('0');
     const [newCatShowAvail, setNewCatShowAvail] = useState(false);
+
+    // Checkpoints
+    interface Checkpoint { id: string; name: string; sort_order: number; is_active: boolean; }
+    const [checkpointsList, setCheckpointsList] = useState<Checkpoint[]>([]);
+    const [newCpName, setNewCpName] = useState('');
+
+    const fetchCheckpoints = async () => {
+        const res = await fetch('/api/admin/checkpoints');
+        if (res.ok) { const d = await res.json(); setCheckpointsList(d.checkpoints || []); }
+    };
+    const handleCreateCheckpoint = async (e: React.FormEvent) => {
+        e.preventDefault(); if (!newCpName.trim()) return; setSaving(true);
+        const res = await fetch('/api/admin/checkpoints', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newCpName.trim(), sort_order: checkpointsList.length }) });
+        if (res.ok) { setNewCpName(''); await fetchCheckpoints(); } else alert('Failed to create checkpoint');
+        setSaving(false);
+    };
+    const handleToggleCheckpoint = async (id: string, is_active: boolean) => {
+        setSaving(true);
+        await fetch('/api/admin/checkpoints', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, is_active }) });
+        await fetchCheckpoints(); setSaving(false);
+    };
+    const handleDeleteCheckpoint = async (id: string, name: string) => {
+        if (!confirm(`Delete checkpoint "${name}"? All scan records for this checkpoint will also be deleted.`)) return;
+        setSaving(true);
+        await fetch('/api/admin/checkpoints', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+        await fetchCheckpoints(); setSaving(false);
+    };
 
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
@@ -148,7 +173,7 @@ export default function AdminDashboard() {
     const fetchAllData = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/admin/data');
+            const [res, cpRes] = await Promise.all([fetch('/api/admin/data'), fetch('/api/admin/checkpoints')]);
             if (res.status === 401) { setRole(null); return; }
             const data = await res.json();
             setRegistrations(data.registrations || []);
@@ -157,6 +182,7 @@ export default function AdminDashboard() {
             setMediaList(data.media || []);
             const activeEv = (data.events || []).find((ev: EventItem) => ev.is_active);
             if (activeEv) setMediaEventId(activeEv.id);
+            if (cpRes.ok) { const cpData = await cpRes.json(); setCheckpointsList(cpData.checkpoints || []); }
         } finally {
             setLoading(false);
         }
@@ -560,7 +586,6 @@ export default function AdminDashboard() {
                                                         </td>
                                                         <td className="px-6 py-4 font-medium text-neutral-900">
                                                             {reg.first_name} {reg.last_name}
-                                                            {reg.checked_in_at && <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full border border-green-200">✓ In</span>}
                                                             <br /><span className="text-xs font-normal text-neutral-500">{reg.phone}</span>
                                                         </td>
                                                         <td className="px-6 py-4 text-neutral-600">{reg.gotra || '-'}</td>
@@ -608,6 +633,7 @@ export default function AdminDashboard() {
                             <button onClick={() => setSettingsSubTab('events')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'events' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><CalendarDays className="w-4 h-4" /> Event Setup</button>
                             <button onClick={() => setSettingsSubTab('tiers')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'tiers' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><Ticket className="w-4 h-4" /> Ticket Tiers</button>
                             <button onClick={() => setSettingsSubTab('media')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'media' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ImageIcon className="w-4 h-4" /> Media Gallery</button>
+                            <button onClick={() => setSettingsSubTab('checkpoints')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'checkpoints' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><QrCode className="w-4 h-4" /> Entry Checkpoints</button>
                         </div>
 
                         <div className="flex-1 p-6 lg:p-8 bg-white overflow-y-auto">
@@ -714,6 +740,57 @@ export default function AdminDashboard() {
                                             </div>
                                         ))}
                                     </div>
+                                </div>
+                            )}
+
+                            {settingsSubTab === 'checkpoints' && (
+                                <div className="max-w-2xl">
+                                    <h2 className="text-2xl font-bold mb-2 border-b border-neutral-200 pb-4 text-neutral-900">Entry Checkpoints</h2>
+                                    <p className="text-sm text-neutral-500 mb-6">Create one checkpoint per scan station (e.g. Main Entry, Lunch Day 1). Volunteers pick their station when they open the scanner page.</p>
+                                    <form onSubmit={handleCreateCheckpoint} className="flex gap-3 mb-8">
+                                        <input
+                                            type="text"
+                                            placeholder="e.g. Main Entry, Lunch Day 1"
+                                            value={newCpName}
+                                            onChange={e => setNewCpName(e.target.value)}
+                                            className="flex-1 px-4 py-2.5 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600 text-sm"
+                                            required
+                                        />
+                                        <button type="submit" disabled={saving || !newCpName.trim()} className="flex items-center gap-2 bg-neutral-900 hover:bg-orange-600 disabled:opacity-40 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition">
+                                            <Plus className="w-4 h-4" /> Add
+                                        </button>
+                                    </form>
+                                    {checkpointsList.length === 0 ? (
+                                        <p className="text-neutral-400 text-sm text-center py-8">No checkpoints yet. Add your first one above.</p>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {checkpointsList.map(cp => (
+                                                <div key={cp.id} className={`flex items-center justify-between p-4 border rounded-xl transition ${cp.is_active ? 'border-neutral-200 bg-white' : 'border-neutral-100 bg-neutral-50 opacity-60'}`}>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${cp.is_active ? 'bg-green-500' : 'bg-neutral-300'}`} />
+                                                        <span className="font-semibold text-neutral-900">{cp.name}</span>
+                                                        {!cp.is_active && <span className="text-xs text-neutral-400 border border-neutral-200 rounded px-1.5 py-0.5">Inactive</span>}
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={() => handleToggleCheckpoint(cp.id, !cp.is_active)}
+                                                            disabled={saving}
+                                                            className="text-xs font-semibold px-3 py-1.5 border border-neutral-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700 transition disabled:opacity-40"
+                                                        >
+                                                            {cp.is_active ? 'Deactivate' : 'Activate'}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteCheckpoint(cp.id, cp.name)}
+                                                            disabled={saving}
+                                                            className="p-2 text-neutral-400 hover:text-red-600 border border-transparent hover:border-red-200 rounded-lg hover:bg-red-50 transition disabled:opacity-40"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

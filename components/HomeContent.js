@@ -96,8 +96,15 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                         <p className="text-neutral-500 text-sm">{t('section_categories_desc')}</p>
                     </div>
 
+                    {(!categories || categories.length === 0) ? (
+                        <div className="text-center py-20 bg-neutral-50 rounded-2xl border border-neutral-200">
+                            <p className="text-5xl mb-5">🎵</p>
+                            <h4 className="text-2xl font-bold text-neutral-700 mb-2">Registrations Opening Soon</h4>
+                            <p className="text-neutral-400 text-sm">Check back here when registration begins</p>
+                        </div>
+                    ) : (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {categories?.map((category) => {
+                        {categories.map((category) => {
                             const taken = seatsTaken[category.id] || 0;
                             const max = category.max_capacity || 0;
                             const isCapacityEnforced = max > 0;
@@ -136,6 +143,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                             );
                         })}
                     </div>
+                    )}
                 </div>
             </section>
 

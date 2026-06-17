@@ -1,19 +1,19 @@
 // app/scan/page.tsx
-// Entry-staff QR scanner with PIN auth.
-// Set SCANNER_PIN env var on Vercel; share the PIN with staff on event day.
+// Entry-staff QR scanner with PIN auth and per-checkpoint tracking.
+// Set SCANNER_PIN env var on Vercel; share with staff on event day.
 //
-// ⚠ Google Lens / camera app only VIEWS the entry pass. Only this page marks attendance.
+// Flow: PIN → Checkpoint selection → Camera scanning
+// Each kiosk (Entry, Lunch Day 1, etc.) runs this page independently.
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 
 type Status = 'NEW' | 'DUPLICATE' | 'NOT_PAID' | 'INVALID';
+interface Checkpoint { id: string; name: string; sort_order: number; }
 interface CheckInResult {
     status: Status;
-    reg?: { first_name: string; last_name: string; salutation?: string; attendees_count: number; checked_in_count?: number; categories?: { title: string } };
-    checkedInAt?: string;
+    reg?: { first_name: string; last_name: string; salutation?: string; attendees_count: number; categories?: { title: string } };
     count?: number;
-    reason?: string;
 }
 interface HistoryEntry { time: Date; result: CheckInResult; }
 
@@ -33,7 +33,7 @@ function beep(ok: boolean) {
 
 const CONFIG: Record<Status, { bg: string; badge: string; icon: string; label: string }> = {
     NEW:       { bg: 'bg-green-600',    badge: 'bg-green-100 text-green-700',     icon: '✓', label: 'ENTRY GRANTED' },
-    DUPLICATE: { bg: 'bg-yellow-500',   badge: 'bg-yellow-100 text-yellow-700',   icon: '⚠', label: 'ALREADY CHECKED IN' },
+    DUPLICATE: { bg: 'bg-yellow-500',   badge: 'bg-yellow-100 text-yellow-700',   icon: '⚠', label: 'ALREADY SCANNED HERE' },
     NOT_PAID:  { bg: 'bg-red-600',      badge: 'bg-red-100 text-red-700',         icon: '✗', label: 'PAYMENT NOT COMPLETE' },
     INVALID:   { bg: 'bg-neutral-700',  badge: 'bg-neutral-200 text-neutral-600', icon: '?', label: 'INVALID QR CODE' },
 };
@@ -42,24 +42,21 @@ function nameOf(reg?: CheckInResult['reg']) {
     if (!reg) return '—';
     return [reg.salutation, reg.first_name, reg.last_name].filter(Boolean).join(' ');
 }
-function resultSub(r: CheckInResult) {
-    const n = nameOf(r.reg);
-    if (r.status === 'NEW') return `${n} · ${r.reg?.categories?.title || ''} · ${r.reg?.attendees_count} Person(s)`;
-    if (r.status === 'DUPLICATE') return `${n} · Scan #${r.count}`;
-    if (r.status === 'NOT_PAID') return n;
-    return 'Not a valid BaglaBhairav entry pass';
-}
 function fmt(d: Date) {
     return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
-// A stable div ID for html5-qrcode — must stay in DOM and never be re-created
 const QR_READER_ID = 'bbmah-qr-reader';
 
 export default function ScanPage() {
     const [pin, setPin] = useState('');
     const [authed, setAuthed] = useState(false);
     const [pinError, setPinError] = useState('');
+
+    const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
+    const [selectedCheckpoint, setSelectedCheckpoint] = useState<Checkpoint | null>(null);
+    const [loadingCheckpoints, setLoadingCheckpoints] = useState(false);
+
     const [result, setResult] = useState<CheckInResult | null>(null);
     const [history, setHistory] = useState<HistoryEntry[]>([]);
     const [showHistory, setShowHistory] = useState(false);
@@ -85,7 +82,7 @@ export default function ScanPage() {
     }, []);
 
     const onScan = useCallback(async (text: string) => {
-        if (lockRef.current) return;
+        if (lockRef.current || !selectedCheckpoint) return;
         const match = text.match(/\/entry\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
         if (!match) return;
         lockRef.current = true;
@@ -93,21 +90,19 @@ export default function ScanPage() {
             const res = await fetch(`/api/checkin/${match[1]}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ scannerPin: storedPinRef.current }),
+                body: JSON.stringify({ scannerPin: storedPinRef.current, checkpointId: selectedCheckpoint.id }),
             });
             handleResult(await res.json());
         } catch {
-            handleResult({ status: 'INVALID', reason: 'Network error' });
+            handleResult({ status: 'INVALID' });
         }
-    }, [handleResult]);
+    }, [handleResult, selectedCheckpoint]);
 
-    // Start camera — html5-qrcode handles getUserMedia internally (triggers permission dialog)
     const startCamera = useCallback(async () => {
         setCameraError('');
         setCameraReady(false);
         try {
             const { Html5Qrcode } = await import('html5-qrcode');
-            // Stop any previous instance
             if (scannerRef.current) {
                 await scannerRef.current.stop().catch(() => {});
                 scannerRef.current = null;
@@ -122,26 +117,26 @@ export default function ScanPage() {
             );
             setCameraReady(true);
         } catch (e: any) {
-            const msg = String(e?.message || e || 'Unknown error');
-            // html5-qrcode throws "NotAllowedError" when permission denied
+            const msg = String(e?.message || e || '');
             if (msg.toLowerCase().includes('notallowed') || msg.toLowerCase().includes('permission')) {
-                setCameraError("Camera permission denied. Tap the lock/camera icon in the address bar to allow camera access, then tap Try Again.");
+                setCameraError('Camera permission denied. Tap the camera icon in your address bar to allow access, then tap Try Again.');
             } else if (msg.toLowerCase().includes('notfound') || msg.toLowerCase().includes('no camera')) {
-                setCameraError("No camera found on this device.");
+                setCameraError('No camera found on this device.');
             } else {
-                setCameraError(`Camera error: ${msg}`);
+                setCameraError(`Camera error: ${msg || 'Unknown error'}`);
             }
         }
     }, [onScan]);
 
+    // Start camera only after checkpoint is selected.
     useEffect(() => {
-        if (!authed) return;
+        if (!authed || !selectedCheckpoint) return;
         startCamera();
         return () => {
             scannerRef.current?.stop().catch(() => {});
             scannerRef.current = null;
         };
-    }, [authed, startCamera]);
+    }, [authed, selectedCheckpoint, startCamera]);
 
     const handlePin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -154,6 +149,11 @@ export default function ScanPage() {
         if (res.ok) {
             storedPinRef.current = pin;
             setAuthed(true);
+            setLoadingCheckpoints(true);
+            const cpRes = await fetch('/api/checkpoints');
+            const cpData = await cpRes.json().catch(() => ({ checkpoints: [] }));
+            setCheckpoints(cpData.checkpoints || []);
+            setLoadingCheckpoints(false);
         } else {
             const data = await res.json().catch(() => ({}));
             setPinError(data.error || 'Wrong PIN');
@@ -170,7 +170,7 @@ export default function ScanPage() {
         const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
         const a = document.createElement('a');
         a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-        a.download = `scan-history-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.download = `scan-${selectedCheckpoint?.name.replace(/\s+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`;
         a.click();
     };
 
@@ -196,13 +196,51 @@ export default function ScanPage() {
                         />
                         {pinError && <p className="text-red-600 text-sm text-center">{pinError}</p>}
                         <button type="submit" disabled={!pin} className="w-full bg-orange-600 disabled:bg-neutral-200 disabled:text-neutral-400 text-white font-bold py-3 rounded-xl hover:bg-orange-700 transition">
-                            Start Scanning
+                            Continue
                         </button>
                     </form>
                     <p className="mt-5 text-center text-xs text-neutral-400 leading-relaxed">
-                        ⚠ Use this page to mark attendance.<br />
-                        Google Lens only views the pass — it does <strong>not</strong> check people in.
+                        Google Lens only views — it does <strong>not</strong> check people in.
                     </p>
+                </div>
+            </main>
+        );
+    }
+
+    // ── Checkpoint selection ─────────────────────────────────────────────────
+    if (!selectedCheckpoint) {
+        return (
+            <main className="min-h-screen bg-neutral-900 flex items-center justify-center p-6">
+                <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-2xl">
+                    <div className="text-center mb-6">
+                        <p className="text-orange-600 font-bold text-xs uppercase tracking-widest">Select Your Station</p>
+                        <h1 className="text-xl font-black text-neutral-900 mt-1">Which checkpoint are you scanning for?</h1>
+                        <p className="text-sm text-neutral-500 mt-2">Each kiosk scans for one checkpoint. History is per-checkpoint.</p>
+                    </div>
+                    {loadingCheckpoints ? (
+                        <p className="text-center text-neutral-400 py-8 animate-pulse">Loading…</p>
+                    ) : checkpoints.length === 0 ? (
+                        <div className="text-center py-8">
+                            <p className="text-neutral-500 text-sm">No checkpoints configured yet.</p>
+                            <p className="text-neutral-400 text-xs mt-2">Ask admin to add checkpoints in Settings → Entry Checkpoints.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            {checkpoints.map(cp => (
+                                <button
+                                    key={cp.id}
+                                    onClick={() => setSelectedCheckpoint(cp)}
+                                    className="w-full text-left px-5 py-4 border-2 border-neutral-200 rounded-xl font-bold text-neutral-900 hover:border-orange-500 hover:bg-orange-50 transition flex items-center justify-between"
+                                >
+                                    {cp.name}
+                                    <span className="text-orange-500 text-lg">→</span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                    <button onClick={() => { setAuthed(false); setPin(''); }} className="mt-6 w-full text-xs text-neutral-400 hover:text-neutral-600 transition">
+                        ← Change PIN
+                    </button>
                 </div>
             </main>
         );
@@ -216,27 +254,37 @@ export default function ScanPage() {
         <main className="h-dvh bg-neutral-900 flex flex-col overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 bg-neutral-800 border-b border-neutral-700 shrink-0">
-                <p className="text-white font-bold text-sm">🔍 Entry Scanner</p>
+                <div>
+                    <p className="text-white font-bold text-sm">📍 {selectedCheckpoint.name}</p>
+                    <p className="text-neutral-400 text-xs">Entry Scanner</p>
+                </div>
                 <div className="flex items-center gap-3">
                     {history.length > 0 && (
                         <button onClick={() => setShowHistory(h => !h)} className="text-xs font-semibold px-3 py-1 rounded-full bg-neutral-700 text-neutral-300 hover:bg-neutral-600 transition">
                             {showHistory ? '📷 Camera' : `History (${history.length})`}
                         </button>
                     )}
-                    <button onClick={() => { setAuthed(false); setResult(null); setHistory([]); lockRef.current = false; setCameraReady(false); setCameraError(''); }} className="text-neutral-400 text-xs hover:text-white transition">
-                        Change PIN
+                    <button
+                        onClick={() => {
+                            setSelectedCheckpoint(null);
+                            setCameraReady(false);
+                            setCameraError('');
+                            setResult(null);
+                            setHistory([]);
+                            lockRef.current = false;
+                            scannerRef.current?.stop().catch(() => {});
+                            scannerRef.current = null;
+                        }}
+                        className="text-neutral-400 text-xs hover:text-white transition"
+                    >
+                        Change
                     </button>
                 </div>
             </div>
 
-            {/* Camera + overlay area — camera div must stay in DOM at all times for html5-qrcode */}
+            {/* Camera + overlay — div must always stay in DOM so html5-qrcode can measure it */}
             <div className="flex-1 relative overflow-hidden bg-black">
-                {/* The html5-qrcode container — never hidden, never conditionally rendered */}
-                <div
-                    id={QR_READER_ID}
-                    className="w-full h-full"
-                    style={{ minHeight: 0 }}
-                />
+                <div id={QR_READER_ID} className="w-full h-full" style={{ minHeight: 0 }} />
 
                 {/* Overlay: loading */}
                 {!cameraReady && !cameraError && (
@@ -259,7 +307,7 @@ export default function ScanPage() {
                     </div>
                 )}
 
-                {/* Overlay: scan frame (shown when camera ready and not showing history) */}
+                {/* Overlay: scan frame corners */}
                 {cameraReady && !cameraError && !showHistory && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <div className="relative w-60 h-60">
@@ -271,7 +319,7 @@ export default function ScanPage() {
                     </div>
                 )}
 
-                {/* Overlay: history panel — sits on top, camera keeps running underneath */}
+                {/* Overlay: history panel — camera keeps running underneath */}
                 {showHistory && (
                     <div className="absolute inset-0 bg-neutral-900 z-10 flex flex-col">
                         <div className="px-4 py-2 border-b border-neutral-800 flex items-center justify-between shrink-0">
@@ -284,7 +332,7 @@ export default function ScanPage() {
                                 {' · '}{history.length} total
                             </p>
                             <button onClick={exportCSV} className="text-xs font-bold text-orange-400 hover:text-orange-300 transition px-2 py-1 border border-neutral-700 rounded">
-                                ↓ Export CSV
+                                ↓ CSV
                             </button>
                         </div>
                         <div className="px-4 py-2 border-b border-neutral-800 shrink-0">
@@ -299,7 +347,7 @@ export default function ScanPage() {
                         <div className="flex gap-2 px-4 py-2 border-b border-neutral-800 shrink-0 overflow-x-auto">
                             {(['ALL', 'NEW', 'DUPLICATE', 'NOT_PAID', 'INVALID'] as const).map(f => (
                                 <button key={f} onClick={() => setHistoryFilter(f)} className={`text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap transition ${historyFilter === f ? 'bg-orange-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'}`}>
-                                    {f === 'ALL' ? 'All' : f === 'NEW' ? '✓ Admitted' : f === 'DUPLICATE' ? '⚠ Duplicate' : f === 'NOT_PAID' ? '✗ Unpaid' : '? Invalid'}
+                                    {f === 'ALL' ? 'All' : f === 'NEW' ? '✓ In' : f === 'DUPLICATE' ? '⚠ Dup' : f === 'NOT_PAID' ? '✗ Unpaid' : '? Invalid'}
                                 </button>
                             ))}
                         </div>
@@ -324,7 +372,7 @@ export default function ScanPage() {
                                                         <p className="text-neutral-400 text-xs truncate">
                                                             {entry.result.reg?.categories?.title || '—'}
                                                             {entry.result.reg && ` · ${entry.result.reg.attendees_count} person(s)`}
-                                                            {entry.result.status === 'DUPLICATE' && ` · Scan #${entry.result.count}`}
+                                                            {entry.result.status === 'DUPLICATE' && ` · Scan #${entry.result.count} here`}
                                                         </p>
                                                     </div>
                                                     <span className="text-neutral-500 text-xs shrink-0">{fmt(entry.time)}</span>
@@ -343,11 +391,15 @@ export default function ScanPage() {
             {cfg ? (
                 <div className={`${cfg.bg} px-6 py-5 text-white text-center shrink-0`}>
                     <p className="text-4xl font-black tracking-tight leading-none">{cfg.icon} {cfg.label}</p>
-                    <p className="text-base font-semibold mt-2 opacity-90">{resultSub(result!)}</p>
+                    <p className="text-base font-semibold mt-2 opacity-90">
+                        {nameOf(result?.reg)}
+                        {result?.reg && ` · ${result.reg.categories?.title || ''} · ${result.reg.attendees_count} person(s)`}
+                        {result?.status === 'DUPLICATE' && ` · Scan #${result.count} here`}
+                    </p>
                 </div>
             ) : (
                 <div className="bg-neutral-800 px-4 py-3 text-center shrink-0 flex items-center justify-center gap-4">
-                    <p className="text-neutral-400 text-sm">Point camera at participant's QR code</p>
+                    <p className="text-neutral-400 text-sm">Point camera at participant QR</p>
                     {admittedCount > 0 && <span className="text-xs font-bold text-green-400">{admittedCount} admitted</span>}
                 </div>
             )}

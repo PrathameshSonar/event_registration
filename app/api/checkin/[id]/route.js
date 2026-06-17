@@ -1,5 +1,5 @@
-// app/api/checkin/[id]/route.js
-// Marks a registration as checked-in. Accepts scanner PIN or admin session.
+// Marks a registration as scanned at a specific checkpoint.
+// Each scan inserts one row in the checkins table (full audit trail).
 import { NextResponse } from 'next/server';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
@@ -9,20 +9,23 @@ export const dynamic = 'force-dynamic';
 export async function POST(request, { params }) {
     const { id } = await params;
     const body = await request.json().catch(() => ({}));
-    const { scannerPin } = body;
+    const { scannerPin, checkpointId } = body;
 
-    // Accept scanner PIN (for entry staff) OR admin/viewer session.
+    // Accept scanner PIN (entry staff) OR admin/viewer session.
     const pinEnv = process.env.SCANNER_PIN;
     const pinOk = pinEnv && scannerPin === pinEnv;
-
     if (!pinOk) {
         const { response } = await authorize({ requireAdmin: false });
         if (response) return response;
     }
 
+    if (!checkpointId) {
+        return NextResponse.json({ status: 'INVALID', reason: 'no_checkpoint' });
+    }
+
     const { data: reg, error } = await supabaseAdmin
         .from('registrations')
-        .select('id, first_name, last_name, salutation, attendees_count, payment_status, checked_in_at, checked_in_count, categories(title)')
+        .select('id, first_name, last_name, salutation, attendees_count, payment_status, categories(title)')
         .eq('id', id)
         .single();
 
@@ -34,19 +37,18 @@ export async function POST(request, { params }) {
         return NextResponse.json({ status: 'NOT_PAID', reg });
     }
 
-    const isFirst = !reg.checked_in_at;
-    const newCount = (reg.checked_in_count || 0) + 1;
+    // Count existing scans for this registration at this specific checkpoint.
+    const { count: existingCount } = await supabaseAdmin
+        .from('checkins')
+        .select('id', { count: 'exact', head: true })
+        .eq('registration_id', id)
+        .eq('checkpoint_id', checkpointId);
 
-    await supabaseAdmin
-        .from('registrations')
-        .update({
-            checked_in_at: isFirst ? new Date().toISOString() : reg.checked_in_at,
-            checked_in_count: newCount,
-        })
-        .eq('id', id);
+    const isFirst = !existingCount || existingCount === 0;
 
-    if (isFirst) {
-        return NextResponse.json({ status: 'NEW', reg });
-    }
-    return NextResponse.json({ status: 'DUPLICATE', reg, checkedInAt: reg.checked_in_at, count: newCount });
+    // Always insert — provides full audit trail per checkpoint.
+    await supabaseAdmin.from('checkins').insert({ registration_id: id, checkpoint_id: checkpointId });
+
+    if (isFirst) return NextResponse.json({ status: 'NEW', reg });
+    return NextResponse.json({ status: 'DUPLICATE', reg, count: (existingCount || 0) + 1 });
 }
