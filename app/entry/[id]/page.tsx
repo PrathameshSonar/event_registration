@@ -5,11 +5,12 @@ import { notFound } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
-export default async function EntryPage({ params }: { params: { id: string } }) {
+export default async function EntryPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     const { data: reg } = await supabaseAdmin
         .from('registrations')
         .select('id, first_name, last_name, salutation, attendees_count, total_amount, payment_status, phone, gotra, razorpay_payment_id, categories(title)')
-        .eq('id', params.id)
+        .eq('id', id)
         .single();
 
     if (!reg) notFound();

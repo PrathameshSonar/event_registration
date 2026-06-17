@@ -20,6 +20,8 @@ interface Registration {
     donation_amount: number; total_amount: number; razorpay_payment_id: string | null;
     gotra: string;
     categories: { title: string } | null;
+    checked_in_at: string | null;
+    checked_in_count: number;
 }
 
 interface Category {
@@ -391,6 +393,7 @@ export default function AdminDashboard() {
                     <span className={`text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-full ${isAdmin ? 'bg-orange-100 text-orange-700' : 'bg-neutral-200 text-neutral-600'}`}>
                         {isAdmin ? 'Admin' : 'Viewer (read-only)'}
                     </span>
+                    <a href="/scan" target="_blank" className="flex items-center gap-2 text-sm font-semibold text-neutral-600 hover:text-orange-600 border border-neutral-200 px-3 py-1.5 rounded-lg hover:border-orange-200 hover:bg-orange-50 transition"><QrCode className="w-4 h-4" /> Scanner</a>
                     <button onClick={handleLogout} className="flex items-center gap-2 text-sm font-semibold text-neutral-600 hover:text-red-600 border border-neutral-200 px-3 py-1.5 rounded-lg hover:border-red-200 hover:bg-red-50 transition"><LogOut className="w-4 h-4" /> Logout</button>
                 </div>
             </div>
@@ -555,7 +558,11 @@ export default function AdminDashboard() {
                                                                 </span>
                                                             )}
                                                         </td>
-                                                        <td className="px-6 py-4 font-medium text-neutral-900">{reg.first_name} {reg.last_name}<br /><span className="text-xs font-normal text-neutral-500">{reg.phone}</span></td>
+                                                        <td className="px-6 py-4 font-medium text-neutral-900">
+                                                            {reg.first_name} {reg.last_name}
+                                                            {reg.checked_in_at && <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full border border-green-200">✓ In</span>}
+                                                            <br /><span className="text-xs font-normal text-neutral-500">{reg.phone}</span>
+                                                        </td>
                                                         <td className="px-6 py-4 text-neutral-600">{reg.gotra || '-'}</td>
                                                         <td className="px-6 py-4 text-neutral-600">{reg.categories?.title || 'Deleted Category'}</td>
                                                         <td className="px-6 py-4 font-bold text-neutral-900">₹{reg.total_amount}</td>

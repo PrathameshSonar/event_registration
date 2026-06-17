@@ -64,15 +64,18 @@ export async function POST(request) {
         }
         const qrDataUrl = `data:image/png;base64,${qrBuffer.toString('base64')}`;
 
-        // Upload to Supabase Storage to get a public URL for WhatsApp image.
-        // Requires a public bucket named "qr-codes" — create it once in Supabase Dashboard → Storage.
+        // Upload to a PRIVATE Supabase Storage bucket named "qr-codes", then generate a
+        // 30-day signed URL for WhatsApp (WhatsApp servers need a public URL to fetch the image).
+        // Create the bucket once: Supabase Dashboard → Storage → New Bucket → "qr-codes" (private).
         let qrPublicUrl = null;
         const { error: upErr } = await supabaseAdmin.storage
             .from('qr-codes')
             .upload(`${reg.id}.png`, qrBuffer, { contentType: 'image/png', upsert: true });
         if (!upErr) {
-            const { data: urlData } = supabaseAdmin.storage.from('qr-codes').getPublicUrl(`${reg.id}.png`);
-            qrPublicUrl = urlData?.publicUrl || null;
+            const { data: signedData } = await supabaseAdmin.storage
+                .from('qr-codes')
+                .createSignedUrl(`${reg.id}.png`, 30 * 24 * 60 * 60); // 30 days
+            qrPublicUrl = signedData?.signedUrl || null;
         } else {
             console.warn('QR storage upload failed (bucket may not exist yet):', upErr.message);
         }

@@ -9,7 +9,7 @@ export async function GET(_request, { params }) {
     const { response } = await authorize({ requireAdmin: false });
     if (response) return response;
 
-    const { id } = params;
+    const { id } = await params;
     const siteUrl =
         process.env.NEXT_PUBLIC_SITE_URL ||
         (process.env.NEXT_PUBLIC_VERCEL_URL ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` : 'http://localhost:3000');
