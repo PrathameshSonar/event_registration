@@ -18,7 +18,7 @@ export default function RefundPage() {
                     <h2 className="text-lg font-bold text-neutral-900 mt-6">2. Refund Processing</h2>
                     <p>Approved refunds will be processed within 5-7 business days. The funds will be credited back to the original payment method used during checkout via the Razorpay gateway.</p>
                     <h2 className="text-lg font-bold text-neutral-900 mt-6">3. Non-Refundable Scenarios</h2>
-                    <p>Voluntary additional donations are strictly non-refundable. Cancellations made within 15 days of the event, or failure to attend the event ("no-shows"), are not eligible for a refund.</p>
+                    <p>Voluntary additional donations are strictly non-refundable. Cancellations made within 15 days of the event, or failure to attend the event (&quot;no-shows&quot;), are not eligible for a refund.</p>
                 </div>
             </div>
         </main>

@@ -1,0 +1,53 @@
+// app/api/admin/events/route.js
+// Create / set-active / delete events. Admin only.
+// DELETE requires re-authentication with the admin password.
+import { NextResponse } from 'next/server';
+import { authorize, verifyAdminPassword } from '@/lib/adminGuard';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
+
+export const dynamic = 'force-dynamic';
+
+export async function POST(request) {
+    const { response } = await authorize({ requireAdmin: true });
+    if (response) return response;
+    const { title, short_description, long_description, title_hi, short_description_hi, long_description_hi, makeActive } = await request.json();
+    if (!title) return NextResponse.json({ error: 'Title required.' }, { status: 400 });
+    const { error } = await supabaseAdmin.from('events').insert([{
+        title,
+        short_description: short_description || null,
+        long_description: long_description || null,
+        title_hi: title_hi || null,
+        short_description_hi: short_description_hi || null,
+        long_description_hi: long_description_hi || null,
+        is_active: !!makeActive,
+    }]);
+    if (error) return NextResponse.json({ error: 'Create failed.' }, { status: 500 });
+    return NextResponse.json({ ok: true });
+}
+
+// Set one event active (and deactivate the rest).
+export async function PATCH(request) {
+    const { response } = await authorize({ requireAdmin: true });
+    if (response) return response;
+    const { id } = await request.json();
+    if (!id) return NextResponse.json({ error: 'Missing id.' }, { status: 400 });
+    // Only one active event at a time.
+    const off = await supabaseAdmin.from('events').update({ is_active: false }).neq('id', id);
+    if (off.error) return NextResponse.json({ error: 'Update failed.' }, { status: 500 });
+    const { error } = await supabaseAdmin.from('events').update({ is_active: true }).eq('id', id);
+    if (error) return NextResponse.json({ error: 'Update failed.' }, { status: 500 });
+    return NextResponse.json({ ok: true });
+}
+
+export async function DELETE(request) {
+    const { response } = await authorize({ requireAdmin: true });
+    if (response) return response;
+    const { id, password } = await request.json();
+    if (!id) return NextResponse.json({ error: 'Missing id.' }, { status: 400 });
+    if (!verifyAdminPassword(password)) {
+        return NextResponse.json({ error: 'Re-enter the admin password to authorize deletion.' }, { status: 403 });
+    }
+    const { error } = await supabaseAdmin.from('events').delete().eq('id', id);
+    if (error) return NextResponse.json({ error: 'Delete failed.' }, { status: 500 });
+    return NextResponse.json({ ok: true });
+}

@@ -2,18 +2,20 @@
 "use client";
 
 import { useState } from 'react';
-import { ShieldCheck, AlertCircle, MapPin, Calendar, MessageSquare, User, Mail, Phone, Users, Heart } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { ShieldCheck, AlertCircle, MapPin, Calendar, MessageSquare, Mail, Phone, Users, Heart } from 'lucide-react';
 import { TextField, MenuItem, InputAdornment, Button, Checkbox, FormControlLabel } from '@mui/material';
+import { useLanguage } from './LanguageProvider';
 
 export default function CheckoutForm({ category }) {
+    const { t } = useLanguage();
+
     const [loading, setLoading] = useState(false);
     const [agreedToTerms, setAgreedToTerms] = useState(false);
     const [formData, setFormData] = useState({
         salutation: '',
         firstName: '',
         lastName: '',
-        gotra: '', // NEW: Gotra Field
+        gotra: '',
         gender: '',
         dob: '',
         email: '',
@@ -43,19 +45,19 @@ export default function CheckoutForm({ category }) {
             try {
                 const response = await fetch(`https://api.postalpincode.in/pincode/${value}`);
                 const data = await response.json();
-                if (data[0].Status === "Success") {
+                if (data[0].Status === 'Success') {
                     const postOffice = data[0].PostOffice[0];
                     setFormData((prev) => ({
                         ...prev,
                         taluka: postOffice.Block || postOffice.Name || '',
-                        state: postOffice.State || ''
+                        state: postOffice.State || '',
                     }));
                 } else {
-                    alert("Invalid Pincode. Please check and try again.");
+                    alert(t('alert_pincode_invalid'));
                     setFormData((prev) => ({ ...prev, taluka: '', state: '' }));
                 }
             } catch (error) {
-                console.error("Pincode API Error:", error);
+                console.error('Pincode API Error:', error);
             }
         }
     };
@@ -73,49 +75,56 @@ export default function CheckoutForm({ category }) {
     const handlePayment = async (e) => {
         e.preventDefault();
         if (!agreedToTerms) {
-            alert("Please agree to the Terms & Conditions to proceed.");
+            alert(t('alert_terms'));
             return;
         }
         setLoading(true);
 
-        const fullNameCombined = `${formData.salutation} ${formData.firstName} ${formData.lastName}`;
+        const fullNameCombined = `${formData.salutation} ${formData.firstName} ${formData.lastName}`.trim();
+
+        const attendeePayload = {
+            salutation: formData.salutation,
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            gotra: formData.gotra,
+            gender: formData.gender,
+            dob: formData.dob,
+            email: formData.email,
+            phone: formData.phone,
+            pincode: formData.pincode,
+            taluka: formData.taluka,
+            state: formData.state,
+            problem: formData.problem,
+        };
 
         // ==========================================
-        // ENQUIRY BYPASS LOGIC
+        // ENQUIRY BYPASS LOGIC (no payment)
         // ==========================================
         if (isEnquiry) {
-            const { error: dbError } = await supabase
-                .from('registrations')
-                .insert([
-                    {
-                        category_id: category.id,
-                        full_name: fullNameCombined,
-                        salutation: formData.salutation,
-                        first_name: formData.firstName,
-                        last_name: formData.lastName,
-                        gotra: formData.gotra, // Save Gotra
-                        gender: formData.gender,
-                        date_of_birth: formData.dob,
-                        email: formData.email,
-                        phone: formData.phone,
-                        pincode: formData.pincode,
-                        taluka: formData.taluka,
-                        state: formData.state,
-                        problem_samasya: formData.problem,
-                        attendees_count: formData.attendeesCount,
-                        donation_amount: 0,
-                        total_amount: 0,
-                        payment_status: 'enquired'
-                    }
-                ]);
-
-            if (dbError) {
-                console.error("Database Error:", dbError);
-                alert("Failed to submit enquiry. Please try again.");
+            try {
+                const enquiryRes = await fetch('/api/enquiry', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        categoryId: category.id,
+                        attendeesCount: formData.attendeesCount,
+                        agreedToTerms,
+                        attendee: attendeePayload,
+                    }),
+                });
+                const enquiryData = await enquiryRes.json();
+                if (!enquiryRes.ok) {
+                    alert(`⚠️ ${enquiryData.error || t('alert_enquiry_success')}`);
+                    setLoading(false);
+                    return;
+                }
+            } catch (err) {
+                console.error('Enquiry submission error:', err);
+                alert(t('alert_enquiry_success'));
                 setLoading(false);
                 return;
             }
-            alert("✅ Enquiry submitted successfully! Our team will connect with you on WhatsApp shortly.");
+            alert(t('alert_enquiry_success'));
             window.location.reload();
             return;
         }
@@ -125,7 +134,7 @@ export default function CheckoutForm({ category }) {
         // ==========================================
         const res = await loadRazorpayScript();
         if (!res) {
-            alert('Razorpay SDK failed to load. Please check your internet connection.');
+            alert(t('alert_razorpay_fail'));
             setLoading(false);
             return;
         }
@@ -133,70 +142,38 @@ export default function CheckoutForm({ category }) {
         const orderResponse = await fetch('/api/razorpay', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: totalAmount }),
+            body: JSON.stringify({
+                categoryId: category.id,
+                donation: formData.donation,
+                attendeesCount: formData.attendeesCount,
+                agreedToTerms,
+                attendee: attendeePayload,
+            }),
         });
         const orderData = await orderResponse.json();
 
         if (!orderResponse.ok) {
-            console.error("Payment API Error Data:", orderData);
-            alert(`🚨 Payment Gateway Error: ${orderData.error || "Unknown server error."}`);
+            console.error('Payment API Error Data:', orderData);
+            alert(`🚨 ${orderData.error || 'Unknown server error.'}`);
             setLoading(false);
             return;
         }
 
-        const finalOrderId = orderData.id || (orderData.order && orderData.order.id);
-        const finalOrderAmount = orderData.amount || (orderData.order && orderData.order.amount);
-
-        if (!finalOrderId) {
-            alert("🚨 Payment Gateway Error: No Order ID was returned from the server.");
-            setLoading(false);
-            return;
-        }
-
-        const { data: pendingRecord, error: dbError } = await supabase
-            .from('registrations')
-            .insert([
-                {
-                    category_id: category.id,
-                    full_name: fullNameCombined,
-                    salutation: formData.salutation,
-                    first_name: formData.firstName,
-                    last_name: formData.lastName,
-                    gotra: formData.gotra, // Save Gotra
-                    gender: formData.gender,
-                    date_of_birth: formData.dob,
-                    email: formData.email,
-                    phone: formData.phone,
-                    pincode: formData.pincode,
-                    taluka: formData.taluka,
-                    state: formData.state,
-                    problem_samasya: formData.problem,
-                    attendees_count: formData.attendeesCount,
-                    donation_amount: donationValue,
-                    total_amount: totalAmount,
-                    razorpay_order_id: finalOrderId,
-                    payment_status: 'pending'
-                }
-            ])
-            .select()
-            .single();
-
-        if (dbError) {
-            console.error("Database Error:", dbError);
-            alert("Failed to initialize registration. Please try again.");
+        if (!orderData.orderId) {
+            alert('🚨 Payment Gateway Error: No Order ID was returned from the server.');
             setLoading(false);
             return;
         }
 
         const options = {
-            key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-            amount: finalOrderAmount,
-            currency: "INR",
-            name: "BaglaBhairav",
-            description: `Registration & Contribution`,
-            order_id: finalOrderId,
-            handler: async function (response) {
-                alert(`Success! Your payment is confirmed. Your digital ticket pass is being dispatched to ${formData.email}`);
+            key: orderData.keyId,
+            amount: orderData.amount,
+            currency: orderData.currency || 'INR',
+            name: 'BaglaBhairav',
+            description: 'Registration & Contribution',
+            order_id: orderData.orderId,
+            handler: async function () {
+                alert(t('alert_payment_success', formData.email));
                 window.location.reload();
             },
             prefill: {
@@ -204,11 +181,11 @@ export default function CheckoutForm({ category }) {
                 email: formData.email,
                 contact: formData.phone,
             },
-            theme: { color: "#ea580c" },
+            theme: { color: '#ea580c' },
         };
         const paymentObject = new window.Razorpay(options);
         paymentObject.on('payment.failed', function () {
-            alert("Payment was not completed. You can try again.");
+            alert(t('alert_payment_failed'));
         });
         paymentObject.open();
         setLoading(false);
@@ -220,18 +197,18 @@ export default function CheckoutForm({ category }) {
             {totalAmount >= 100000 && !isEnquiry && (
                 <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg flex items-start gap-3 text-sm">
                     <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                    <p><strong>Note:</strong> Exceeds daily UPI limits. Use <strong>Netbanking</strong> or <strong>Card</strong>.</p>
+                    <p><strong>Note:</strong> {t('form_upi_warning')}</p>
                 </div>
             )}
 
             {/* --- PERSONAL DETAILS --- */}
             <div>
-                <h4 className="text-sm font-bold text-neutral-900 mb-4 uppercase tracking-wider">Personal Details</h4>
+                <h4 className="text-sm font-bold text-neutral-900 mb-4 uppercase tracking-wider">{t('form_personal_details')}</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="col-span-1 md:col-span-2 flex gap-4">
                         <TextField
                             select
-                            label="Title"
+                            label={t('form_title')}
                             name="salutation"
                             required
                             value={formData.salutation}
@@ -240,16 +217,16 @@ export default function CheckoutForm({ category }) {
                             size="medium"
                             sx={{ width: '120px' }}
                         >
-                            <MenuItem value="Shri">Shri</MenuItem>
-                            <MenuItem value="Smt">Smt</MenuItem>
-                            <MenuItem value="Kumari">Kumari</MenuItem>
-                            <MenuItem value="Mr">Mr.</MenuItem>
-                            <MenuItem value="Ms">Ms.</MenuItem>
-                            <MenuItem value="Dr">Dr.</MenuItem>
+                            <MenuItem value="Shri">{t('sal_shri')}</MenuItem>
+                            <MenuItem value="Smt">{t('sal_smt')}</MenuItem>
+                            <MenuItem value="Kumari">{t('sal_kumari')}</MenuItem>
+                            <MenuItem value="Mr">{t('sal_mr')}</MenuItem>
+                            <MenuItem value="Ms">{t('sal_ms')}</MenuItem>
+                            <MenuItem value="Dr">{t('sal_dr')}</MenuItem>
                         </TextField>
                         <TextField
                             fullWidth
-                            label="First Name"
+                            label={t('form_first_name')}
                             name="firstName"
                             required
                             value={formData.firstName}
@@ -259,42 +236,39 @@ export default function CheckoutForm({ category }) {
                     </div>
                     <TextField
                         fullWidth
-                        label="Last Name"
+                        label={t('form_last_name')}
                         name="lastName"
                         required
                         value={formData.lastName}
                         onChange={handleChange}
                         variant="outlined"
                     />
-
-                    {/* NEW GOTRA FIELD */}
                     <TextField
                         fullWidth
-                        label="Gotra"
+                        label={t('form_gotra')}
                         name="gotra"
                         required
                         value={formData.gotra}
                         onChange={handleChange}
                         variant="outlined"
                     />
-
                     <TextField
                         select
                         fullWidth
-                        label="Gender"
+                        label={t('form_gender')}
                         name="gender"
                         required
                         value={formData.gender}
                         onChange={handleChange}
                         variant="outlined"
                     >
-                        <MenuItem value="Male">Male</MenuItem>
-                        <MenuItem value="Female">Female</MenuItem>
-                        <MenuItem value="Other">Other</MenuItem>
+                        <MenuItem value="Male">{t('form_gender_male')}</MenuItem>
+                        <MenuItem value="Female">{t('form_gender_female')}</MenuItem>
+                        <MenuItem value="Other">{t('form_gender_other')}</MenuItem>
                     </TextField>
                     <TextField
                         fullWidth
-                        label="Date of Birth"
+                        label={t('form_dob')}
                         name="dob"
                         type="date"
                         required
@@ -311,11 +285,11 @@ export default function CheckoutForm({ category }) {
 
             {/* --- CONTACT & LOCATION --- */}
             <div>
-                <h4 className="text-sm font-bold text-neutral-900 mb-4 uppercase tracking-wider">Contact & Location</h4>
+                <h4 className="text-sm font-bold text-neutral-900 mb-4 uppercase tracking-wider">{t('form_contact_location')}</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <TextField
                         fullWidth
-                        label="WhatsApp Number"
+                        label={t('form_whatsapp')}
                         name="phone"
                         type="tel"
                         required
@@ -328,7 +302,7 @@ export default function CheckoutForm({ category }) {
                     />
                     <TextField
                         fullWidth
-                        label="Email Address"
+                        label={t('form_email')}
                         name="email"
                         type="email"
                         required
@@ -341,7 +315,7 @@ export default function CheckoutForm({ category }) {
                     />
                     <TextField
                         fullWidth
-                        label="Pincode"
+                        label={t('form_pincode')}
                         name="pincode"
                         required
                         value={formData.pincode}
@@ -355,7 +329,7 @@ export default function CheckoutForm({ category }) {
                     <div className="flex gap-2">
                         <TextField
                             fullWidth
-                            label="Taluka (Auto)"
+                            label={t('form_taluka')}
                             name="taluka"
                             required
                             value={formData.taluka}
@@ -364,7 +338,7 @@ export default function CheckoutForm({ category }) {
                         />
                         <TextField
                             fullWidth
-                            label="State (Auto)"
+                            label={t('form_state')}
                             name="state"
                             required
                             value={formData.state}
@@ -377,11 +351,11 @@ export default function CheckoutForm({ category }) {
 
             {/* --- ADDITIONAL DETAILS & DONATION --- */}
             <div>
-                <h4 className="text-sm font-bold text-neutral-900 mb-4 uppercase tracking-wider">Event Details & Contribution</h4>
+                <h4 className="text-sm font-bold text-neutral-900 mb-4 uppercase tracking-wider">{t('form_event_contribution')}</h4>
                 <div className="grid grid-cols-1 gap-4">
                     <TextField
                         fullWidth
-                        label="Problem / Issue / Samasya"
+                        label={t('form_problem')}
                         name="problem"
                         required
                         multiline
@@ -396,7 +370,7 @@ export default function CheckoutForm({ category }) {
                     <TextField
                         select
                         fullWidth
-                        label="Total Attendees"
+                        label={t('form_attendees')}
                         name="attendeesCount"
                         required
                         value={formData.attendeesCount}
@@ -406,26 +380,25 @@ export default function CheckoutForm({ category }) {
                             startAdornment: <InputAdornment position="start"><Users className="w-5 h-5 text-neutral-400" /></InputAdornment>
                         }}
                     >
-                        <MenuItem value="1">1 Person</MenuItem>
-                        <MenuItem value="2">2 People</MenuItem>
-                        <MenuItem value="3">3 People</MenuItem>
-                        <MenuItem value="4">4 People</MenuItem>
-                        <MenuItem value="5">5 People</MenuItem>
+                        <MenuItem value="1">{t('form_attendees_1')}</MenuItem>
+                        <MenuItem value="2">{t('form_attendees_2')}</MenuItem>
+                        <MenuItem value="3">{t('form_attendees_3')}</MenuItem>
+                        <MenuItem value="4">{t('form_attendees_4')}</MenuItem>
+                        <MenuItem value="5">{t('form_attendees_5')}</MenuItem>
                     </TextField>
 
-                    {/* ONLY SHOW DONATION IF IT IS A STANDARD PAID TIER */}
                     {!isEnquiry && (
                         <div className="mt-4 p-6 border border-orange-100 bg-orange-50/50 rounded-xl">
                             <h4 className="text-sm font-bold text-orange-900 mb-2 flex items-center gap-2">
                                 <Heart className="w-4 h-4 text-orange-600" />
-                                Additional Contribution (Optional)
+                                {t('form_donation_title')}
                             </h4>
                             <p className="text-xs text-orange-700 mb-4">
-                                Your support helps us organize better facilities and expand our community outreach.
+                                {t('form_donation_desc')}
                             </p>
                             <TextField
                                 fullWidth
-                                label="Donation Amount"
+                                label={t('form_donation_amount')}
                                 name="donation"
                                 type="number"
                                 value={formData.donation}
@@ -450,15 +423,19 @@ export default function CheckoutForm({ category }) {
                             onChange={(e) => setAgreedToTerms(e.target.checked)}
                             sx={{
                                 color: '#a3a3a3',
-                                '&.Mui-checked': {
-                                    color: '#ea580c',
-                                },
+                                '&.Mui-checked': { color: '#ea580c' },
                             }}
                         />
                     }
                     label={
                         <span className="text-sm text-neutral-600">
-                            I agree to the <a href="/terms" className="text-orange-600 hover:underline" target="_blank">Terms & Conditions</a>, <a href="/privacy" className="text-orange-600 hover:underline" target="_blank">Privacy Policy</a>, and <a href="/refund" className="text-orange-600 hover:underline" target="_blank">Refund Policy</a>.
+                            {t('form_terms_prefix')}{' '}
+                            <a href="/terms" className="text-orange-600 hover:underline" target="_blank">{t('form_terms_link')}</a>
+                            {', '}
+                            <a href="/privacy" className="text-orange-600 hover:underline" target="_blank">{t('form_privacy_link')}</a>
+                            {` ${t('form_terms_and')} `}
+                            <a href="/refund" className="text-orange-600 hover:underline" target="_blank">{t('form_refund_link')}</a>
+                            {t('form_terms_suffix')}
                         </span>
                     }
                 />
@@ -478,16 +455,16 @@ export default function CheckoutForm({ category }) {
                         '&:disabled': { backgroundColor: '#d4d4d4', color: '#737373' },
                         textTransform: 'none',
                         fontSize: '1.05rem',
-                        fontWeight: 600
+                        fontWeight: 600,
                     }}
                 >
-                    {loading ? "Processing Securely..." : (isEnquiry ? "Submit Enquiry via WhatsApp" : `Pay ₹${totalAmount} Securely`)}
+                    {loading ? t('form_processing') : (isEnquiry ? t('form_submit_enquiry') : t('form_pay_button', totalAmount))}
                 </Button>
 
                 {!isEnquiry && (
                     <div className="flex items-center justify-center gap-2 text-xs text-neutral-400 pt-3">
                         <ShieldCheck className="w-4 h-4 text-green-600" />
-                        <span>Secured transaction via Razorpay</span>
+                        <span>{t('form_secure_badge')}</span>
                     </div>
                 )}
             </div>

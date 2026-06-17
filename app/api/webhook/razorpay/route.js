@@ -1,11 +1,25 @@
 // app/api/webhook/razorpay/route.js
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { Resend } from 'resend';
 
-// Initialize Email Provider
-const resend = new Resend(process.env.RESEND_API_KEY);
+export const dynamic = 'force-dynamic';
+
+// Lazily initialized so missing RESEND_API_KEY during `next build` doesn't throw.
+let _resend = null;
+function getResend() {
+    if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY);
+    return _resend;
+}
+
+// Constant-time comparison to avoid timing side-channels on the signature.
+function safeEqual(a, b) {
+    const bufA = Buffer.from(a || '', 'utf8');
+    const bufB = Buffer.from(b || '', 'utf8');
+    if (bufA.length !== bufB.length) return false;
+    return crypto.timingSafeEqual(bufA, bufB);
+}
 
 export async function POST(request) {
     try {
@@ -13,13 +27,18 @@ export async function POST(request) {
         const signature = request.headers.get('x-razorpay-signature');
         const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
+        if (!webhookSecret) {
+            console.error('🚨 RAZORPAY_WEBHOOK_SECRET is not configured.');
+            return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
+        }
+
         // 1. Verify Cryptographic Signature
         const expectedSignature = crypto
             .createHmac('sha256', webhookSecret)
             .update(body)
             .digest('hex');
 
-        if (expectedSignature !== signature) {
+        if (!safeEqual(expectedSignature, signature)) {
             console.error("🚨 SECURITY ALERT: Invalid Razorpay Signature!");
             return NextResponse.json({ error: "Unauthorized" }, { status: 400 });
         }
@@ -37,7 +56,7 @@ export async function POST(request) {
             const paymentId = payment.id;
 
             // 1. Fetch the user's full profile from our DB
-            const { data: existingReg, error: fetchError } = await supabase
+            const { data: existingReg, error: fetchError } = await supabaseAdmin
                 .from('registrations')
                 .select('*, categories(title)')
                 .eq('razorpay_order_id', orderId)
@@ -54,8 +73,24 @@ export async function POST(request) {
                 return NextResponse.json({ status: "already_processed" }, { status: 200 });
             }
 
+            // 2b. Amount Verification — the captured amount MUST match what we
+            // expected when the order was created. Guards against any order
+            // whose amount was tampered with before reaching Razorpay.
+            const expectedPaise = Math.round(Number(existingReg.total_amount) * 100);
+            if (typeof payment.amount === 'number' && payment.amount !== expectedPaise) {
+                console.error(
+                    `🚨 SECURITY ALERT: Amount mismatch for Order ${orderId}. ` +
+                    `Expected ${expectedPaise} paise, captured ${payment.amount} paise. Not issuing ticket.`
+                );
+                await supabaseAdmin
+                    .from('registrations')
+                    .update({ payment_status: 'amount_mismatch', razorpay_payment_id: paymentId })
+                    .eq('razorpay_order_id', orderId);
+                return NextResponse.json({ status: "amount_mismatch_acknowledged" }, { status: 200 });
+            }
+
             // 3. Mark Database as Completed
-            const { error: updateError } = await supabase
+            const { error: updateError } = await supabaseAdmin
                 .from('registrations')
                 .update({
                     payment_status: 'completed',
@@ -84,8 +119,8 @@ export async function POST(request) {
             // DISPATCH EMAIL
             if (email) {
                 try {
-                    await resend.emails.send({
-                        from: 'BaglaBhairav <onboarding@resend.dev>',
+                    await getResend().emails.send({
+                        from: process.env.RESEND_FROM || 'BaglaBhairav <onboarding@resend.dev>',
                         to: [email],
                         subject: `✅ Confirmed: Your Ticket for BaglaBhairav`,
                         html: `
@@ -169,11 +204,11 @@ export async function POST(request) {
             const payment = event.payload.payment.entity;
             const orderId = payment.order_id;
             console.log(`⚠️ Payment Failed for Order ${orderId}. Reason: ${payment.error_description}`);
-            await supabase.from('registrations').update({ payment_status: 'failed' }).eq('razorpay_order_id', orderId);
+            await supabaseAdmin.from('registrations').update({ payment_status: 'failed' }).eq('razorpay_order_id', orderId);
         } else if (eventType === 'refund.processed') {
             const refund = event.payload.refund.entity;
             console.log(`⏪ Refund Processed for Payment ${refund.payment_id}`);
-            await supabase.from('registrations').update({ payment_status: 'refunded' }).eq('razorpay_payment_id', refund.payment_id);
+            await supabaseAdmin.from('registrations').update({ payment_status: 'refunded' }).eq('razorpay_payment_id', refund.payment_id);
         }
 
         // Always return 200 OK so Razorpay knows we received the ping
