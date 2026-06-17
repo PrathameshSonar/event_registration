@@ -6,11 +6,11 @@ import HomeContent from '@/components/HomeContent';
 export const revalidate = 60;
 
 export default async function Home() {
-    // 1. Event hero text (includes title_hi, description_text_hi if set)
+    // 1. Event hero text (includes title_hi, short_description_hi if set)
     const { data: pageData } = await supabase
-        .from('page_content')
+        .from('events')
         .select('*')
-        .eq('page_identifier', 'event_details')
+        .eq('is_active', true)
         .single();
 
     // 2. Registration tiers (includes title_hi, description_hi if set)

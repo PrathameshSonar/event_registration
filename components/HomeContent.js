@@ -6,6 +6,7 @@ import { Calendar, MapPin, Image as ImageIcon, Video, AlertCircle } from 'lucide
 import Link from 'next/link';
 import { useLanguage } from './LanguageProvider';
 import LangToggle from './LangToggle';
+import Footer from './Footer';
 
 export default function HomeContent({ pageData, categories, mediaItems, seatsTaken }) {
     const { t, lang } = useLanguage();
@@ -15,8 +16,18 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
         : (pageData?.title || t('hero_event_fallback'));
 
     const eventDesc = lang === 'hi'
-        ? (pageData?.description_text_hi || pageData?.description_text || t('hero_desc_fallback'))
-        : (pageData?.description_text || t('hero_desc_fallback'));
+        ? (pageData?.short_description_hi || pageData?.short_description || t('hero_desc_fallback'))
+        : (pageData?.short_description || t('hero_desc_fallback'));
+
+    const displayDate = lang === 'hi'
+        ? (pageData?.date_time_hi || pageData?.date_time || t('hero_dates'))
+        : (pageData?.date_time || t('hero_dates'));
+
+    const displayVenue = lang === 'hi'
+        ? (pageData?.venue_hi || pageData?.venue || t('hero_venue'))
+        : (pageData?.venue || t('hero_venue'));
+
+    const mapUrl = pageData?.map_url || null;
 
     const getCatTitle = (cat) => lang === 'hi' ? (cat.title_hi || cat.title) : cat.title;
     const getCatDesc = (cat) => lang === 'hi' ? (cat.description_hi || cat.description) : cat.description;
@@ -64,11 +75,15 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                 <div className="flex flex-col md:flex-row justify-center gap-6 md:gap-12 text-neutral-600 mb-16 font-medium text-sm">
                     <div className="flex items-center justify-center gap-2">
                         <Calendar className="w-5 h-5 text-orange-600" />
-                        <span>{t('hero_dates')}</span>
+                        <span>{displayDate}</span>
                     </div>
                     <div className="flex items-center justify-center gap-2">
                         <MapPin className="w-5 h-5 text-orange-600" />
-                        <span>{t('hero_venue')}</span>
+                        {mapUrl ? (
+                            <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="hover:text-orange-600 hover:underline transition">{displayVenue}</a>
+                        ) : (
+                            <span>{displayVenue}</span>
+                        )}
                     </div>
                 </div>
             </section>
@@ -169,6 +184,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                     </div>
                 </section>
             )}
+            <Footer />
         </main>
     );
 }

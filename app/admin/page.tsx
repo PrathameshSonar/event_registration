@@ -36,6 +36,9 @@ interface EventItem {
     id: string; title: string; title_hi: string | null;
     short_description: string; short_description_hi: string | null;
     long_description: string; long_description_hi: string | null;
+    date_time: string | null; date_time_hi: string | null;
+    venue: string | null; venue_hi: string | null;
+    map_url: string | null;
     is_active: boolean;
 }
 interface MediaItem { id: string; media_type: 'image' | 'youtube'; url: string; caption: string; event_id: string; events?: { title: string }; }
@@ -85,6 +88,11 @@ export default function AdminDashboard() {
     const [newEventTitleHi, setNewEventTitleHi] = useState('');
     const [newEventShortHi, setNewEventShortHi] = useState('');
     const [newEventLongHi, setNewEventLongHi] = useState('');
+    const [newEventDate, setNewEventDate] = useState('');
+    const [newEventDateHi, setNewEventDateHi] = useState('');
+    const [newEventVenue, setNewEventVenue] = useState('');
+    const [newEventVenueHi, setNewEventVenueHi] = useState('');
+    const [newEventMapUrl, setNewEventMapUrl] = useState('');
     const [mediaUrl, setMediaUrl] = useState('');
     const [mediaType, setMediaType] = useState<'image' | 'youtube'>('image');
     const [mediaCaption, setMediaCaption] = useState('');
@@ -180,20 +188,32 @@ export default function AdminDashboard() {
         const { ok, data } = await mutate('/api/admin/events', 'POST', {
             title: newEventTitle, short_description: newEventShort, long_description: newEventLong,
             title_hi: newEventTitleHi || null, short_description_hi: newEventShortHi || null, long_description_hi: newEventLongHi || null,
+            date_time: newEventDate || null, date_time_hi: newEventDateHi || null,
+            venue: newEventVenue || null, venue_hi: newEventVenueHi || null,
+            map_url: newEventMapUrl || null,
             makeActive: eventsList.length === 0,
         });
         if (!ok) alert(data.error || 'Failed to create event.');
         else {
             setNewEventTitle(''); setNewEventShort(''); setNewEventLong('');
             setNewEventTitleHi(''); setNewEventShortHi(''); setNewEventLongHi('');
+            setNewEventDate(''); setNewEventDateHi('');
+            setNewEventVenue(''); setNewEventVenueHi('');
+            setNewEventMapUrl('');
             await fetchAllData();
         }
         setSaving(false);
     };
     const handleSetEventActive = async (id: string) => {
         if (!confirm('Set this as the main Home Page event?')) return; setSaving(true);
-        const { ok, data } = await mutate('/api/admin/events', 'PATCH', { id });
+        const { ok, data } = await mutate('/api/admin/events', 'PATCH', { id, setActive: true });
         if (!ok) alert(data.error || 'Failed.'); else await fetchAllData();
+        setSaving(false);
+    };
+    const handleUpdateEvent = async (id: string, updates: Partial<EventItem>) => {
+        setSaving(true);
+        const { ok, data } = await mutate('/api/admin/events', 'PATCH', { id, updates });
+        if (!ok) alert(data.error || 'Update failed.'); else await fetchAllData();
         setSaving(false);
     };
     const handleDeleteEvent = async (id: string, title: string) => {
@@ -290,7 +310,7 @@ export default function AdminDashboard() {
     // ----- Login screen -----
     if (!role) {
         return (
-            <div className="min-h-screen bg-neutral-100 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-neutral-100 flex items-center justify-center p-4 text-neutral-900 [color-scheme:light]">
                 <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
                     <div className="w-16 h-16 bg-neutral-900 rounded-full flex items-center justify-center mx-auto mb-6"><Lock className="text-white w-8 h-8" /></div>
                     <h1 className="text-2xl font-bold mb-2">Admin Access</h1>
@@ -309,7 +329,7 @@ export default function AdminDashboard() {
     const effectiveTab = activeTab === 'settings' && !isAdmin ? 'registrations' : activeTab;
 
     return (
-        <div className="min-h-screen bg-neutral-50 p-4 md:p-8 font-sans">
+        <div className="min-h-screen bg-neutral-50 p-4 md:p-8 font-sans text-neutral-900 [color-scheme:light]">
 
             <div className="max-w-7xl mx-auto mb-6 flex flex-wrap items-center justify-between gap-3">
                 {activeEvent ? (
@@ -474,13 +494,20 @@ export default function AdminDashboard() {
                                             <textarea placeholder="Long Description (English)" value={newEventLong} onChange={(e) => setNewEventLong(e.target.value)} className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600 resize-none text-sm h-24" required />
                                             <textarea placeholder="विस्तृत विवरण (हिंदी)" value={newEventLongHi} onChange={(e) => setNewEventLongHi(e.target.value)} className="w-full px-4 py-2 border border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 resize-none text-sm h-24" />
                                         </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <input type="text" placeholder="Event Date / Duration (e.g. March 15-17, 2026)" value={newEventDate} onChange={(e) => setNewEventDate(e.target.value)} className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600 text-sm" />
+                                            <input type="text" placeholder="तारीख / अवधि (हिंदी)" value={newEventDateHi} onChange={(e) => setNewEventDateHi(e.target.value)} className="w-full px-4 py-2 border border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm" />
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <input type="text" placeholder="Venue (e.g. Nashik, Maharashtra)" value={newEventVenue} onChange={(e) => setNewEventVenue(e.target.value)} className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600 text-sm" />
+                                            <input type="text" placeholder="स्थान (हिंदी)" value={newEventVenueHi} onChange={(e) => setNewEventVenueHi(e.target.value)} className="w-full px-4 py-2 border border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm" />
+                                        </div>
+                                        <input type="url" placeholder="Google Maps Link (optional)" value={newEventMapUrl} onChange={(e) => setNewEventMapUrl(e.target.value)} className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600 text-sm" />
                                         <button type="submit" disabled={saving} className="bg-neutral-900 hover:bg-orange-600 text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition">Deploy Event</button>
                                     </form>
                                     <div className="space-y-4">
                                         {eventsList.map(ev => (
-                                            <div key={ev.id} className={`p-5 rounded-xl border ${ev.is_active ? 'border-orange-300 bg-orange-50/50 shadow-sm' : 'border-neutral-200 bg-white'}`}>
-                                                <div className="flex justify-between items-start mb-2"><h4 className="font-bold text-lg text-neutral-900">{ev.title}</h4><div className="flex items-center gap-2">{ev.is_active ? <span className="bg-orange-600 text-white text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded">Active Homepage</span> : <button onClick={() => handleSetEventActive(ev.id)} className="text-xs font-semibold border border-neutral-300 px-3 py-1.5 rounded-lg hover:bg-neutral-100 transition">Set Active</button>}<button onClick={() => handleDeleteEvent(ev.id, ev.title)} className="text-neutral-400 hover:text-red-600 p-1.5 border border-transparent hover:border-red-200 rounded-lg hover:bg-red-50 transition"><Trash2 className="w-4 h-4" /></button></div></div>
-                                            </div>
+                                            <EventRow key={ev.id} event={ev} onSetActive={handleSetEventActive} onUpdate={handleUpdateEvent} onDelete={handleDeleteEvent} />
                                         ))}
                                     </div>
                                 </div>
@@ -568,6 +595,7 @@ export default function AdminDashboard() {
 // ============================================================================
 function CategoryRow({ category, onUpdate, onDelete }: { category: Category, onUpdate: (id: string, updates: Partial<Category>) => void, onDelete: (id: string) => void }) {
     const [price, setPrice] = useState(category.price);
+    const [titleHi, setTitleHi] = useState(category.title_hi || '');
     const [mediaUrl, setMediaUrl] = useState(category.media_url || '');
     const [desc, setDesc] = useState(category.description || '');
     const [detailedDesc, setDetailedDesc] = useState(category.detailed_description || '');
@@ -581,6 +609,7 @@ function CategoryRow({ category, onUpdate, onDelete }: { category: Category, onU
 
     const handleUpdateClick = () => {
         onUpdate(category.id, {
+            title_hi: titleHi || null,
             price, media_url: mediaUrl, description: desc, detailed_description: detailedDesc,
             description_hi: descHi || null, detailed_description_hi: detailedDescHi || null,
             is_full: isFull, is_enquiry_only: isEnquiry, max_capacity: capacity, show_availability: showAvail,
@@ -603,6 +632,8 @@ function CategoryRow({ category, onUpdate, onDelete }: { category: Category, onU
                 </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+                <div className="md:col-span-2"><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Tier Title (EN)</label><input type="text" value={category.title} readOnly className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-100 text-neutral-500 cursor-not-allowed" /></div>
+                <div className="md:col-span-2"><label className="block text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1">टियर शीर्षक (HI)</label><input type="text" value={titleHi} onChange={(e) => { setTitleHi(e.target.value); setIsChanged(true); }} className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg bg-blue-50/30 focus:outline-none focus:border-blue-500 focus:bg-white transition" /></div>
                 <div className="md:col-span-1"><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Fee (₹)</label><input type="number" value={price} onChange={(e) => { setPrice(Number(e.target.value)); setIsChanged(true); }} disabled={isEnquiry} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition disabled:opacity-50" /></div>
                 <div className="md:col-span-1"><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1"><Users className="w-3 h-3 inline" /> Max Capacity</label><input type="number" value={capacity} onChange={(e) => { setCapacity(Number(e.target.value)); setIsChanged(true); }} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
                 <div className="md:col-span-2 pt-5"><label className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-neutral-700"><input type="checkbox" checked={showAvail} onChange={(e) => { setShowAvail(e.target.checked); setIsChanged(true); }} className="w-4 h-4 text-orange-600 rounded border-neutral-300 focus:ring-orange-600" />Show Availability (e.g. &quot;Only 5 seats left&quot;)</label></div>
@@ -616,6 +647,94 @@ function CategoryRow({ category, onUpdate, onDelete }: { category: Category, onU
             <div className="mt-5 pt-4 border-t border-neutral-100 flex justify-end">
                 <button onClick={handleUpdateClick} disabled={!isChanged} className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all ${isChanged ? 'bg-orange-600 text-white shadow-md hover:bg-orange-700' : 'bg-neutral-100 text-neutral-400 cursor-not-allowed border border-neutral-200'}`}><Save className="w-4 h-4" />{isChanged ? "Commit Updates" : "Up to date"}</button>
             </div>
+        </div>
+    );
+}
+
+// ============================================================================
+// COMPONENT: EventRow
+// ============================================================================
+function EventRow({ event, onSetActive, onUpdate, onDelete }: {
+    event: EventItem;
+    onSetActive: (id: string) => void;
+    onUpdate: (id: string, updates: Partial<EventItem>) => void;
+    onDelete: (id: string, title: string) => void;
+}) {
+    const [expanded, setExpanded] = useState(false);
+    const [title, setTitle] = useState(event.title || '');
+    const [titleHi, setTitleHi] = useState(event.title_hi || '');
+    const [shortDesc, setShortDesc] = useState(event.short_description || '');
+    const [shortDescHi, setShortDescHi] = useState(event.short_description_hi || '');
+    const [longDesc, setLongDesc] = useState(event.long_description || '');
+    const [longDescHi, setLongDescHi] = useState(event.long_description_hi || '');
+    const [dateTime, setDateTime] = useState(event.date_time || '');
+    const [dateTimeHi, setDateTimeHi] = useState(event.date_time_hi || '');
+    const [venue, setVenue] = useState(event.venue || '');
+    const [venueHi, setVenueHi] = useState(event.venue_hi || '');
+    const [mapUrl, setMapUrl] = useState(event.map_url || '');
+    const [isChanged, setIsChanged] = useState(false);
+
+    const handleSave = () => {
+        onUpdate(event.id, {
+            title, title_hi: titleHi || null,
+            short_description: shortDesc, short_description_hi: shortDescHi || null,
+            long_description: longDesc, long_description_hi: longDescHi || null,
+            date_time: dateTime || null, date_time_hi: dateTimeHi || null,
+            venue: venue || null, venue_hi: venueHi || null,
+            map_url: mapUrl || null,
+        });
+        setIsChanged(false);
+    };
+
+    const track = () => setIsChanged(true);
+
+    return (
+        <div className={`rounded-xl border shadow-sm transition-all ${event.is_active ? 'border-orange-300 bg-orange-50/30' : 'border-neutral-200 bg-white'}`}>
+            <div className="flex justify-between items-start p-5">
+                <div className="flex-1 min-w-0">
+                    <h4 className="font-bold text-lg text-neutral-900 truncate">{event.title}</h4>
+                    {event.venue && <p className="text-xs text-neutral-500 mt-0.5">📍 {event.venue}{event.date_time ? ` · ${event.date_time}` : ''}</p>}
+                </div>
+                <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                    {event.is_active
+                        ? <span className="bg-orange-600 text-white text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded">Active</span>
+                        : <button onClick={() => onSetActive(event.id)} className="text-xs font-semibold border border-neutral-300 px-3 py-1.5 rounded-lg hover:bg-neutral-100 transition">Set Active</button>
+                    }
+                    <button onClick={() => setExpanded(v => !v)} className={`text-xs font-semibold border px-3 py-1.5 rounded-lg transition ${expanded ? 'bg-neutral-900 text-white border-neutral-900' : 'border-neutral-300 hover:bg-neutral-100'}`}>
+                        {expanded ? 'Close' : 'Edit'}
+                    </button>
+                    <button onClick={() => onDelete(event.id, event.title)} className="text-neutral-400 hover:text-red-600 p-1.5 border border-transparent hover:border-red-200 rounded-lg hover:bg-red-50 transition"><Trash2 className="w-4 h-4" /></button>
+                </div>
+            </div>
+
+            {expanded && (
+                <div className="border-t border-neutral-200 p-5 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Title (EN)</label><input value={title} onChange={e => { setTitle(e.target.value); track(); }} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
+                        <div><label className="block text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1">शीर्षक (HI)</label><input value={titleHi} onChange={e => { setTitleHi(e.target.value); track(); }} className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg bg-blue-50/30 focus:outline-none focus:border-blue-500 focus:bg-white transition" /></div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Short Description (EN)</label><textarea value={shortDesc} onChange={e => { setShortDesc(e.target.value); track(); }} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition h-16 resize-none" /></div>
+                        <div><label className="block text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1">संक्षिप्त विवरण (HI)</label><textarea value={shortDescHi} onChange={e => { setShortDescHi(e.target.value); track(); }} className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg bg-blue-50/30 focus:outline-none focus:border-blue-500 focus:bg-white transition h-16 resize-none" /></div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Long Description (EN)</label><textarea value={longDesc} onChange={e => { setLongDesc(e.target.value); track(); }} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition h-24 resize-none" /></div>
+                        <div><label className="block text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1">विस्तृत विवरण (HI)</label><textarea value={longDescHi} onChange={e => { setLongDescHi(e.target.value); track(); }} className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg bg-blue-50/30 focus:outline-none focus:border-blue-500 focus:bg-white transition h-24 resize-none" /></div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Date / Duration (EN)</label><input value={dateTime} onChange={e => { setDateTime(e.target.value); track(); }} placeholder="e.g. March 15–17, 2026" className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
+                        <div><label className="block text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1">तारीख / अवधि (HI)</label><input value={dateTimeHi} onChange={e => { setDateTimeHi(e.target.value); track(); }} className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg bg-blue-50/30 focus:outline-none focus:border-blue-500 focus:bg-white transition" /></div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Venue (EN)</label><input value={venue} onChange={e => { setVenue(e.target.value); track(); }} placeholder="e.g. Nashik, Maharashtra" className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
+                        <div><label className="block text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1">स्थान (HI)</label><input value={venueHi} onChange={e => { setVenueHi(e.target.value); track(); }} className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg bg-blue-50/30 focus:outline-none focus:border-blue-500 focus:bg-white transition" /></div>
+                    </div>
+                    <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Google Maps Link</label><input type="url" value={mapUrl} onChange={e => { setMapUrl(e.target.value); track(); }} placeholder="https://maps.google.com/..." className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
+                    <div className="flex justify-end pt-2 border-t border-neutral-100">
+                        <button onClick={handleSave} disabled={!isChanged} className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all ${isChanged ? 'bg-orange-600 text-white shadow-md hover:bg-orange-700' : 'bg-neutral-100 text-neutral-400 cursor-not-allowed border border-neutral-200'}`}><Save className="w-4 h-4" />{isChanged ? 'Save Changes' : 'Up to date'}</button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

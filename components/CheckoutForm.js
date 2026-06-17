@@ -405,6 +405,7 @@ export default function CheckoutForm({ category }) {
                                 onChange={handleChange}
                                 variant="outlined"
                                 placeholder="0"
+                                inputProps={{ min: 0, step: 1 }}
                                 InputProps={{
                                     startAdornment: <InputAdornment position="start">₹</InputAdornment>
                                 }}

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, Calendar, Image as ImageIcon, Video, History } from 'lucide-react';
 import { useLanguage } from './LanguageProvider';
 import LangToggle from './LangToggle';
+import Footer from './Footer';
 
 export default function PreviousEventsContent({ pastEvents, allMedia }) {
     const { t, lang } = useLanguage();
@@ -157,6 +158,7 @@ export default function PreviousEventsContent({ pastEvents, allMedia }) {
                     )}
                 </div>
             </section>
+            <Footer />
         </main>
     );
 }

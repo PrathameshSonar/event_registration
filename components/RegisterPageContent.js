@@ -7,6 +7,7 @@ import Link from 'next/link';
 import CheckoutForm from './CheckoutForm';
 import { useLanguage } from './LanguageProvider';
 import LangToggle from './LangToggle';
+import Footer from './Footer';
 
 export default function RegisterPageContent({ category }) {
     const { t, lang } = useLanguage();
@@ -45,6 +46,7 @@ export default function RegisterPageContent({ category }) {
                     <CheckoutForm category={category} />
                 </div>
             </div>
+            <Footer />
         </main>
     );
 }
