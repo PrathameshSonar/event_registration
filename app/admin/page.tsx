@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import {
     Lock, Download, Users, IndianRupee, Activity, Eye, X, Settings, ListFilter,
     Save, Trash2, Plus, Image as ImageIcon, Video, CalendarDays,
-    Ticket, Calendar as CalendarIcon, Search, LogOut
+    Ticket, Calendar as CalendarIcon, Search, LogOut, QrCode
 } from 'lucide-react';
 
 type Role = 'admin' | 'viewer';
@@ -114,6 +114,8 @@ export default function AdminDashboard() {
     const [selectedRegistration, setSelectedRegistration] = useState<Registration | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const PAGE_SIZE = 50;
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [sendingQr, setSendingQr] = useState(false);
 
     // ----- Auth -----
     const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -225,6 +227,17 @@ export default function AdminDashboard() {
         const { ok, data } = await mutate('/api/admin/events', 'DELETE', { id, password: pwd });
         if (!ok) alert(data.error || 'Delete failed.'); else await fetchAllData();
         setSaving(false);
+    };
+
+    const handleSendQr = async () => {
+        if (selectedIds.size === 0) return;
+        if (!confirm(`Send QR entry passes to ${selectedIds.size} selected registration(s) via email and WhatsApp?`)) return;
+        setSendingQr(true);
+        const { ok, data } = await mutate('/api/admin/send-qr', 'POST', { registrationIds: Array.from(selectedIds) });
+        setSendingQr(false);
+        if (!ok) { alert(data.error || 'Failed to send QR codes.'); return; }
+        alert(`QR codes sent!\n✉️ Email: ${data.emailSent} sent, ${data.emailFailed} failed\n📱 WhatsApp: ${data.waSent} sent, ${data.waFailed} failed`);
+        setSelectedIds(new Set());
     };
 
     // ----- Categories -----
@@ -501,19 +514,31 @@ export default function AdminDashboard() {
                             </div>
                         </div>
 
+                        {selectedIds.size > 0 && (
+                            <div className="flex items-center justify-between bg-orange-50 border border-orange-200 rounded-xl px-5 py-3">
+                                <span className="text-sm font-semibold text-orange-900">{selectedIds.size} registration(s) selected</span>
+                                <div className="flex items-center gap-3">
+                                    <button onClick={() => setSelectedIds(new Set())} className="text-xs text-orange-600 hover:text-orange-800 font-semibold transition">Clear selection</button>
+                                    <button onClick={handleSendQr} disabled={sendingQr} className="flex items-center gap-2 bg-orange-600 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-orange-700 disabled:opacity-50 transition">
+                                        {sendingQr ? 'Sending...' : `📲 Send QR (${selectedIds.size})`}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                         <div className="bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden">
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left text-sm whitespace-nowrap">
                                     <thead className="bg-neutral-100 text-neutral-600 font-medium border-b border-neutral-200">
-                                        <tr><th className="px-6 py-4">Status</th><th className="px-6 py-4">Name & Contact</th><th className="px-6 py-4">Gotra</th><th className="px-6 py-4">Category</th><th className="px-6 py-4">Amount</th><th className="px-6 py-4 text-center">Action</th></tr>
+                                        <tr><th className="w-10 px-4 py-3"><input type="checkbox" className="w-4 h-4 rounded border-neutral-300 text-orange-600 focus:ring-orange-500" checked={pagedRegistrations.length > 0 && pagedRegistrations.every(r => selectedIds.has(r.id))} onChange={(e) => { const next = new Set(selectedIds); pagedRegistrations.forEach(r => e.target.checked ? next.add(r.id) : next.delete(r.id)); setSelectedIds(next); }} /></th><th className="px-6 py-4">Status</th><th className="px-6 py-4">Name & Contact</th><th className="px-6 py-4">Gotra</th><th className="px-6 py-4">Category</th><th className="px-6 py-4">Amount</th><th className="px-6 py-4 text-center">Action</th></tr>
                                     </thead>
                                     <tbody className="divide-y divide-neutral-100">
-                                        {loading ? (<tr><td colSpan={6} className="px-6 py-8 text-center text-neutral-400">Loading ledger data...</td></tr>) : filteredRegistrations.length === 0 ? (<tr><td colSpan={6} className="px-6 py-8 text-center text-neutral-400">No records match your filters.</td></tr>) : (
+                                        {loading ? (<tr><td colSpan={7} className="px-6 py-8 text-center text-neutral-400">Loading ledger data...</td></tr>) : filteredRegistrations.length === 0 ? (<tr><td colSpan={7} className="px-6 py-8 text-center text-neutral-400">No records match your filters.</td></tr>) : (
                                             pagedRegistrations.map((reg) => {
                                                 const locked = TERMINAL_STATUSES.includes(reg.payment_status);
                                                 const editable = isAdmin && !locked;
                                                 return (
                                                     <tr key={reg.id} className="hover:bg-neutral-50 transition">
+                                                        <td className="px-4 py-4"><input type="checkbox" className="w-4 h-4 rounded border-neutral-300 text-orange-600 focus:ring-orange-500" checked={selectedIds.has(reg.id)} onChange={(e) => { const next = new Set(selectedIds); e.target.checked ? next.add(reg.id) : next.delete(reg.id); setSelectedIds(next); }} /></td>
                                                         <td className="px-6 py-4">
                                                             {editable ? (
                                                                 <select
@@ -534,7 +559,12 @@ export default function AdminDashboard() {
                                                         <td className="px-6 py-4 text-neutral-600">{reg.gotra || '-'}</td>
                                                         <td className="px-6 py-4 text-neutral-600">{reg.categories?.title || 'Deleted Category'}</td>
                                                         <td className="px-6 py-4 font-bold text-neutral-900">₹{reg.total_amount}</td>
-                                                        <td className="px-6 py-4 text-center"><button onClick={() => setSelectedRegistration(reg)} className="p-2 border border-neutral-200 rounded-lg bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition shadow-sm"><Eye className="w-4 h-4" /></button></td>
+                                                        <td className="px-6 py-4 text-center">
+                                                            <div className="flex items-center justify-center gap-2">
+                                                                <button onClick={() => setSelectedRegistration(reg)} className="p-2 border border-neutral-200 rounded-lg bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition shadow-sm" title="View details"><Eye className="w-4 h-4" /></button>
+                                                                <a href={`/api/admin/qr/${reg.id}`} className="p-2 border border-neutral-200 rounded-lg bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition shadow-sm" title="Download QR Code"><QrCode className="w-4 h-4" /></a>
+                                                            </div>
+                                                        </td>
                                                     </tr>
                                                 );
                                             })
