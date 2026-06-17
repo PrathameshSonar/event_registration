@@ -29,7 +29,7 @@ export default function CheckoutForm({ category }) {
     });
 
     const isEnquiry = category.is_enquiry_only === true;
-    const donationValue = isEnquiry ? 0 : (parseFloat(formData.donation) || 0);
+    const donationValue = isEnquiry ? 0 : Math.max(0, parseFloat(formData.donation) || 0);
     const totalAmount = isEnquiry ? 0 : (category.price + donationValue);
 
     const handleChange = (e) => {
@@ -402,7 +402,11 @@ export default function CheckoutForm({ category }) {
                                 name="donation"
                                 type="number"
                                 value={formData.donation}
-                                onChange={handleChange}
+                                onChange={(e) => {
+                                    const val = parseFloat(e.target.value);
+                                    const safe = isNaN(val) ? '' : String(Math.max(0, val));
+                                    setFormData(prev => ({ ...prev, donation: safe }));
+                                }}
                                 variant="outlined"
                                 placeholder="0"
                                 inputProps={{ min: 0, step: 1 }}
