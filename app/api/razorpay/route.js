@@ -64,7 +64,8 @@ export async function POST(request) {
                 .in('payment_status', ['completed', 'contacted', 'enquired']);
 
             if (takenError) {
-                console.error('Capacity check failed:', takenError);
+                console.error('Capacity check failed — code:', takenError.code, '| message:', takenError.message, '| hint:', takenError.hint);
+                console.error('supabaseUrl in use:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'set' : 'MISSING', '| serviceKey:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'set' : 'MISSING');
                 return NextResponse.json({ error: 'Could not verify availability. Please try again.' }, { status: 500 });
             }
             const taken = (takenRows || []).reduce((sum, r) => sum + (r.attendees_count || 1), 0);
