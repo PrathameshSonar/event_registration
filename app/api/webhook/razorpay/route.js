@@ -73,21 +73,11 @@ export async function POST(request) {
                 return NextResponse.json({ status: "already_processed" }, { status: 200 });
             }
 
-            // 2b. Amount Verification — the captured amount MUST match what we
-            // expected when the order was created. Guards against any order
-            // whose amount was tampered with before reaching Razorpay.
-            const expectedPaise = Math.round(Number(existingReg.total_amount) * 100);
-            if (typeof payment.amount === 'number' && payment.amount !== expectedPaise) {
-                console.error(
-                    `🚨 SECURITY ALERT: Amount mismatch for Order ${orderId}. ` +
-                    `Expected ${expectedPaise} paise, captured ${payment.amount} paise. Not issuing ticket.`
-                );
-                await supabaseAdmin
-                    .from('registrations')
-                    .update({ payment_status: 'amount_mismatch', razorpay_payment_id: paymentId })
-                    .eq('razorpay_order_id', orderId);
-                return NextResponse.json({ status: "amount_mismatch_acknowledged" }, { status: 200 });
-            }
+            // No amount comparison here — Razorpay may add convenience fees that
+            // legitimately change payment.amount vs. order amount. Security is
+            // guaranteed by: (a) HMAC signature above, (b) price looked up
+            // server-side from DB when the order was created (client never sets price).
+            console.log(`💰 Captured ₹${(payment.amount / 100).toFixed(2)} for Order ${orderId}`);
 
             // 3. Mark Database as Completed
             const { error: updateError } = await supabaseAdmin

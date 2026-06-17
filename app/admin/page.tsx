@@ -287,6 +287,20 @@ export default function AdminDashboard() {
     });
 
     const totalRevenue = filteredRegistrations.filter(r => r.payment_status === 'completed').reduce((sum, r) => sum + Number(r.total_amount || 0), 0);
+
+    // Category sales breakdown — always over the FULL (unfiltered) dataset
+    const categorySales = (() => {
+        const map: Record<string, { title: string; paid: number; attendees: number; revenue: number; donations: number }> = {};
+        registrations.filter(r => r.payment_status === 'completed').forEach(r => {
+            const title = r.categories?.title || 'Deleted Tier';
+            if (!map[title]) map[title] = { title, paid: 0, attendees: 0, revenue: 0, donations: 0 };
+            map[title].paid += 1;
+            map[title].attendees += r.attendees_count || 1;
+            map[title].revenue += Number(r.total_amount || 0);
+            map[title].donations += Number(r.donation_amount || 0);
+        });
+        return Object.values(map).sort((a, b) => b.revenue - a.revenue);
+    })();
     const completedCount = filteredRegistrations.filter(r => r.payment_status === 'completed').length;
 
     const categoryMetrics = filteredRegistrations.reduce((acc, reg) => {
@@ -397,6 +411,49 @@ export default function AdminDashboard() {
                             <div className="bg-white border border-neutral-200 p-6 rounded-xl flex items-center gap-4 shadow-sm"><div className="p-4 bg-blue-100 text-blue-600 rounded-lg"><Activity className="w-6 h-6" /></div><div><p className="text-sm font-medium text-neutral-500">Filtered Attempts</p><p className="text-2xl font-bold">{filteredRegistrations.length}</p></div></div>
                         </div>
 
+                        {/* Sales per category */}
+                        {categorySales.length > 0 && (
+                            <div className="bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden">
+                                <div className="px-6 py-4 border-b border-neutral-100 flex items-center gap-2">
+                                    <IndianRupee className="w-4 h-4 text-green-600" />
+                                    <h3 className="text-sm font-bold text-neutral-700 uppercase tracking-wider">Sales by Category (All-time, Paid only)</h3>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-neutral-50 border-b border-neutral-100">
+                                            <tr>
+                                                <th className="text-left px-6 py-3 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Category</th>
+                                                <th className="text-right px-6 py-3 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Registrations</th>
+                                                <th className="text-right px-6 py-3 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Attendees</th>
+                                                <th className="text-right px-6 py-3 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Donations</th>
+                                                <th className="text-right px-6 py-3 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Total Revenue</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-neutral-100">
+                                            {categorySales.map(row => (
+                                                <tr key={row.title} className="hover:bg-neutral-50 transition">
+                                                    <td className="px-6 py-3 font-semibold text-neutral-900">{row.title}</td>
+                                                    <td className="px-6 py-3 text-right text-neutral-700">{row.paid}</td>
+                                                    <td className="px-6 py-3 text-right text-neutral-700">{row.attendees}</td>
+                                                    <td className="px-6 py-3 text-right text-neutral-500">₹{row.donations.toLocaleString('en-IN')}</td>
+                                                    <td className="px-6 py-3 text-right font-bold text-green-700">₹{row.revenue.toLocaleString('en-IN')}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                        <tfoot className="bg-neutral-50 border-t-2 border-neutral-200">
+                                            <tr>
+                                                <td className="px-6 py-3 font-bold text-neutral-900">Total</td>
+                                                <td className="px-6 py-3 text-right font-bold text-neutral-900">{categorySales.reduce((s, r) => s + r.paid, 0)}</td>
+                                                <td className="px-6 py-3 text-right font-bold text-neutral-900">{categorySales.reduce((s, r) => s + r.attendees, 0)}</td>
+                                                <td className="px-6 py-3 text-right font-bold text-neutral-500">₹{categorySales.reduce((s, r) => s + r.donations, 0).toLocaleString('en-IN')}</td>
+                                                <td className="px-6 py-3 text-right font-bold text-green-800 text-base">₹{categorySales.reduce((s, r) => s + r.revenue, 0).toLocaleString('en-IN')}</td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="bg-white p-6 rounded-xl border border-neutral-200 shadow-sm">
                             <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2"><Ticket className="w-4 h-4" /> Sales & Enquiries per Category</h3>
                             <div className="flex flex-wrap gap-4">
@@ -418,7 +475,7 @@ export default function AdminDashboard() {
                                 <div className="flex items-center gap-2 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus-within:border-orange-600 transition flex-wrap"><CalendarIcon className="w-4 h-4 text-neutral-400 flex-shrink-0" /><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-transparent focus:outline-none text-neutral-600 min-w-0" /><span className="text-neutral-400">–</span><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="bg-transparent focus:outline-none text-neutral-600 min-w-0" /></div>
                                 <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="flex-1 min-w-[140px] px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600"><option value="all">All Categories</option>{uniqueCategories.map((cat, idx) => <option key={idx} value={cat as string}>{cat}</option>)}<option value="Deleted"> [Deleted Tiers]</option></select>
                                 <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="flex-1 min-w-[160px] px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600">
-                                    <option value="all">All Statuses</option><option value="completed">Completed (Paid)</option><option value="enquired">Enquired</option><option value="contacted">Contacted</option><option value="pending">Pending Checkout</option><option value="failed">Failed Payment</option><option value="refunded">Refunded</option><option value="amount_mismatch">Amount Mismatch</option>
+                                    <option value="all">All Statuses</option><option value="completed">Completed (Paid)</option><option value="enquired">Enquired</option><option value="contacted">Contacted</option><option value="pending">Pending Checkout</option><option value="failed">Failed Payment</option><option value="refunded">Refunded</option>
                                 </select>
                             </div>
                         </div>
