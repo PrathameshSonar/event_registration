@@ -50,7 +50,7 @@ async function dispatchTicket(reg, paymentId) {
                     </div>
                     <div style="padding: 32px; background-color: #ffffff;">
                         <p style="font-size: 16px; color: #404040; margin-top: 0;">Namaste <strong>${firstName} ${lastName}</strong>,</p>
-                        <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">Your contribution has been fully received. Below is your official digital entry pass registry. Please keep this email handy at the venue gateway.</p>
+                        <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">Your registration is confirmed and your payment has been fully received. Below are your registration details. Your QR entry pass will be sent separately a few days before the event — please carry it at the venue gateway.</p>
                         <div style="background-color: #f9fafb; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 24px; margin: 24px 0;">
                         <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                             <tr><td style="padding: 6px 0; color: #6b7280;">Access Tier:</td><td style="padding: 6px 0; font-weight: bold; color: #111827; text-align: right;">${categoryTitle}</td></tr>

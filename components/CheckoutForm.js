@@ -469,8 +469,10 @@ export default function CheckoutForm({ category }) {
           <Mail className="w-4 h-4 flex-shrink-0" />
           <span>
             {successData.partial
-              ? `Balance payment link sent to ${successData.email} & your WhatsApp. Your entry pass is issued after full payment.`
-              : `Confirmation email ${successData.isEnquiry ? "" : "with your QR entry pass "}sent to ${successData.email}`}
+              ? `Balance payment link sent to ${successData.email} & your WhatsApp. Your QR entry pass is sent before the event, after full payment.`
+              : successData.isEnquiry
+                ? `Confirmation sent to ${successData.email}`
+                : `Confirmation email sent to ${successData.email}. Your QR entry pass will be sent a few days before the event.`}
           </span>
         </div>
 

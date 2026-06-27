@@ -479,6 +479,30 @@ export default function AdminDashboard() {
                                     <p><span className="text-neutral-500 block text-xs">Contact Info</span><span className="font-semibold block">{selectedRegistration.phone}</span><span className="text-xs text-neutral-600">{selectedRegistration.email}</span></p>
                                     <p className="mt-3"><span className="text-neutral-500 block text-xs">Address</span><span>{selectedRegistration.taluka}, {selectedRegistration.state} - {selectedRegistration.pincode}</span></p>
                                 </div>
+                                <div className="col-span-1 md:col-span-2">
+                                    <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2 border-b pb-1">Payment</h3>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-start">
+                                        <p>
+                                            <span className="text-neutral-500 block text-xs mb-1">Status</span>
+                                            <span className={`inline-flex items-center py-1 px-2.5 rounded-full text-xs font-semibold border ${statusClasses(selectedRegistration.payment_status)}`}>{STATUS_LABEL[selectedRegistration.payment_status]}</span>
+                                        </p>
+                                        <p><span className="text-neutral-500 block text-xs">Total</span><span className="font-bold">₹{selectedRegistration.total_amount}</span></p>
+                                        {selectedRegistration.payment_status === 'advance_paid' ? (
+                                            <>
+                                                <p><span className="text-neutral-500 block text-xs">Paid</span><span className="font-bold text-green-700">₹{selectedRegistration.amount_paid}</span></p>
+                                                <p><span className="text-neutral-500 block text-xs">Balance Due</span><span className="font-bold text-amber-700">₹{selectedRegistration.amount_due}</span></p>
+                                            </>
+                                        ) : (
+                                            <p><span className="text-neutral-500 block text-xs">Plan</span><span className="font-semibold capitalize">{selectedRegistration.payment_plan || 'full'}</span></p>
+                                        )}
+                                    </div>
+                                    {selectedRegistration.razorpay_payment_id && (
+                                        <p className="mt-3"><span className="text-neutral-500 block text-xs">Payment Ref</span><span className="font-mono text-xs text-neutral-600 break-all">{selectedRegistration.razorpay_payment_id}</span></p>
+                                    )}
+                                    {selectedRegistration.payment_status === 'advance_paid' && selectedRegistration.balance_link_url && (
+                                        <p className="mt-2"><a href={selectedRegistration.balance_link_url} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-orange-600 hover:underline break-all">Balance payment link →</a></p>
+                                    )}
+                                </div>
                                 <div className="col-span-1 md:col-span-2 bg-orange-50 border border-orange-100 p-4 rounded-xl">
                                     <span className="text-xs uppercase tracking-wider font-bold text-orange-800 block mb-1">Issue/Samasya Provided</span>
                                     <p className="text-neutral-900 whitespace-pre-wrap">{selectedRegistration.problem_samasya || "None declared."}</p>
