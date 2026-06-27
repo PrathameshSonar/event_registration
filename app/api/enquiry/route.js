@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { validateSubmission } from '@/lib/formFieldsServer';
+import { upsertProfile } from '@/lib/profiles';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,10 +49,13 @@ export async function POST(request) {
         if (catError || !category) return badRequest('Selected category does not exist.');
         if (!category.is_enquiry_only) return badRequest('This category requires payment, not an enquiry.');
 
+        const profileId = await upsertProfile(supabaseAdmin, attendee);
+
         const fullName = `${attendee.salutation || ''} ${attendee.firstName} ${attendee.lastName}`.trim();
         const { error: dbError } = await supabaseAdmin.from('registrations').insert([
             {
                 category_id: category.id,
+                profile_id: profileId,
                 full_name: fullName,
                 salutation: attendee.salutation || null,
                 first_name: attendee.firstName,

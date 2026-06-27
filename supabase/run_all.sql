@@ -75,6 +75,84 @@ EXCEPTION
 END $$;
 
 
+-- 1c) ── Canonical user profiles (one row per person, keyed by phone) ────────
+-- A clean, reusable user identity separate from event-specific registrations.
+-- Phone is stored E.164 (+91XXXXXXXXXX) and is unique. The app upserts a
+-- profile by phone on every registration; registrations link via profile_id.
+CREATE TABLE IF NOT EXISTS profiles (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    phone         TEXT UNIQUE NOT NULL,   -- E.164, e.g. +919876543210
+    email         TEXT,
+    salutation    TEXT,
+    first_name    TEXT,
+    last_name     TEXT,
+    full_name     TEXT,
+    gotra         TEXT,
+    gender        TEXT,
+    date_of_birth TEXT,
+    pincode       TEXT,
+    taluka        TEXT,
+    state         TEXT,
+    verified_at   TIMESTAMPTZ,            -- set when the phone is OTP-verified (future)
+    created_at    TIMESTAMPTZ DEFAULT now(),
+    updated_at    TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE registrations
+    ADD COLUMN IF NOT EXISTS profile_id UUID REFERENCES profiles(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS registrations_profile_id_idx ON registrations(profile_id);
+
+GRANT ALL ON profiles TO service_role;
+
+-- One-time backfill: create one profile per unique normalized phone from
+-- existing registrations (keeping each person's MOST RECENT details), then
+-- link the registrations. Safe to re-run: ON CONFLICT DO NOTHING + only links
+-- rows that aren't linked yet.
+DO $$
+BEGIN
+    INSERT INTO profiles (phone, email, salutation, first_name, last_name, full_name,
+                          gotra, gender, date_of_birth, pincode, taluka, state, created_at)
+    SELECT DISTINCT ON (norm_phone)
+        norm_phone, email, salutation, first_name, last_name, full_name,
+        gotra, gender, date_of_birth::text, pincode, taluka, state, created_at
+    FROM (
+        SELECT r.*,
+            CASE
+                WHEN length(regexp_replace(r.phone, '[^0-9]', '', 'g')) = 12
+                     AND left(regexp_replace(r.phone, '[^0-9]', '', 'g'), 2) = '91'
+                    THEN '+91' || right(regexp_replace(r.phone, '[^0-9]', '', 'g'), 10)
+                WHEN length(regexp_replace(r.phone, '[^0-9]', '', 'g')) = 11
+                     AND left(regexp_replace(r.phone, '[^0-9]', '', 'g'), 1) = '0'
+                    THEN '+91' || right(regexp_replace(r.phone, '[^0-9]', '', 'g'), 10)
+                WHEN length(regexp_replace(r.phone, '[^0-9]', '', 'g')) = 10
+                    THEN '+91' || regexp_replace(r.phone, '[^0-9]', '', 'g')
+                ELSE NULL
+            END AS norm_phone
+        FROM registrations r
+        WHERE r.phone IS NOT NULL
+    ) s
+    WHERE norm_phone IS NOT NULL
+    ORDER BY norm_phone, created_at DESC
+    ON CONFLICT (phone) DO NOTHING;
+
+    UPDATE registrations reg
+    SET profile_id = p.id
+    FROM profiles p
+    WHERE reg.profile_id IS NULL
+      AND p.phone = CASE
+            WHEN length(regexp_replace(reg.phone, '[^0-9]', '', 'g')) = 12
+                 AND left(regexp_replace(reg.phone, '[^0-9]', '', 'g'), 2) = '91'
+                THEN '+91' || right(regexp_replace(reg.phone, '[^0-9]', '', 'g'), 10)
+            WHEN length(regexp_replace(reg.phone, '[^0-9]', '', 'g')) = 11
+                 AND left(regexp_replace(reg.phone, '[^0-9]', '', 'g'), 1) = '0'
+                THEN '+91' || right(regexp_replace(reg.phone, '[^0-9]', '', 'g'), 10)
+            WHEN length(regexp_replace(reg.phone, '[^0-9]', '', 'g')) = 10
+                THEN '+91' || regexp_replace(reg.phone, '[^0-9]', '', 'g')
+            ELSE NULL
+        END;
+END $$;
+
+
 -- 2) ── Entry checkpoints + per-scan audit trail ────────────────────────────
 CREATE TABLE IF NOT EXISTS checkpoints (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -213,12 +291,15 @@ GRANT ALL ON event_reminders TO service_role;
 
 
 -- 10) ── Row Level Security ──────────────────────────────────────────────────
--- registrations hold PII: enable RLS with NO anon policy (service role bypasses).
+-- registrations + profiles hold PII: enable RLS with NO anon policy (service role bypasses).
 ALTER TABLE public.registrations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.registrations FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "public read registrations"  ON public.registrations;
 DROP POLICY IF EXISTS "public insert registrations" ON public.registrations;
 DROP POLICY IF EXISTS "anon all registrations"      ON public.registrations;
+
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles FORCE ROW LEVEL SECURITY;
 
 -- Public marketing tables: anon may READ only.
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;

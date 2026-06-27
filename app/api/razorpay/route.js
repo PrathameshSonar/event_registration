@@ -8,6 +8,7 @@ import Razorpay from 'razorpay';
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { validateSubmission } from '@/lib/formFieldsServer';
+import { upsertProfile } from '@/lib/profiles';
 
 export const dynamic = 'force-dynamic';
 
@@ -149,11 +150,15 @@ export async function POST(request) {
             receipt: `rcpt_${Date.now()}`,
         });
 
-        // 6. Insert the pending registration server-side (single source of truth)
+        // 6. Upsert the canonical user profile (keyed by phone) and link it.
+        const profileId = await upsertProfile(supabaseAdmin, attendee);
+
+        // 7. Insert the pending registration server-side (single source of truth)
         const fullName = `${attendee.salutation || ''} ${attendee.firstName} ${attendee.lastName}`.trim();
         const { error: dbError } = await supabaseAdmin.from('registrations').insert([
             {
                 category_id: category.id,
+                profile_id: profileId,
                 full_name: fullName,
                 salutation: attendee.salutation || null,
                 first_name: attendee.firstName,
