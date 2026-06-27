@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useLanguage } from './LanguageProvider';
 import LangToggle from './LangToggle';
 import Footer from './Footer';
+import YouTubeEmbed from './YouTubeEmbed';
 
 export default function HomeContent({ pageData, categories, mediaItems, seatsTaken }) {
     const { t, lang } = useLanguage();
@@ -171,7 +172,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                                     {youtubeVideos.map((video) => (
                                         <div key={video.id} className="bg-white border rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition">
                                             <div className="aspect-video w-full">
-                                                <iframe src={video.url} title={video.caption || 'YouTube Video'} className="w-full h-full" frameBorder="0" allowFullScreen />
+                                                <YouTubeEmbed url={video.url} title={video.caption || 'YouTube Video'} />
                                             </div>
                                             {video.caption && <div className="p-4 bg-white border-t"><p className="text-sm font-semibold text-neutral-800">{video.caption}</p></div>}
                                         </div>

@@ -7,6 +7,7 @@ import {
     Save, Trash2, Plus, Image as ImageIcon, Video, CalendarDays,
     Ticket, Calendar as CalendarIcon, Search, LogOut, QrCode
 } from 'lucide-react';
+import { youtubeThumbnail } from '@/lib/youtube';
 
 type Role = 'admin' | 'viewer';
 type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'enquired' | 'contacted' | 'amount_mismatch';
@@ -778,7 +779,11 @@ export default function AdminDashboard() {
                                                 <div className="flex items-center gap-4 w-full">
                                                     <div className="w-24 h-16 bg-neutral-100 rounded-md overflow-hidden flex items-center justify-center border border-neutral-200 flex-shrink-0 relative">
                                                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                        {media.media_type === 'image' ? <img src={media.url} alt="media" className="w-full h-full object-cover" /> : <Video className="w-6 h-6 text-neutral-400" />}
+                                                        {media.media_type === 'image'
+                                                            ? <img src={media.url} alt="media" className="w-full h-full object-cover" />
+                                                            : youtubeThumbnail(media.url)
+                                                                ? <><img src={youtubeThumbnail(media.url)!} alt="video" className="w-full h-full object-cover" /><Video className="w-5 h-5 text-white absolute drop-shadow" /></>
+                                                                : <Video className="w-6 h-6 text-neutral-400" />}
                                                     </div>
                                                     <div className="flex-1"><p className="text-sm font-bold text-neutral-900">{media.caption || 'Untitled Asset'}</p><div className="flex items-center gap-2 mt-1.5"><span className="uppercase tracking-wider font-bold text-[10px] bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded border border-neutral-200">{media.media_type}</span><span className="text-xs text-neutral-500">Linked to: {media.events?.title || 'Unknown Event'}</span></div></div>
                                                 </div>

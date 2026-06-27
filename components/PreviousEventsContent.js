@@ -7,6 +7,7 @@ import { ArrowLeft, Calendar, Image as ImageIcon, Video, History } from 'lucide-
 import { useLanguage } from './LanguageProvider';
 import LangToggle from './LangToggle';
 import Footer from './Footer';
+import YouTubeEmbed from './YouTubeEmbed';
 
 export default function PreviousEventsContent({ pastEvents, allMedia }) {
     const { t, lang } = useLanguage();
@@ -108,14 +109,7 @@ export default function PreviousEventsContent({ pastEvents, allMedia }) {
                                                             {videos.map(video => (
                                                                 <div key={video.id} className="rounded-xl overflow-hidden border border-neutral-200 bg-neutral-50">
                                                                     <div className="aspect-video w-full">
-                                                                        <iframe
-                                                                            src={video.url}
-                                                                            title={video.caption || 'YouTube Video Stream'}
-                                                                            className="w-full h-full"
-                                                                            frameBorder="0"
-                                                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                                                            allowFullScreen
-                                                                        />
+                                                                        <YouTubeEmbed url={video.url} title={video.caption || 'YouTube Video Stream'} />
                                                                     </div>
                                                                     {video.caption && <div className="p-3 bg-white border-t text-sm font-medium text-neutral-700">{video.caption}</div>}
                                                                 </div>
