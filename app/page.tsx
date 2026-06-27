@@ -35,10 +35,11 @@ export default async function Home() {
     let highlights: any[] = [];
     let faqs: any[] = [];
     if (pageData?.id) {
+        // Use the service-role client: these tables aren't granted to the anon role.
         const [schedRes, hlRes, faqRes] = await Promise.all([
-            supabase.from('event_schedule').select('*').eq('event_id', pageData.id).order('sort_order'),
-            supabase.from('event_highlights').select('*').eq('event_id', pageData.id).order('sort_order'),
-            supabase.from('event_faqs').select('*').eq('event_id', pageData.id).order('sort_order'),
+            supabaseAdmin.from('event_schedule').select('*').eq('event_id', pageData.id).order('sort_order'),
+            supabaseAdmin.from('event_highlights').select('*').eq('event_id', pageData.id).order('sort_order'),
+            supabaseAdmin.from('event_faqs').select('*').eq('event_id', pageData.id).order('sort_order'),
         ]);
         schedule = schedRes.data || [];
         highlights = hlRes.data || [];

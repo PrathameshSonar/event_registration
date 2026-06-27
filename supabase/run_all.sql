@@ -5,10 +5,34 @@
 -- Safe to re-run: every statement uses IF NOT EXISTS / ADD COLUMN IF NOT EXISTS,
 -- so running it again won't error or duplicate anything.
 --
--- Assumes the base tables already exist: events, categories, registrations.
--- (This bundles everything built after the original schema — it does NOT
---  re-run the original add_hindi_columns / update_events_schema / rls scripts.)
+-- Assumes the base tables already exist: events, categories, registrations,
+-- event_media, page_content. Everything else (columns, tables, RLS) is here.
 -- =============================================================================
+
+
+-- 0a) ── Event date / venue columns ─────────────────────────────────────────
+ALTER TABLE events
+    ADD COLUMN IF NOT EXISTS date_time    TEXT,
+    ADD COLUMN IF NOT EXISTS date_time_hi TEXT,
+    ADD COLUMN IF NOT EXISTS venue        TEXT,
+    ADD COLUMN IF NOT EXISTS venue_hi     TEXT,
+    ADD COLUMN IF NOT EXISTS map_url      TEXT;
+
+
+-- 0b) ── Hindi language columns ─────────────────────────────────────────────
+ALTER TABLE page_content
+    ADD COLUMN IF NOT EXISTS title_hi TEXT,
+    ADD COLUMN IF NOT EXISTS description_text_hi TEXT;
+
+ALTER TABLE events
+    ADD COLUMN IF NOT EXISTS title_hi TEXT,
+    ADD COLUMN IF NOT EXISTS short_description_hi TEXT,
+    ADD COLUMN IF NOT EXISTS long_description_hi TEXT;
+
+ALTER TABLE categories
+    ADD COLUMN IF NOT EXISTS title_hi TEXT,
+    ADD COLUMN IF NOT EXISTS description_hi TEXT,
+    ADD COLUMN IF NOT EXISTS detailed_description_hi TEXT;
 
 
 -- 1) ── Per-category attendee cap ───────────────────────────────────────────
@@ -151,6 +175,36 @@ CREATE INDEX IF NOT EXISTS event_reminders_event_idx ON event_reminders(event_id
 
 GRANT ALL ON event_faqs TO service_role;
 GRANT ALL ON event_reminders TO service_role;
+
+
+-- 10) ── Row Level Security ──────────────────────────────────────────────────
+-- registrations hold PII: enable RLS with NO anon policy (service role bypasses).
+ALTER TABLE public.registrations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.registrations FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "public read registrations"  ON public.registrations;
+DROP POLICY IF EXISTS "public insert registrations" ON public.registrations;
+DROP POLICY IF EXISTS "anon all registrations"      ON public.registrations;
+
+-- Public marketing tables: anon may READ only.
+ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "categories read for all" ON public.categories;
+CREATE POLICY "categories read for all" ON public.categories FOR SELECT USING (true);
+
+ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "events read for all" ON public.events;
+CREATE POLICY "events read for all" ON public.events FOR SELECT USING (true);
+
+ALTER TABLE public.event_media ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "event_media read for all" ON public.event_media;
+CREATE POLICY "event_media read for all" ON public.event_media FOR SELECT USING (true);
+
+ALTER TABLE public.page_content ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "page_content read for all" ON public.page_content;
+CREATE POLICY "page_content read for all" ON public.page_content FOR SELECT USING (true);
+
+-- Note: the feature tables added above (checkpoints, form_fields, event_schedule,
+-- event_highlights, event_faqs, event_reminders, etc.) are read server-side via
+-- the service-role key, so they need no anon policy.
 
 -- =============================================================================
 -- Done. Next steps in the app:
