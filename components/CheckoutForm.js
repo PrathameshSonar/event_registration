@@ -1,7 +1,7 @@
 // components/CheckoutForm.js
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ShieldCheck,
   AlertCircle,
@@ -23,8 +23,12 @@ import {
   FormControlLabel,
 } from "@mui/material";
 import { useLanguage } from "./LanguageProvider";
+import { BUILTIN_FIELDS, CORE_KEYS } from "@/lib/formFields";
 
 const TODAY_STR = new Date().toISOString().split("T")[0];
+const BUILTIN_DEFAULT_REQUIRED = Object.fromEntries(
+  BUILTIN_FIELDS.map((f) => [f.field_key, f.default_required]),
+);
 
 function validatePhone(raw) {
   const clean = String(raw)
@@ -38,7 +42,7 @@ function hasHtml(str) {
 }
 
 export default function CheckoutForm({ category }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
 
   const [loading, setLoading] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -60,6 +64,38 @@ export default function CheckoutForm({ category }) {
     attendeesCount: 1,
     donation: "",
   });
+
+  // Admin-configured field visibility/requirements (null = still loading → defaults).
+  const [serverFields, setServerFields] = useState(null);
+  const [customValues, setCustomValues] = useState({});
+
+  useEffect(() => {
+    fetch("/api/form-fields")
+      .then((r) => r.json())
+      .then((d) => setServerFields(Array.isArray(d.fields) ? d.fields : []))
+      .catch(() => setServerFields([]));
+  }, []);
+
+  // Built-in lookup + custom field list derived from the server config.
+  const builtinByKey = {};
+  (serverFields || []).forEach((f) => {
+    if (!f.is_custom) builtinByKey[f.field_key] = f;
+  });
+  const customFields = (serverFields || []).filter((f) => f.is_custom);
+
+  // While loading (serverFields === null) default to showing built-ins.
+  const isVisible = (key) => {
+    if (CORE_KEYS.has(key)) return true;
+    if (serverFields === null) return true;
+    return !!builtinByKey[key];
+  };
+  const isRequired = (key) => {
+    if (CORE_KEYS.has(key)) return true;
+    if (serverFields === null) return !!BUILTIN_DEFAULT_REQUIRED[key];
+    return !!builtinByKey[key]?.is_required;
+  };
+  const customLabel = (f) =>
+    lang === "hi" && f.label_hi ? f.label_hi : f.label;
 
   const isEnquiry = category.is_enquiry_only === true;
   const donationValue = isEnquiry
@@ -101,20 +137,51 @@ export default function CheckoutForm({ category }) {
   };
 
   const validate = () => {
+    // Core fields — always validated.
     if (!validatePhone(formData.phone)) {
       return "Enter a valid 10-digit Indian mobile number (starts with 6, 7, 8 or 9).";
     }
     if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
       return "Enter a valid email address.";
     }
-    if (formData.dob && formData.dob > TODAY_STR) {
+    // DOB future-date guard (only when the field is shown).
+    if (isVisible("dob") && formData.dob && formData.dob > TODAY_STR) {
       return "Date of birth cannot be a future date.";
     }
-    if (hasHtml(formData.problem)) {
+    // Problem/Samasya — script guard + required-when-configured.
+    if (isVisible("problem") && hasHtml(formData.problem)) {
       return "Problem/Samasya must be plain text — HTML and scripts are not allowed.";
     }
-    if (!formData.problem.trim()) {
-      return "Please describe your problem/samasya.";
+    // Required built-in fields (visible + marked required by admin).
+    const labels = {
+      salutation: t("form_title"),
+      gotra: t("form_gotra"),
+      gender: t("form_gender"),
+      dob: t("form_dob"),
+      pincode: t("form_pincode"),
+      problem: t("form_problem"),
+    };
+    for (const key of [
+      "salutation",
+      "gotra",
+      "gender",
+      "dob",
+      "pincode",
+      "problem",
+    ]) {
+      if (isVisible(key) && isRequired(key) && !String(formData[key] || "").trim()) {
+        return `Please fill in: ${labels[key]}.`;
+      }
+    }
+    // Required custom fields.
+    for (const f of customFields) {
+      const v = customValues[f.field_key];
+      if (typeof v === "string" && hasHtml(v)) {
+        return `${customLabel(f)} must be plain text.`;
+      }
+      if (f.is_required && !String(v || "").trim()) {
+        return `Please fill in: ${customLabel(f)}.`;
+      }
     }
     return null;
   };
@@ -176,6 +243,7 @@ export default function CheckoutForm({ category }) {
             attendeesCount: formData.attendeesCount,
             agreedToTerms,
             attendee: attendeePayload,
+            customFields: customValues,
           }),
         });
         const data = await res.json();
@@ -218,6 +286,7 @@ export default function CheckoutForm({ category }) {
         attendeesCount: formData.attendeesCount,
         agreedToTerms,
         attendee: attendeePayload,
+        customFields: customValues,
       }),
     });
     const orderData = await orderResponse.json();
@@ -381,24 +450,26 @@ export default function CheckoutForm({ category }) {
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="col-span-1 md:col-span-2 flex gap-4">
-            <TextField
-              select
-              label={t("form_title")}
-              name="salutation"
-              required
-              value={formData.salutation}
-              onChange={handleChange}
-              variant="outlined"
-              size="medium"
-              sx={{ width: "120px" }}
-            >
-              <MenuItem value="Shri">{t("sal_shri")}</MenuItem>
-              <MenuItem value="Smt">{t("sal_smt")}</MenuItem>
-              <MenuItem value="Kumari">{t("sal_kumari")}</MenuItem>
-              <MenuItem value="Mr">{t("sal_mr")}</MenuItem>
-              <MenuItem value="Ms">{t("sal_ms")}</MenuItem>
-              <MenuItem value="Dr">{t("sal_dr")}</MenuItem>
-            </TextField>
+            {isVisible("salutation") && (
+              <TextField
+                select
+                label={t("form_title")}
+                name="salutation"
+                required={isRequired("salutation")}
+                value={formData.salutation}
+                onChange={handleChange}
+                variant="outlined"
+                size="medium"
+                sx={{ width: "120px" }}
+              >
+                <MenuItem value="Shri">{t("sal_shri")}</MenuItem>
+                <MenuItem value="Smt">{t("sal_smt")}</MenuItem>
+                <MenuItem value="Kumari">{t("sal_kumari")}</MenuItem>
+                <MenuItem value="Mr">{t("sal_mr")}</MenuItem>
+                <MenuItem value="Ms">{t("sal_ms")}</MenuItem>
+                <MenuItem value="Dr">{t("sal_dr")}</MenuItem>
+              </TextField>
+            )}
             <TextField
               fullWidth
               label={t("form_first_name")}
@@ -418,48 +489,54 @@ export default function CheckoutForm({ category }) {
             onChange={handleChange}
             variant="outlined"
           />
-          <TextField
-            fullWidth
-            label={t("form_gotra")}
-            name="gotra"
-            required
-            value={formData.gotra}
-            onChange={handleChange}
-            variant="outlined"
-          />
-          <TextField
-            select
-            fullWidth
-            label={t("form_gender")}
-            name="gender"
-            required
-            value={formData.gender}
-            onChange={handleChange}
-            variant="outlined"
-          >
-            <MenuItem value="Male">{t("form_gender_male")}</MenuItem>
-            <MenuItem value="Female">{t("form_gender_female")}</MenuItem>
-            <MenuItem value="Other">{t("form_gender_other")}</MenuItem>
-          </TextField>
-          <TextField
-            fullWidth
-            label={t("form_dob")}
-            name="dob"
-            type="date"
-            required
-            value={formData.dob}
-            onChange={handleChange}
-            variant="outlined"
-            InputLabelProps={{ shrink: true }}
-            inputProps={{ max: TODAY_STR }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Calendar className="w-5 h-5 text-neutral-400" />
-                </InputAdornment>
-              ),
-            }}
-          />
+          {isVisible("gotra") && (
+            <TextField
+              fullWidth
+              label={t("form_gotra")}
+              name="gotra"
+              required={isRequired("gotra")}
+              value={formData.gotra}
+              onChange={handleChange}
+              variant="outlined"
+            />
+          )}
+          {isVisible("gender") && (
+            <TextField
+              select
+              fullWidth
+              label={t("form_gender")}
+              name="gender"
+              required={isRequired("gender")}
+              value={formData.gender}
+              onChange={handleChange}
+              variant="outlined"
+            >
+              <MenuItem value="Male">{t("form_gender_male")}</MenuItem>
+              <MenuItem value="Female">{t("form_gender_female")}</MenuItem>
+              <MenuItem value="Other">{t("form_gender_other")}</MenuItem>
+            </TextField>
+          )}
+          {isVisible("dob") && (
+            <TextField
+              fullWidth
+              label={t("form_dob")}
+              name="dob"
+              type="date"
+              required={isRequired("dob")}
+              value={formData.dob}
+              onChange={handleChange}
+              variant="outlined"
+              InputLabelProps={{ shrink: true }}
+              inputProps={{ max: TODAY_STR }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Calendar className="w-5 h-5 text-neutral-400" />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          )}
         </div>
       </div>
 
@@ -504,43 +581,45 @@ export default function CheckoutForm({ category }) {
               ),
             }}
           />
-          <TextField
-            fullWidth
-            label={t("form_pincode")}
-            name="pincode"
-            required
-            value={formData.pincode}
-            onChange={handlePincodeChange}
-            variant="outlined"
-            inputProps={{ maxLength: 6 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <MapPin className="w-5 h-5 text-neutral-400" />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <div className="flex gap-2">
+          {isVisible("pincode") && (
             <TextField
               fullWidth
-              label={t("form_taluka")}
-              name="taluka"
-              required
-              value={formData.taluka}
-              variant="filled"
-              InputProps={{ readOnly: true }}
+              label={t("form_pincode")}
+              name="pincode"
+              required={isRequired("pincode")}
+              value={formData.pincode}
+              onChange={handlePincodeChange}
+              variant="outlined"
+              inputProps={{ maxLength: 6 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <MapPin className="w-5 h-5 text-neutral-400" />
+                  </InputAdornment>
+                ),
+              }}
             />
-            <TextField
-              fullWidth
-              label={t("form_state")}
-              name="state"
-              required
-              value={formData.state}
-              variant="filled"
-              InputProps={{ readOnly: true }}
-            />
-          </div>
+          )}
+          {isVisible("pincode") && (
+            <div className="flex gap-2">
+              <TextField
+                fullWidth
+                label={t("form_taluka")}
+                name="taluka"
+                value={formData.taluka}
+                variant="filled"
+                InputProps={{ readOnly: true }}
+              />
+              <TextField
+                fullWidth
+                label={t("form_state")}
+                name="state"
+                value={formData.state}
+                variant="filled"
+                InputProps={{ readOnly: true }}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -550,34 +629,90 @@ export default function CheckoutForm({ category }) {
           {t("form_event_contribution")}
         </h4>
         <div className="grid grid-cols-1 gap-4">
-          <TextField
-            fullWidth
-            label={t("form_problem")}
-            name="problem"
-            required
-            multiline
-            rows={3}
-            value={formData.problem}
-            onChange={(e) => {
-              handleChange(e);
-              if (hasHtml(e.target.value))
-                setFormError(
-                  "Problem/Samasya must be plain text — HTML and scripts are not allowed.",
-                );
-            }}
-            variant="outlined"
-            helperText="Plain text only — no HTML or special characters"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment
-                  position="start"
-                  sx={{ alignSelf: "flex-start", mt: 1.5 }}
-                >
-                  <MessageSquare className="w-5 h-5 text-neutral-400" />
-                </InputAdornment>
-              ),
-            }}
-          />
+          {isVisible("problem") && (
+            <TextField
+              fullWidth
+              label={t("form_problem")}
+              name="problem"
+              required={isRequired("problem")}
+              multiline
+              rows={3}
+              value={formData.problem}
+              onChange={(e) => {
+                handleChange(e);
+                if (hasHtml(e.target.value))
+                  setFormError(
+                    "Problem/Samasya must be plain text — HTML and scripts are not allowed.",
+                  );
+              }}
+              variant="outlined"
+              helperText="Plain text only — no HTML or special characters"
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment
+                    position="start"
+                    sx={{ alignSelf: "flex-start", mt: 1.5 }}
+                  >
+                    <MessageSquare className="w-5 h-5 text-neutral-400" />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          )}
+
+          {/* Admin-defined custom fields */}
+          {customFields.map((f) => {
+            const val = customValues[f.field_key] ?? "";
+            const onCustom = (e) => {
+              setFormError("");
+              setCustomValues((prev) => ({
+                ...prev,
+                [f.field_key]: e.target.value,
+              }));
+            };
+            const common = {
+              fullWidth: true,
+              label: customLabel(f),
+              required: f.is_required,
+              value: val,
+              onChange: onCustom,
+              variant: "outlined",
+            };
+            if (f.field_type === "select") {
+              return (
+                <TextField select key={f.field_key} {...common}>
+                  {(f.options || []).map((opt) => (
+                    <MenuItem key={opt} value={opt}>
+                      {opt}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              );
+            }
+            if (f.field_type === "textarea") {
+              return (
+                <TextField key={f.field_key} multiline rows={3} {...common} />
+              );
+            }
+            if (f.field_type === "date") {
+              return (
+                <TextField
+                  key={f.field_key}
+                  type="date"
+                  {...common}
+                  InputLabelProps={{ shrink: true }}
+                />
+              );
+            }
+            return (
+              <TextField
+                key={f.field_key}
+                type={f.field_type === "number" ? "number" : "text"}
+                {...common}
+              />
+            );
+          })}
+
           <TextField
             select
             fullWidth

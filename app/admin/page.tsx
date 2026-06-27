@@ -8,6 +8,7 @@ import {
     Ticket, Calendar as CalendarIcon, Search, LogOut, QrCode
 } from 'lucide-react';
 import { youtubeThumbnail } from '@/lib/youtube';
+import FormFieldsManager from '@/components/FormFieldsManager';
 
 type Role = 'admin' | 'viewer';
 type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'enquired' | 'contacted' | 'amount_mismatch';
@@ -21,6 +22,7 @@ interface Registration {
     donation_amount: number; total_amount: number; razorpay_payment_id: string | null;
     gotra: string; category_id: string | null;
     categories: { title: string } | null;
+    custom_fields: Record<string, string> | null;
 }
 
 interface Category {
@@ -73,7 +75,7 @@ export default function AdminDashboard() {
     const isAdmin = role === 'admin';
 
     const [activeTab, setActiveTab] = useState<'registrations' | 'settings'>('registrations');
-    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'checkpoints'>('events');
+    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'checkpoints' | 'formfields'>('events');
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -460,6 +462,16 @@ export default function AdminDashboard() {
                                     <span className="text-xs uppercase tracking-wider font-bold text-orange-800 block mb-1">Issue/Samasya Provided</span>
                                     <p className="text-neutral-900 whitespace-pre-wrap">{selectedRegistration.problem_samasya || "None declared."}</p>
                                 </div>
+                                {selectedRegistration.custom_fields && Object.keys(selectedRegistration.custom_fields).length > 0 && (
+                                    <div className="col-span-1 md:col-span-2">
+                                        <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2 border-b pb-1">Additional Fields</h3>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            {Object.entries(selectedRegistration.custom_fields).map(([key, value]) => (
+                                                <p key={key}><span className="text-neutral-500 block text-xs">{key.replace(/^custom_/, '').replace(/_[a-z0-9]{5}$/, '').replace(/_/g, ' ')}</span><span className="font-semibold">{value}</span></p>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -646,6 +658,7 @@ export default function AdminDashboard() {
                             <button onClick={() => setSettingsSubTab('tiers')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'tiers' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><Ticket className="w-4 h-4" /> Ticket Tiers</button>
                             <button onClick={() => setSettingsSubTab('media')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'media' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ImageIcon className="w-4 h-4" /> Media Gallery</button>
                             <button onClick={() => setSettingsSubTab('checkpoints')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'checkpoints' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><QrCode className="w-4 h-4" /> Entry Checkpoints</button>
+                            <button onClick={() => setSettingsSubTab('formfields')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'formfields' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ListFilter className="w-4 h-4" /> Form Fields</button>
                         </div>
 
                         <div className="flex-1 p-6 lg:p-8 bg-white overflow-y-auto">
@@ -844,6 +857,8 @@ export default function AdminDashboard() {
                                     )}
                                 </div>
                             )}
+
+                            {settingsSubTab === 'formfields' && <FormFieldsManager />}
                         </div>
                     </div>
                 )}

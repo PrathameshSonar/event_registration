@@ -5,6 +5,7 @@
 // write access to the registrations table.
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { validateSubmission } from '@/lib/formFieldsServer';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +18,7 @@ function badRequest(message) {
 export async function POST(request) {
     try {
         const body = await request.json();
-        const { categoryId, attendeesCount, agreedToTerms, attendee } = body || {};
+        const { categoryId, attendeesCount, agreedToTerms, attendee, customFields } = body || {};
 
         if (!agreedToTerms) return badRequest('You must agree to the Terms & Conditions.');
         if (!categoryId) return badRequest('Missing category.');
@@ -30,6 +31,10 @@ export async function POST(request) {
             }
         }
         if (!/^\S+@\S+\.\S+$/.test(String(attendee.email))) return badRequest('Invalid email address.');
+
+        // Validate admin-configured required fields + sanitize custom field answers.
+        const { error: fieldErr, customFields: cleanCustom } = await validateSubmission(supabaseAdmin, attendee, customFields);
+        if (fieldErr) return badRequest(fieldErr);
 
         const seats = Math.min(MAX_ATTENDEES, Math.max(1, parseInt(attendeesCount, 10) || 1));
 
@@ -60,6 +65,7 @@ export async function POST(request) {
                 taluka: attendee.taluka || null,
                 state: attendee.state || null,
                 problem_samasya: attendee.problem || null,
+                custom_fields: cleanCustom || {},
                 attendees_count: seats,
                 donation_amount: 0,
                 total_amount: 0,

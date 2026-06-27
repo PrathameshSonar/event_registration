@@ -7,6 +7,7 @@
 import Razorpay from 'razorpay';
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { validateSubmission } from '@/lib/formFieldsServer';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,7 +27,7 @@ export async function POST(request) {
         }
 
         const body = await request.json();
-        const { categoryId, donation, attendeesCount, agreedToTerms, attendee } = body || {};
+        const { categoryId, donation, attendeesCount, agreedToTerms, attendee, customFields } = body || {};
 
         // 1. Basic validation
         if (!agreedToTerms) return badRequest('You must agree to the Terms & Conditions.');
@@ -40,6 +41,10 @@ export async function POST(request) {
             }
         }
         if (!/^\S+@\S+\.\S+$/.test(String(attendee.email))) return badRequest('Invalid email address.');
+
+        // Validate admin-configured required fields + sanitize custom field answers.
+        const { error: fieldErr, customFields: cleanCustom } = await validateSubmission(supabaseAdmin, attendee, customFields);
+        if (fieldErr) return badRequest(fieldErr);
 
         // Mobile: Indian 10-digit starting with 6-9
         const cleanPhone = String(attendee.phone).replace(/\s+/g, '').replace(/^(\+91|0091|91|0)/, '');
@@ -153,6 +158,7 @@ export async function POST(request) {
                 taluka: attendee.taluka || null,
                 state: attendee.state || null,
                 problem_samasya: sanitizedProblem || null,
+                custom_fields: cleanCustom || {},
                 attendees_count: seats,
                 donation_amount: donationValue,
                 total_amount: totalAmount,
