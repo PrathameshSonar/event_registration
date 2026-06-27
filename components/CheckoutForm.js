@@ -41,12 +41,20 @@ function hasHtml(str) {
   return /<[^>]+>/.test(str) || /javascript:/i.test(str);
 }
 
+// startAdornment helper for the slotProps.input API (MUI v6+).
+const adorn = (icon, extra = {}) => ({
+  startAdornment: <InputAdornment position="start">{icon}</InputAdornment>,
+  ...extra,
+});
+
 export default function CheckoutForm({ category }) {
   const { t, lang } = useLanguage();
 
   const [loading, setLoading] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const [formError, setFormError] = useState("");
+  const [formError, setFormError] = useState(""); // global (payment/network/terms)
+  const [termsError, setTermsError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({}); // per-field, shown below field
   const [successData, setSuccessData] = useState(null);
   const [formData, setFormData] = useState({
     salutation: "",
@@ -76,14 +84,12 @@ export default function CheckoutForm({ category }) {
       .catch(() => setServerFields([]));
   }, []);
 
-  // Built-in lookup + custom field list derived from the server config.
   const builtinByKey = {};
   (serverFields || []).forEach((f) => {
     if (!f.is_custom) builtinByKey[f.field_key] = f;
   });
   const customFields = (serverFields || []).filter((f) => f.is_custom);
 
-  // While loading (serverFields === null) default to showing built-ins.
   const isVisible = (key) => {
     if (CORE_KEYS.has(key)) return true;
     if (serverFields === null) return true;
@@ -103,14 +109,24 @@ export default function CheckoutForm({ category }) {
     : Math.max(0, parseFloat(formData.donation) || 0);
   const totalAmount = isEnquiry ? 0 : category.price + donationValue;
 
+  const clearError = (name) =>
+    setFieldErrors((prev) => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+
   const handleChange = (e) => {
     setFormError("");
+    clearError(e.target.name);
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handlePincodeChange = async (e) => {
     const value = e.target.value.replace(/\D/g, "");
     if (value.length > 6) return;
+    clearError("pincode");
     setFormData((prev) => ({ ...prev, pincode: value }));
     if (value.length === 6) {
       try {
@@ -126,33 +142,34 @@ export default function CheckoutForm({ category }) {
             state: postOffice.State || "",
           }));
         } else {
-          setFormError(
-            t("alert_pincode_invalid") ||
-              "Invalid pincode. Please check and try again.",
-          );
+          setFieldErrors((prev) => ({
+            ...prev,
+            pincode:
+              t("alert_pincode_invalid") || "Invalid pincode. Please check it.",
+          }));
           setFormData((prev) => ({ ...prev, taluka: "", state: "" }));
         }
       } catch {}
     }
   };
 
+  // Returns a { [field]: message } object; empty means valid.
   const validate = () => {
-    // Core fields — always validated.
+    const errs = {};
     if (!validatePhone(formData.phone)) {
-      return "Enter a valid 10-digit Indian mobile number (starts with 6, 7, 8 or 9).";
+      errs.phone =
+        "Enter a valid 10-digit Indian mobile number (starts with 6-9).";
     }
     if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
-      return "Enter a valid email address.";
+      errs.email = "Enter a valid email address.";
     }
-    // DOB future-date guard (only when the field is shown).
     if (isVisible("dob") && formData.dob && formData.dob > TODAY_STR) {
-      return "Date of birth cannot be a future date.";
+      errs.dob = "Date of birth cannot be a future date.";
     }
-    // Problem/Samasya — script guard + required-when-configured.
     if (isVisible("problem") && hasHtml(formData.problem)) {
-      return "Problem/Samasya must be plain text — HTML and scripts are not allowed.";
+      errs.problem = "Plain text only — HTML and scripts are not allowed.";
     }
-    // Required built-in fields (visible + marked required by admin).
+
     const labels = {
       salutation: t("form_title"),
       gotra: t("form_gotra"),
@@ -169,21 +186,25 @@ export default function CheckoutForm({ category }) {
       "pincode",
       "problem",
     ]) {
-      if (isVisible(key) && isRequired(key) && !String(formData[key] || "").trim()) {
-        return `Please fill in: ${labels[key]}.`;
+      if (
+        isVisible(key) &&
+        isRequired(key) &&
+        !errs[key] &&
+        !String(formData[key] || "").trim()
+      ) {
+        errs[key] = `${labels[key]} is required.`;
       }
     }
-    // Required custom fields.
+
     for (const f of customFields) {
       const v = customValues[f.field_key];
       if (typeof v === "string" && hasHtml(v)) {
-        return `${customLabel(f)} must be plain text.`;
-      }
-      if (f.is_required && !String(v || "").trim()) {
-        return `Please fill in: ${customLabel(f)}.`;
+        errs[f.field_key] = `${customLabel(f)} must be plain text.`;
+      } else if (f.is_required && !String(v || "").trim()) {
+        errs[f.field_key] = `${customLabel(f)} is required.`;
       }
     }
-    return null;
+    return errs;
   };
 
   const loadRazorpayScript = () =>
@@ -198,20 +219,21 @@ export default function CheckoutForm({ category }) {
   const handlePayment = async (e) => {
     e.preventDefault();
     setFormError("");
+    setTermsError("");
 
     if (!agreedToTerms) {
-      setFormError(
+      setTermsError(
         t("alert_terms") || "Please agree to the terms and conditions.",
       );
       return;
     }
 
-    const err = validate();
-    if (err) {
-      setFormError(err);
+    const errs = validate();
+    if (Object.keys(errs).length) {
+      setFieldErrors(errs);
       return;
     }
-
+    setFieldErrors({});
     setLoading(true);
 
     const attendeePayload = {
@@ -254,11 +276,7 @@ export default function CheckoutForm({ category }) {
           setLoading(false);
           return;
         }
-        setSuccessData({
-          isEnquiry: true,
-          name: fullName,
-          email: formData.email,
-        });
+        setSuccessData({ isEnquiry: true, name: fullName, email: formData.email });
       } catch {
         setFormError("Network error. Please try again.");
       }
@@ -321,11 +339,7 @@ export default function CheckoutForm({ category }) {
         });
         setLoading(false);
       },
-      prefill: {
-        name: fullName,
-        email: formData.email,
-        contact: formData.phone,
-      },
+      prefill: { name: fullName, email: formData.email, contact: formData.phone },
       theme: { color: "#ea580c" },
     };
     const paymentObject = new window.Razorpay(options);
@@ -426,7 +440,7 @@ export default function CheckoutForm({ category }) {
 
   // ── FORM ──────────────────────────────────────────────────────────────
   return (
-    <form onSubmit={handlePayment} className="space-y-8">
+    <form onSubmit={handlePayment} noValidate className="space-y-8">
       {totalAmount >= 100000 && !isEnquiry && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg flex items-start gap-3 text-sm">
           <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
@@ -436,6 +450,7 @@ export default function CheckoutForm({ category }) {
         </div>
       )}
 
+      {/* Global errors only (payment / network). Field errors render below each field. */}
       {formError && (
         <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg flex items-start gap-3 text-sm">
           <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
@@ -461,6 +476,7 @@ export default function CheckoutForm({ category }) {
                 variant="outlined"
                 size="medium"
                 sx={{ width: "120px" }}
+                error={!!fieldErrors.salutation}
               >
                 <MenuItem value="Shri">{t("sal_shri")}</MenuItem>
                 <MenuItem value="Smt">{t("sal_smt")}</MenuItem>
@@ -478,6 +494,8 @@ export default function CheckoutForm({ category }) {
               value={formData.firstName}
               onChange={handleChange}
               variant="outlined"
+              error={!!fieldErrors.firstName}
+              helperText={fieldErrors.firstName}
             />
           </div>
           <TextField
@@ -488,6 +506,8 @@ export default function CheckoutForm({ category }) {
             value={formData.lastName}
             onChange={handleChange}
             variant="outlined"
+            error={!!fieldErrors.lastName}
+            helperText={fieldErrors.lastName}
           />
           {isVisible("gotra") && (
             <TextField
@@ -498,6 +518,8 @@ export default function CheckoutForm({ category }) {
               value={formData.gotra}
               onChange={handleChange}
               variant="outlined"
+              error={!!fieldErrors.gotra}
+              helperText={fieldErrors.gotra}
             />
           )}
           {isVisible("gender") && (
@@ -510,6 +532,8 @@ export default function CheckoutForm({ category }) {
               value={formData.gender}
               onChange={handleChange}
               variant="outlined"
+              error={!!fieldErrors.gender}
+              helperText={fieldErrors.gender}
             >
               <MenuItem value="Male">{t("form_gender_male")}</MenuItem>
               <MenuItem value="Female">{t("form_gender_female")}</MenuItem>
@@ -526,14 +550,12 @@ export default function CheckoutForm({ category }) {
               value={formData.dob}
               onChange={handleChange}
               variant="outlined"
-              InputLabelProps={{ shrink: true }}
-              inputProps={{ max: TODAY_STR }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Calendar className="w-5 h-5 text-neutral-400" />
-                  </InputAdornment>
-                ),
+              error={!!fieldErrors.dob}
+              helperText={fieldErrors.dob}
+              slotProps={{
+                inputLabel: { shrink: true },
+                htmlInput: { max: TODAY_STR },
+                input: adorn(<Calendar className="w-5 h-5 text-neutral-400" />),
               }}
             />
           )}
@@ -555,13 +577,10 @@ export default function CheckoutForm({ category }) {
             value={formData.phone}
             onChange={handleChange}
             variant="outlined"
-            helperText="10-digit Indian mobile number"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Phone className="w-5 h-5 text-neutral-400" />
-                </InputAdornment>
-              ),
+            error={!!fieldErrors.phone}
+            helperText={fieldErrors.phone || "10-digit Indian mobile number"}
+            slotProps={{
+              input: adorn(<Phone className="w-5 h-5 text-neutral-400" />),
             }}
           />
           <TextField
@@ -573,12 +592,10 @@ export default function CheckoutForm({ category }) {
             value={formData.email}
             onChange={handleChange}
             variant="outlined"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Mail className="w-5 h-5 text-neutral-400" />
-                </InputAdornment>
-              ),
+            error={!!fieldErrors.email}
+            helperText={fieldErrors.email}
+            slotProps={{
+              input: adorn(<Mail className="w-5 h-5 text-neutral-400" />),
             }}
           />
           {isVisible("pincode") && (
@@ -590,13 +607,11 @@ export default function CheckoutForm({ category }) {
               value={formData.pincode}
               onChange={handlePincodeChange}
               variant="outlined"
-              inputProps={{ maxLength: 6 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <MapPin className="w-5 h-5 text-neutral-400" />
-                  </InputAdornment>
-                ),
+              error={!!fieldErrors.pincode}
+              helperText={fieldErrors.pincode}
+              slotProps={{
+                htmlInput: { maxLength: 6, inputMode: "numeric" },
+                input: adorn(<MapPin className="w-5 h-5 text-neutral-400" />),
               }}
             />
           )}
@@ -608,7 +623,7 @@ export default function CheckoutForm({ category }) {
                 name="taluka"
                 value={formData.taluka}
                 variant="filled"
-                InputProps={{ readOnly: true }}
+                slotProps={{ input: { readOnly: true } }}
               />
               <TextField
                 fullWidth
@@ -616,7 +631,7 @@ export default function CheckoutForm({ category }) {
                 name="state"
                 value={formData.state}
                 variant="filled"
-                InputProps={{ readOnly: true }}
+                slotProps={{ input: { readOnly: true } }}
               />
             </div>
           )}
@@ -638,24 +653,23 @@ export default function CheckoutForm({ category }) {
               multiline
               rows={3}
               value={formData.problem}
-              onChange={(e) => {
-                handleChange(e);
-                if (hasHtml(e.target.value))
-                  setFormError(
-                    "Problem/Samasya must be plain text — HTML and scripts are not allowed.",
-                  );
-              }}
+              onChange={handleChange}
               variant="outlined"
-              helperText="Plain text only — no HTML or special characters"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment
-                    position="start"
-                    sx={{ alignSelf: "flex-start", mt: 1.5 }}
-                  >
-                    <MessageSquare className="w-5 h-5 text-neutral-400" />
-                  </InputAdornment>
-                ),
+              error={!!fieldErrors.problem}
+              helperText={
+                fieldErrors.problem || "Plain text only — no HTML or scripts"
+              }
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment
+                      position="start"
+                      sx={{ alignSelf: "flex-start", mt: 1.5 }}
+                    >
+                      <MessageSquare className="w-5 h-5 text-neutral-400" />
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
           )}
@@ -663,8 +677,9 @@ export default function CheckoutForm({ category }) {
           {/* Admin-defined custom fields */}
           {customFields.map((f) => {
             const val = customValues[f.field_key] ?? "";
+            const err = fieldErrors[f.field_key];
             const onCustom = (e) => {
-              setFormError("");
+              clearError(f.field_key);
               setCustomValues((prev) => ({
                 ...prev,
                 [f.field_key]: e.target.value,
@@ -677,6 +692,8 @@ export default function CheckoutForm({ category }) {
               value: val,
               onChange: onCustom,
               variant: "outlined",
+              error: !!err,
+              helperText: err,
             };
             if (f.field_type === "select") {
               return (
@@ -700,7 +717,7 @@ export default function CheckoutForm({ category }) {
                   key={f.field_key}
                   type="date"
                   {...common}
-                  InputLabelProps={{ shrink: true }}
+                  slotProps={{ inputLabel: { shrink: true } }}
                 />
               );
             }
@@ -722,12 +739,8 @@ export default function CheckoutForm({ category }) {
             value={formData.attendeesCount}
             onChange={handleChange}
             variant="outlined"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Users className="w-5 h-5 text-neutral-400" />
-                </InputAdornment>
-              ),
+            slotProps={{
+              input: adorn(<Users className="w-5 h-5 text-neutral-400" />),
             }}
           >
             {Array.from(
@@ -762,11 +775,13 @@ export default function CheckoutForm({ category }) {
                 }}
                 variant="outlined"
                 placeholder="0"
-                inputProps={{ min: 0, step: 1 }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">₹</InputAdornment>
-                  ),
+                slotProps={{
+                  htmlInput: { min: 0, step: 1 },
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">₹</InputAdornment>
+                    ),
+                  },
                 }}
               />
             </div>
@@ -780,40 +795,34 @@ export default function CheckoutForm({ category }) {
           control={
             <Checkbox
               checked={agreedToTerms}
-              onChange={(e) => setAgreedToTerms(e.target.checked)}
+              onChange={(e) => {
+                setAgreedToTerms(e.target.checked);
+                if (e.target.checked) setTermsError("");
+              }}
               sx={{ color: "#a3a3a3", "&.Mui-checked": { color: "#ea580c" } }}
             />
           }
           label={
             <span className="text-sm text-neutral-600">
               {t("form_terms_prefix")}{" "}
-              <a
-                href="/terms"
-                className="text-orange-600 hover:underline"
-                target="_blank"
-              >
+              <a href="/terms" className="text-orange-600 hover:underline" target="_blank">
                 {t("form_terms_link")}
               </a>
               {", "}
-              <a
-                href="/privacy"
-                className="text-orange-600 hover:underline"
-                target="_blank"
-              >
+              <a href="/privacy" className="text-orange-600 hover:underline" target="_blank">
                 {t("form_privacy_link")}
               </a>
               {` ${t("form_terms_and")} `}
-              <a
-                href="/refund"
-                className="text-orange-600 hover:underline"
-                target="_blank"
-              >
+              <a href="/refund" className="text-orange-600 hover:underline" target="_blank">
                 {t("form_refund_link")}
               </a>
               {t("form_terms_suffix")}
             </span>
           }
         />
+        {termsError && (
+          <p className="text-red-600 text-xs mt-1 ml-2">{termsError}</p>
+        )}
       </div>
 
       {/* --- SUBMISSION --- */}
