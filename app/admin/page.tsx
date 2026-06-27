@@ -858,7 +858,7 @@ export default function AdminDashboard() {
                                 </div>
                             )}
 
-                            {settingsSubTab === 'formfields' && <FormFieldsManager />}
+                            {settingsSubTab === 'formfields' && <FormFieldsManager categories={categoriesList} />}
                         </div>
                     </div>
                 )}

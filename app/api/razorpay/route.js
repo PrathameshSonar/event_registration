@@ -43,7 +43,7 @@ export async function POST(request) {
         if (!/^\S+@\S+\.\S+$/.test(String(attendee.email))) return badRequest('Invalid email address.');
 
         // Validate admin-configured required fields + sanitize custom field answers.
-        const { error: fieldErr, customFields: cleanCustom } = await validateSubmission(supabaseAdmin, attendee, customFields);
+        const { error: fieldErr, customFields: cleanCustom } = await validateSubmission(supabaseAdmin, categoryId, attendee, customFields);
         if (fieldErr) return badRequest(fieldErr);
 
         // Mobile: Indian 10-digit starting with 6-9

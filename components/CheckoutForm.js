@@ -78,11 +78,11 @@ export default function CheckoutForm({ category }) {
   const [customValues, setCustomValues] = useState({});
 
   useEffect(() => {
-    fetch("/api/form-fields")
+    fetch(`/api/form-fields?categoryId=${category.id}`)
       .then((r) => r.json())
       .then((d) => setServerFields(Array.isArray(d.fields) ? d.fields : []))
       .catch(() => setServerFields([]));
-  }, []);
+  }, [category.id]);
 
   const builtinByKey = {};
   (serverFields || []).forEach((f) => {
