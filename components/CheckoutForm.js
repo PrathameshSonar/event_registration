@@ -656,9 +656,7 @@ export default function CheckoutForm({ category }) {
               onChange={handleChange}
               variant="outlined"
               error={!!fieldErrors.problem}
-              helperText={
-                fieldErrors.problem || "Plain text only — no HTML or scripts"
-              }
+              helperText={fieldErrors.problem}
               slotProps={{
                 input: {
                   startAdornment: (
