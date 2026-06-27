@@ -5,7 +5,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Trash2, Save, Clock, Sparkles, Phone, CalendarClock } from "lucide-react";
+import { Plus, Trash2, Save, Clock, Sparkles, Phone, CalendarClock, Image as ImageIcon } from "lucide-react";
 
 export default function HomeContentManager(props) {
   const events = props.events || [];
@@ -16,6 +16,7 @@ export default function HomeContentManager(props) {
   // Event-level fields
   const [startAt, setStartAt] = useState("");
   const [phone, setPhone] = useState("");
+  const [heroImage, setHeroImage] = useState("");
   const [evDirty, setEvDirty] = useState(false);
   const [savingEv, setSavingEv] = useState(false);
 
@@ -57,9 +58,10 @@ export default function HomeContentManager(props) {
   useEffect(() => {
     setStartAt(toLocalInput(ev?.start_at));
     setPhone(ev?.contact_phone || "");
+    setHeroImage(ev?.hero_image_url || "");
     setEvDirty(false);
     if (eventId) loadLists(eventId);
-  }, [eventId, ev?.start_at, ev?.contact_phone, loadLists]);
+  }, [eventId, ev?.start_at, ev?.contact_phone, ev?.hero_image_url, loadLists]);
 
   const saveEventFields = async () => {
     setSavingEv(true);
@@ -71,6 +73,7 @@ export default function HomeContentManager(props) {
         updates: {
           start_at: startAt ? new Date(startAt).toISOString() : null,
           contact_phone: phone.trim() || null,
+          hero_image_url: heroImage.trim() || null,
         },
       }),
     });
@@ -145,9 +148,19 @@ export default function HomeContentManager(props) {
         </select>
       </div>
 
-      {/* Countdown + helpline */}
+      {/* Hero image + countdown + helpline */}
       <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-6 mb-8">
-        <h3 className="font-bold text-sm uppercase tracking-wider text-neutral-700 mb-4">Countdown & Helpline</h3>
+        <h3 className="font-bold text-sm uppercase tracking-wider text-neutral-700 mb-4">Hero, Countdown & Helpline</h3>
+        <div className="mb-4">
+          <label className="block text-xs font-semibold text-neutral-600 mb-1 flex items-center gap-1.5"><ImageIcon className="w-3.5 h-3.5" /> Hero background image URL</label>
+          <input type="url" placeholder="https://… (deity / temple photo)" value={heroImage} onChange={(e) => { setHeroImage(e.target.value); setEvDirty(true); }} className={inputCls} />
+          {heroImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={heroImage} alt="hero preview" className="mt-2 w-full h-32 object-cover rounded-lg border border-neutral-200" />
+          ) : (
+            <p className="text-xs text-neutral-400 mt-1">Leave empty to use the saffron gradient. Paste any image link (e.g. a Supabase Storage public URL).</p>
+          )}
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-semibold text-neutral-600 mb-1 flex items-center gap-1.5"><CalendarClock className="w-3.5 h-3.5" /> Event start (for countdown)</label>

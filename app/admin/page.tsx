@@ -49,6 +49,7 @@ interface EventItem {
     show_in_archive: boolean;
     start_at: string | null;
     contact_phone: string | null;
+    hero_image_url: string | null;
 }
 interface MediaItem { id: string; media_type: 'image' | 'youtube'; url: string; caption: string; event_id: string; events?: { title: string }; }
 

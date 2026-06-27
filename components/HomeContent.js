@@ -96,19 +96,21 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
 
             {/* HERO — devotional */}
             <section className="relative overflow-hidden bg-gradient-to-b from-orange-700 via-orange-600 to-amber-700 text-white">
+                {/* Optional admin hero image with a dark overlay for legibility */}
+                {pageData?.hero_image_url && (
+                    <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={pageData.hero_image_url} alt="" className="pointer-events-none absolute inset-0 w-full h-full object-cover" />
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-orange-900/80 via-orange-800/70 to-amber-800/80" />
+                    </>
+                )}
                 {/* Decorative motifs */}
                 <div className="pointer-events-none absolute inset-0 opacity-[0.12]" style={{ backgroundImage: 'radial-gradient(circle at 20% 20%, #fff 1px, transparent 1px), radial-gradient(circle at 80% 60%, #fff 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
                 <div className="pointer-events-none absolute -top-16 -left-16 w-64 h-64 rounded-full bg-amber-400/20 blur-3xl" />
                 <div className="pointer-events-none absolute -bottom-20 -right-10 w-72 h-72 rounded-full bg-orange-900/30 blur-3xl" />
-                <span className="pointer-events-none absolute top-6 left-1/2 -translate-x-1/2 text-5xl opacity-30">🕉️</span>
 
                 <div className="relative max-w-4xl mx-auto px-4 py-16 md:py-24 text-center">
-                    {/* Mantra */}
-                    <p className="text-amber-100 text-sm md:text-base font-medium leading-relaxed max-w-2xl mx-auto mb-6 mt-6" lang="sa">
-                        {t('hero_mantra')}
-                    </p>
-
-                    <span className="inline-block text-amber-200 font-bold tracking-widest uppercase text-xs mb-4 border border-amber-200/40 rounded-full px-4 py-1">
+                    <span className="inline-block text-amber-200 font-bold tracking-widest uppercase text-xs mb-4 mt-4 border border-amber-200/40 rounded-full px-4 py-1">
                         🔱 {t('hero_tagline')}
                     </span>
                     <h2 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-6 leading-tight tracking-tight drop-shadow-sm">

@@ -54,7 +54,7 @@ export async function PATCH(request) {
             'title', 'short_description', 'long_description',
             'title_hi', 'short_description_hi', 'long_description_hi',
             'date_time', 'date_time_hi', 'venue', 'venue_hi', 'map_url',
-            'start_at', 'contact_phone',
+            'start_at', 'contact_phone', 'hero_image_url',
         ];
         const sanitized = {};
         for (const key of allowed) {
