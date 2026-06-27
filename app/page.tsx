@@ -13,11 +13,16 @@ export default async function Home() {
         .eq('is_active', true)
         .single();
 
-    // 2. Registration tiers (includes title_hi, description_hi if set)
-    const { data: categories } = await supabase
-        .from('categories')
-        .select('*')
-        .order('price', { ascending: true });
+    // 2. Registration tiers — only show categories for the active event
+    let categories: any[] = [];
+    if (pageData?.id) {
+        const { data: catData } = await supabase
+            .from('categories')
+            .select('*')
+            .eq('event_id', pageData.id)
+            .order('price', { ascending: true });
+        categories = catData || [];
+    }
 
     // 3. Media assets
     const { data: mediaItems } = await supabase

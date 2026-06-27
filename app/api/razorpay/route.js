@@ -41,6 +41,25 @@ export async function POST(request) {
         }
         if (!/^\S+@\S+\.\S+$/.test(String(attendee.email))) return badRequest('Invalid email address.');
 
+        // Mobile: Indian 10-digit starting with 6-9
+        const cleanPhone = String(attendee.phone).replace(/\s+/g, '').replace(/^(\+91|0091|91|0)/, '');
+        if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+            return badRequest('Invalid mobile number. Enter a valid 10-digit Indian number.');
+        }
+
+        // DOB: cannot be in the future
+        if (attendee.dob) {
+            const dob = new Date(String(attendee.dob));
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            if (dob > today) return badRequest('Date of birth cannot be a future date.');
+        }
+
+        // Samasya: strip HTML tags before storing (XSS prevention)
+        const sanitizedProblem = String(attendee.problem || '')
+            .replace(/<[^>]*>/g, '')
+            .replace(/javascript:/gi, '')
+            .trim();
+
         const donationValue = Math.min(MAX_DONATION, Math.max(0, parseFloat(donation) || 0));
 
         // 1b. Rate limit: prevent duplicate pending orders for the same email+category within 3 minutes.
@@ -133,7 +152,7 @@ export async function POST(request) {
                 pincode: attendee.pincode || null,
                 taluka: attendee.taluka || null,
                 state: attendee.state || null,
-                problem_samasya: attendee.problem || null,
+                problem_samasya: sanitizedProblem || null,
                 attendees_count: seats,
                 donation_amount: donationValue,
                 total_amount: totalAmount,

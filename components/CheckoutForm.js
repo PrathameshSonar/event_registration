@@ -2,15 +2,28 @@
 "use client";
 
 import { useState } from 'react';
-import { ShieldCheck, AlertCircle, MapPin, Calendar, MessageSquare, Mail, Phone, Users, Heart } from 'lucide-react';
+import { ShieldCheck, AlertCircle, MapPin, Calendar, MessageSquare, Mail, Phone, Users, Heart, CheckCircle } from 'lucide-react';
 import { TextField, MenuItem, InputAdornment, Button, Checkbox, FormControlLabel } from '@mui/material';
 import { useLanguage } from './LanguageProvider';
+
+const TODAY_STR = new Date().toISOString().split('T')[0];
+
+function validatePhone(raw) {
+    const clean = String(raw).replace(/\s+/g, '').replace(/^(\+91|0091|91|0)/, '');
+    return /^[6-9]\d{9}$/.test(clean);
+}
+
+function hasHtml(str) {
+    return /<[^>]+>/.test(str) || /javascript:/i.test(str);
+}
 
 export default function CheckoutForm({ category }) {
     const { t } = useLanguage();
 
     const [loading, setLoading] = useState(false);
     const [agreedToTerms, setAgreedToTerms] = useState(false);
+    const [formError, setFormError] = useState('');
+    const [successData, setSuccessData] = useState(null);
     const [formData, setFormData] = useState({
         salutation: '',
         firstName: '',
@@ -33,6 +46,7 @@ export default function CheckoutForm({ category }) {
     const totalAmount = isEnquiry ? 0 : (category.price + donationValue);
 
     const handleChange = (e) => {
+        setFormError('');
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
@@ -40,47 +54,58 @@ export default function CheckoutForm({ category }) {
         const value = e.target.value.replace(/\D/g, '');
         if (value.length > 6) return;
         setFormData((prev) => ({ ...prev, pincode: value }));
-
         if (value.length === 6) {
             try {
                 const response = await fetch(`https://api.postalpincode.in/pincode/${value}`);
                 const data = await response.json();
                 if (data[0].Status === 'Success') {
                     const postOffice = data[0].PostOffice[0];
-                    setFormData((prev) => ({
-                        ...prev,
-                        taluka: postOffice.Block || postOffice.Name || '',
-                        state: postOffice.State || '',
-                    }));
+                    setFormData((prev) => ({ ...prev, taluka: postOffice.Block || postOffice.Name || '', state: postOffice.State || '' }));
                 } else {
-                    alert(t('alert_pincode_invalid'));
+                    setFormError(t('alert_pincode_invalid') || 'Invalid pincode. Please check and try again.');
                     setFormData((prev) => ({ ...prev, taluka: '', state: '' }));
                 }
-            } catch (error) {
-                console.error('Pincode API Error:', error);
-            }
+            } catch { }
         }
     };
 
-    const loadRazorpayScript = () => {
-        return new Promise((resolve) => {
-            const script = document.createElement('script');
-            script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-            script.onload = () => resolve(true);
-            script.onerror = () => resolve(false);
-            document.body.appendChild(script);
-        });
+    const validate = () => {
+        if (!validatePhone(formData.phone)) {
+            return 'Enter a valid 10-digit Indian mobile number (starts with 6, 7, 8 or 9).';
+        }
+        if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
+            return 'Enter a valid email address.';
+        }
+        if (formData.dob && formData.dob > TODAY_STR) {
+            return 'Date of birth cannot be a future date.';
+        }
+        if (hasHtml(formData.problem)) {
+            return 'Problem/Samasya must be plain text — HTML and scripts are not allowed.';
+        }
+        if (!formData.problem.trim()) {
+            return 'Please describe your problem/samasya.';
+        }
+        return null;
     };
+
+    const loadRazorpayScript = () => new Promise((resolve) => {
+        const script = document.createElement('script');
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.body.appendChild(script);
+    });
 
     const handlePayment = async (e) => {
         e.preventDefault();
-        if (!agreedToTerms) {
-            alert(t('alert_terms'));
-            return;
-        }
-        setLoading(true);
+        setFormError('');
 
-        const fullNameCombined = `${formData.salutation} ${formData.firstName} ${formData.lastName}`.trim();
+        if (!agreedToTerms) { setFormError(t('alert_terms') || 'Please agree to the terms and conditions.'); return; }
+
+        const err = validate();
+        if (err) { setFormError(err); return; }
+
+        setLoading(true);
 
         const attendeePayload = {
             salutation: formData.salutation,
@@ -97,73 +122,39 @@ export default function CheckoutForm({ category }) {
             problem: formData.problem,
         };
 
-        // ==========================================
-        // ENQUIRY BYPASS LOGIC (no payment)
-        // ==========================================
+        const fullName = `${formData.salutation} ${formData.firstName} ${formData.lastName}`.trim();
+
+        // ── ENQUIRY ──────────────────────────────────────────────────────
         if (isEnquiry) {
             try {
-                const enquiryRes = await fetch('/api/enquiry', {
+                const res = await fetch('/api/enquiry', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        categoryId: category.id,
-                        attendeesCount: formData.attendeesCount,
-                        agreedToTerms,
-                        attendee: attendeePayload,
-                    }),
+                    body: JSON.stringify({ categoryId: category.id, attendeesCount: formData.attendeesCount, agreedToTerms, attendee: attendeePayload }),
                 });
-                const enquiryData = await enquiryRes.json();
-                if (!enquiryRes.ok) {
-                    alert(`⚠️ ${enquiryData.error || t('alert_enquiry_success')}`);
-                    setLoading(false);
-                    return;
-                }
-            } catch (err) {
-                console.error('Enquiry submission error:', err);
-                alert(t('alert_enquiry_success'));
-                setLoading(false);
-                return;
+                const data = await res.json();
+                if (!res.ok) { setFormError(data.error || 'Enquiry submission failed. Please try again.'); setLoading(false); return; }
+                setSuccessData({ isEnquiry: true, name: fullName, email: formData.email });
+            } catch {
+                setFormError('Network error. Please try again.');
             }
-            alert(t('alert_enquiry_success'));
-            window.location.reload();
-            return;
-        }
-
-        // ==========================================
-        // STANDARD PAID CHECKOUT LOGIC
-        // ==========================================
-        const res = await loadRazorpayScript();
-        if (!res) {
-            alert(t('alert_razorpay_fail'));
             setLoading(false);
             return;
         }
+
+        // ── PAID CHECKOUT ─────────────────────────────────────────────────
+        const loaded = await loadRazorpayScript();
+        if (!loaded) { setFormError(t('alert_razorpay_fail') || 'Could not load payment gateway. Please check your internet.'); setLoading(false); return; }
 
         const orderResponse = await fetch('/api/razorpay', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                categoryId: category.id,
-                donation: formData.donation,
-                attendeesCount: formData.attendeesCount,
-                agreedToTerms,
-                attendee: attendeePayload,
-            }),
+            body: JSON.stringify({ categoryId: category.id, donation: formData.donation, attendeesCount: formData.attendeesCount, agreedToTerms, attendee: attendeePayload }),
         });
         const orderData = await orderResponse.json();
 
-        if (!orderResponse.ok) {
-            console.error('Payment API Error Data:', orderData);
-            alert(`🚨 ${orderData.error || 'Unknown server error.'}`);
-            setLoading(false);
-            return;
-        }
-
-        if (!orderData.orderId) {
-            alert('🚨 Payment Gateway Error: No Order ID was returned from the server.');
-            setLoading(false);
-            return;
-        }
+        if (!orderResponse.ok) { setFormError(orderData.error || 'Server error. Please try again.'); setLoading(false); return; }
+        if (!orderData.orderId) { setFormError('Payment gateway error: no Order ID returned.'); setLoading(false); return; }
 
         const options = {
             key: orderData.keyId,
@@ -172,25 +163,96 @@ export default function CheckoutForm({ category }) {
             name: 'BaglaBhairav',
             description: 'Registration & Contribution',
             order_id: orderData.orderId,
-            handler: async function () {
-                alert(t('alert_payment_success', formData.email));
-                window.location.reload();
+            handler: async function (response) {
+                setSuccessData({
+                    paymentId: response.razorpay_payment_id,
+                    orderId: response.razorpay_order_id,
+                    name: fullName,
+                    email: formData.email,
+                    amount: totalAmount,
+                    category: category.title,
+                    attendees: formData.attendeesCount,
+                });
+                setLoading(false);
             },
-            prefill: {
-                name: fullNameCombined,
-                email: formData.email,
-                contact: formData.phone,
-            },
+            prefill: { name: fullName, email: formData.email, contact: formData.phone },
             theme: { color: '#ea580c' },
         };
         const paymentObject = new window.Razorpay(options);
         paymentObject.on('payment.failed', function () {
-            alert(t('alert_payment_failed'));
+            setFormError(t('alert_payment_failed') || 'Payment failed. Please try again or use a different payment method.');
+            setLoading(false);
         });
         paymentObject.open();
         setLoading(false);
     };
 
+    // ── SUCCESS STATE ─────────────────────────────────────────────────────
+    if (successData) {
+        return (
+            <div className="text-center py-8 px-4">
+                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
+                    <CheckCircle className="w-10 h-10 text-green-600" />
+                </div>
+                <h2 className="text-2xl font-black text-neutral-900 mb-1">
+                    {successData.isEnquiry ? 'Enquiry Received!' : 'Payment Successful!'}
+                </h2>
+                <p className="text-neutral-500 text-sm mb-6">
+                    {successData.isEnquiry
+                        ? 'Our team will contact you shortly.'
+                        : 'Your registration is confirmed.'}
+                </p>
+
+                <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-5 text-left space-y-3 max-w-sm mx-auto mb-6">
+                    <div className="flex justify-between text-sm">
+                        <span className="text-neutral-500">Name</span>
+                        <span className="font-semibold text-neutral-900">{successData.name}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                        <span className="text-neutral-500">Email</span>
+                        <span className="font-semibold text-neutral-900 break-all">{successData.email}</span>
+                    </div>
+                    {!successData.isEnquiry && (
+                        <>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-neutral-500">Category</span>
+                                <span className="font-semibold text-neutral-900">{successData.category}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-neutral-500">Attendees</span>
+                                <span className="font-semibold text-neutral-900">{successData.attendees} Person(s)</span>
+                            </div>
+                            <div className="flex justify-between text-sm border-t border-neutral-200 pt-3 mt-1">
+                                <span className="text-neutral-500">Payment Status</span>
+                                <span className="font-bold text-green-600">✓ Paid</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-neutral-500">Amount</span>
+                                <span className="font-bold text-neutral-900">₹{successData.amount.toLocaleString('en-IN')}</span>
+                            </div>
+                            {successData.paymentId && (
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-neutral-500">Payment Ref</span>
+                                    <span className="font-mono text-xs text-neutral-600 break-all">{successData.paymentId}</span>
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+
+                <div className="flex items-center justify-center gap-2 text-xs text-neutral-400 mb-6">
+                    <Mail className="w-4 h-4" />
+                    <span>Confirmation email {successData.isEnquiry ? '' : 'with your QR entry pass '}sent to {successData.email}</span>
+                </div>
+
+                <button onClick={() => window.location.reload()} className="text-sm text-orange-600 hover:text-orange-700 font-semibold underline">
+                    Register another person
+                </button>
+            </div>
+        );
+    }
+
+    // ── FORM ──────────────────────────────────────────────────────────────
     return (
         <form onSubmit={handlePayment} className="space-y-8">
 
@@ -201,21 +263,22 @@ export default function CheckoutForm({ category }) {
                 </div>
             )}
 
+            {formError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg flex items-start gap-3 text-sm">
+                    <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                    <p>{formError}</p>
+                </div>
+            )}
+
             {/* --- PERSONAL DETAILS --- */}
             <div>
                 <h4 className="text-sm font-bold text-neutral-900 mb-4 uppercase tracking-wider">{t('form_personal_details')}</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="col-span-1 md:col-span-2 flex gap-4">
                         <TextField
-                            select
-                            label={t('form_title')}
-                            name="salutation"
-                            required
-                            value={formData.salutation}
-                            onChange={handleChange}
-                            variant="outlined"
-                            size="medium"
-                            sx={{ width: '120px' }}
+                            select label={t('form_title')} name="salutation" required
+                            value={formData.salutation} onChange={handleChange}
+                            variant="outlined" size="medium" sx={{ width: '120px' }}
                         >
                             <MenuItem value="Shri">{t('sal_shri')}</MenuItem>
                             <MenuItem value="Smt">{t('sal_smt')}</MenuItem>
@@ -224,61 +287,21 @@ export default function CheckoutForm({ category }) {
                             <MenuItem value="Ms">{t('sal_ms')}</MenuItem>
                             <MenuItem value="Dr">{t('sal_dr')}</MenuItem>
                         </TextField>
-                        <TextField
-                            fullWidth
-                            label={t('form_first_name')}
-                            name="firstName"
-                            required
-                            value={formData.firstName}
-                            onChange={handleChange}
-                            variant="outlined"
-                        />
+                        <TextField fullWidth label={t('form_first_name')} name="firstName" required value={formData.firstName} onChange={handleChange} variant="outlined" />
                     </div>
-                    <TextField
-                        fullWidth
-                        label={t('form_last_name')}
-                        name="lastName"
-                        required
-                        value={formData.lastName}
-                        onChange={handleChange}
-                        variant="outlined"
-                    />
-                    <TextField
-                        fullWidth
-                        label={t('form_gotra')}
-                        name="gotra"
-                        required
-                        value={formData.gotra}
-                        onChange={handleChange}
-                        variant="outlined"
-                    />
-                    <TextField
-                        select
-                        fullWidth
-                        label={t('form_gender')}
-                        name="gender"
-                        required
-                        value={formData.gender}
-                        onChange={handleChange}
-                        variant="outlined"
-                    >
+                    <TextField fullWidth label={t('form_last_name')} name="lastName" required value={formData.lastName} onChange={handleChange} variant="outlined" />
+                    <TextField fullWidth label={t('form_gotra')} name="gotra" required value={formData.gotra} onChange={handleChange} variant="outlined" />
+                    <TextField select fullWidth label={t('form_gender')} name="gender" required value={formData.gender} onChange={handleChange} variant="outlined">
                         <MenuItem value="Male">{t('form_gender_male')}</MenuItem>
                         <MenuItem value="Female">{t('form_gender_female')}</MenuItem>
                         <MenuItem value="Other">{t('form_gender_other')}</MenuItem>
                     </TextField>
                     <TextField
-                        fullWidth
-                        label={t('form_dob')}
-                        name="dob"
-                        type="date"
-                        required
-                        value={formData.dob}
-                        onChange={handleChange}
-                        variant="outlined"
-                        InputLabelProps={{ shrink: true }}
-                        InputProps={{
-                            startAdornment: <InputAdornment position="start"><Calendar className="w-5 h-5 text-neutral-400" /></InputAdornment>
-                        }}
+                        fullWidth label={t('form_dob')} name="dob" type="date" required
+                        value={formData.dob} onChange={handleChange}
+                        variant="outlined" InputLabelProps={{ shrink: true }}
+                        inputProps={{ max: TODAY_STR }}
+                        InputProps={{ startAdornment: <InputAdornment position="start"><Calendar className="w-5 h-5 text-neutral-400" /></InputAdornment> }}
                     />
                 </div>
             </div>
@@ -288,63 +311,27 @@ export default function CheckoutForm({ category }) {
                 <h4 className="text-sm font-bold text-neutral-900 mb-4 uppercase tracking-wider">{t('form_contact_location')}</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <TextField
-                        fullWidth
-                        label={t('form_whatsapp')}
-                        name="phone"
-                        type="tel"
-                        required
-                        value={formData.phone}
-                        onChange={handleChange}
+                        fullWidth label={t('form_whatsapp')} name="phone" type="tel" required
+                        value={formData.phone} onChange={handleChange}
                         variant="outlined"
-                        InputProps={{
-                            startAdornment: <InputAdornment position="start"><Phone className="w-5 h-5 text-neutral-400" /></InputAdornment>
-                        }}
+                        helperText="10-digit Indian mobile number"
+                        InputProps={{ startAdornment: <InputAdornment position="start"><Phone className="w-5 h-5 text-neutral-400" /></InputAdornment> }}
                     />
                     <TextField
-                        fullWidth
-                        label={t('form_email')}
-                        name="email"
-                        type="email"
-                        required
-                        value={formData.email}
-                        onChange={handleChange}
+                        fullWidth label={t('form_email')} name="email" type="email" required
+                        value={formData.email} onChange={handleChange}
                         variant="outlined"
-                        InputProps={{
-                            startAdornment: <InputAdornment position="start"><Mail className="w-5 h-5 text-neutral-400" /></InputAdornment>
-                        }}
+                        InputProps={{ startAdornment: <InputAdornment position="start"><Mail className="w-5 h-5 text-neutral-400" /></InputAdornment> }}
                     />
                     <TextField
-                        fullWidth
-                        label={t('form_pincode')}
-                        name="pincode"
-                        required
-                        value={formData.pincode}
-                        onChange={handlePincodeChange}
-                        variant="outlined"
-                        inputProps={{ maxLength: 6 }}
-                        InputProps={{
-                            startAdornment: <InputAdornment position="start"><MapPin className="w-5 h-5 text-neutral-400" /></InputAdornment>
-                        }}
+                        fullWidth label={t('form_pincode')} name="pincode" required
+                        value={formData.pincode} onChange={handlePincodeChange}
+                        variant="outlined" inputProps={{ maxLength: 6 }}
+                        InputProps={{ startAdornment: <InputAdornment position="start"><MapPin className="w-5 h-5 text-neutral-400" /></InputAdornment> }}
                     />
                     <div className="flex gap-2">
-                        <TextField
-                            fullWidth
-                            label={t('form_taluka')}
-                            name="taluka"
-                            required
-                            value={formData.taluka}
-                            variant="filled"
-                            InputProps={{ readOnly: true }}
-                        />
-                        <TextField
-                            fullWidth
-                            label={t('form_state')}
-                            name="state"
-                            required
-                            value={formData.state}
-                            variant="filled"
-                            InputProps={{ readOnly: true }}
-                        />
+                        <TextField fullWidth label={t('form_taluka')} name="taluka" required value={formData.taluka} variant="filled" InputProps={{ readOnly: true }} />
+                        <TextField fullWidth label={t('form_state')} name="state" required value={formData.state} variant="filled" InputProps={{ readOnly: true }} />
                     </div>
                 </div>
             </div>
@@ -354,31 +341,22 @@ export default function CheckoutForm({ category }) {
                 <h4 className="text-sm font-bold text-neutral-900 mb-4 uppercase tracking-wider">{t('form_event_contribution')}</h4>
                 <div className="grid grid-cols-1 gap-4">
                     <TextField
-                        fullWidth
-                        label={t('form_problem')}
-                        name="problem"
-                        required
-                        multiline
-                        rows={3}
+                        fullWidth label={t('form_problem')} name="problem" required
+                        multiline rows={3}
                         value={formData.problem}
-                        onChange={handleChange}
-                        variant="outlined"
-                        InputProps={{
-                            startAdornment: <InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: 1.5 }}><MessageSquare className="w-5 h-5 text-neutral-400" /></InputAdornment>
+                        onChange={(e) => {
+                            handleChange(e);
+                            if (hasHtml(e.target.value)) setFormError('Problem/Samasya must be plain text — HTML and scripts are not allowed.');
                         }}
+                        variant="outlined"
+                        helperText="Plain text only — no HTML or special characters"
+                        InputProps={{ startAdornment: <InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: 1.5 }}><MessageSquare className="w-5 h-5 text-neutral-400" /></InputAdornment> }}
                     />
                     <TextField
-                        select
-                        fullWidth
-                        label={t('form_attendees')}
-                        name="attendeesCount"
-                        required
-                        value={formData.attendeesCount}
-                        onChange={handleChange}
+                        select fullWidth label={t('form_attendees')} name="attendeesCount" required
+                        value={formData.attendeesCount} onChange={handleChange}
                         variant="outlined"
-                        InputProps={{
-                            startAdornment: <InputAdornment position="start"><Users className="w-5 h-5 text-neutral-400" /></InputAdornment>
-                        }}
+                        InputProps={{ startAdornment: <InputAdornment position="start"><Users className="w-5 h-5 text-neutral-400" /></InputAdornment> }}
                     >
                         {Array.from({ length: category.max_attendees_per_reg || 5 }, (_, i) => i + 1).map(n => (
                             <MenuItem key={n} value={String(n)}>{n} {n === 1 ? 'Person' : 'People'}</MenuItem>
@@ -391,26 +369,18 @@ export default function CheckoutForm({ category }) {
                                 <Heart className="w-4 h-4 text-orange-600" />
                                 {t('form_donation_title')}
                             </h4>
-                            <p className="text-xs text-orange-700 mb-4">
-                                {t('form_donation_desc')}
-                            </p>
+                            <p className="text-xs text-orange-700 mb-4">{t('form_donation_desc')}</p>
                             <TextField
-                                fullWidth
-                                label={t('form_donation_amount')}
-                                name="donation"
-                                type="number"
+                                fullWidth label={t('form_donation_amount')} name="donation" type="number"
                                 value={formData.donation}
                                 onChange={(e) => {
                                     const val = parseFloat(e.target.value);
                                     const safe = isNaN(val) ? '' : String(Math.max(0, val));
                                     setFormData(prev => ({ ...prev, donation: safe }));
                                 }}
-                                variant="outlined"
-                                placeholder="0"
+                                variant="outlined" placeholder="0"
                                 inputProps={{ min: 0, step: 1 }}
-                                InputProps={{
-                                    startAdornment: <InputAdornment position="start">₹</InputAdornment>
-                                }}
+                                InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
                             />
                         </div>
                     )}
@@ -421,13 +391,8 @@ export default function CheckoutForm({ category }) {
             <div className="pt-4 pb-2">
                 <FormControlLabel
                     control={
-                        <Checkbox
-                            checked={agreedToTerms}
-                            onChange={(e) => setAgreedToTerms(e.target.checked)}
-                            sx={{
-                                color: '#a3a3a3',
-                                '&.Mui-checked': { color: '#ea580c' },
-                            }}
+                        <Checkbox checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)}
+                            sx={{ color: '#a3a3a3', '&.Mui-checked': { color: '#ea580c' } }}
                         />
                     }
                     label={
@@ -447,18 +412,13 @@ export default function CheckoutForm({ category }) {
             {/* --- SUBMISSION --- */}
             <div>
                 <Button
-                    type="submit"
-                    variant="contained"
-                    disabled={loading || !agreedToTerms}
-                    fullWidth
+                    type="submit" variant="contained"
+                    disabled={loading || !agreedToTerms} fullWidth
                     sx={{
-                        py: 1.5,
-                        backgroundColor: '#171717',
+                        py: 1.5, backgroundColor: '#171717',
                         '&:hover': { backgroundColor: '#ea580c' },
                         '&:disabled': { backgroundColor: '#d4d4d4', color: '#737373' },
-                        textTransform: 'none',
-                        fontSize: '1.05rem',
-                        fontWeight: 600,
+                        textTransform: 'none', fontSize: '1.05rem', fontWeight: 600,
                     }}
                 >
                     {loading ? t('form_processing') : (isEnquiry ? t('form_submit_enquiry') : t('form_pay_button', totalAmount))}

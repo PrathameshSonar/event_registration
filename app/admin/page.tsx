@@ -18,7 +18,7 @@ interface Registration {
     date_of_birth: string; phone: string; email: string; pincode: string;
     taluka: string; state: string; problem_samasya: string; attendees_count: number;
     donation_amount: number; total_amount: number; razorpay_payment_id: string | null;
-    gotra: string;
+    gotra: string; category_id: string | null;
     categories: { title: string } | null;
 }
 
@@ -31,6 +31,7 @@ interface Category {
     max_capacity: number;
     show_availability: boolean;
     max_attendees_per_reg: number;
+    event_id: string | null;
 }
 
 interface EventItem {
@@ -105,6 +106,8 @@ export default function AdminDashboard() {
     const [newCatIsEnquiry, setNewCatIsEnquiry] = useState(false);
     const [newCatCapacity, setNewCatCapacity] = useState('0');
     const [newCatShowAvail, setNewCatShowAvail] = useState(false);
+    const [newCatEventId, setNewCatEventId] = useState('');
+    const [eventFilter, setEventFilter] = useState<string>('all');
 
     // Checkpoints
     interface Checkpoint { id: string; name: string; sort_order: number; is_active: boolean; }
@@ -274,6 +277,7 @@ export default function AdminDashboard() {
         const { ok, data } = await mutate('/api/admin/categories', 'POST', {
             title: newCatTitle, price: Number(newCatPrice), description: newCatDesc,
             is_enquiry_only: newCatIsEnquiry, max_capacity: Number(newCatCapacity), show_availability: newCatShowAvail,
+            event_id: newCatEventId || null,
         });
         if (!ok) alert(data.error || 'Failed to create tier.');
         else {
@@ -334,15 +338,20 @@ export default function AdminDashboard() {
 
     // ----- Derived data -----
     const uniqueCategories = Array.from(new Set(registrations.map(r => r.categories?.title).filter(Boolean)));
+    const catIdsByEvent = eventsList.reduce((acc, ev) => {
+        acc[ev.id] = new Set(categoriesList.filter(c => c.event_id === ev.id).map(c => c.id));
+        return acc;
+    }, {} as Record<string, Set<string>>);
     const filteredRegistrations = registrations.filter(reg => {
         const searchMatch = `${reg.first_name} ${reg.last_name} ${reg.phone} ${reg.gotra || ''}`.toLowerCase().includes(searchTerm.toLowerCase());
         const statusMatch = statusFilter === 'all' || reg.payment_status === statusFilter;
         const catTitle = reg.categories?.title || 'Deleted Tier';
         const catMatch = categoryFilter === 'all' || (categoryFilter === 'Deleted' && !reg.categories) || catTitle === categoryFilter;
+        const eventMatch = eventFilter === 'all' || (reg.category_id != null && catIdsByEvent[eventFilter]?.has(reg.category_id));
         let dateMatch = true;
         if (startDate) { dateMatch = dateMatch && new Date(reg.created_at) >= new Date(startDate); }
         if (endDate) { const end = new Date(endDate); end.setDate(end.getDate() + 1); dateMatch = dateMatch && new Date(reg.created_at) < end; }
-        return searchMatch && statusMatch && catMatch && dateMatch;
+        return searchMatch && statusMatch && catMatch && eventMatch && dateMatch;
     });
 
     const totalRevenue = filteredRegistrations.filter(r => r.payment_status === 'completed').reduce((sum, r) => sum + Number(r.total_amount || 0), 0);
@@ -536,6 +545,7 @@ export default function AdminDashboard() {
                             </div>
                             <div className="flex flex-wrap gap-3 items-center">
                                 <div className="flex items-center gap-2 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus-within:border-orange-600 transition flex-wrap"><CalendarIcon className="w-4 h-4 text-neutral-400 flex-shrink-0" /><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-transparent focus:outline-none text-neutral-600 min-w-0" /><span className="text-neutral-400">–</span><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="bg-transparent focus:outline-none text-neutral-600 min-w-0" /></div>
+                                <select value={eventFilter} onChange={(e) => { setEventFilter(e.target.value); setCurrentPage(1); }} className="flex-1 min-w-[140px] px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600"><option value="all">All Events</option>{eventsList.map(ev => <option key={ev.id} value={ev.id}>{ev.title}{ev.is_active ? ' ✓' : ''}</option>)}</select>
                                 <select value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value); setCurrentPage(1); }} className="flex-1 min-w-[140px] px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600"><option value="all">All Categories</option>{uniqueCategories.map((cat, idx) => <option key={idx} value={cat as string}>{cat}</option>)}<option value="Deleted"> [Deleted Tiers]</option></select>
                                 <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }} className="flex-1 min-w-[160px] px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600">
                                     <option value="all">All Statuses</option><option value="completed">Completed (Paid)</option><option value="enquired">Enquired</option><option value="contacted">Contacted</option><option value="pending">Pending Checkout</option><option value="failed">Failed Payment</option><option value="refunded">Refunded</option>
@@ -677,6 +687,16 @@ export default function AdminDashboard() {
                                 <div className="max-w-4xl">
                                     <h2 className="text-2xl font-bold mb-6 border-b border-neutral-200 pb-4 text-neutral-900">Ticket Categories & Pricing</h2>
                                     <form onSubmit={handleCreateCategory} className="flex flex-col gap-4 mb-8 bg-neutral-50 p-6 rounded-xl border border-neutral-200">
+                                        <div>
+                                            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1">Link to Event</label>
+                                            <select value={newCatEventId} onChange={(e) => setNewCatEventId(e.target.value)} className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600 text-sm bg-white cursor-pointer">
+                                                <option value="">— Select event —</option>
+                                                {eventsList.map(ev => (
+                                                    <option key={ev.id} value={ev.id}>{ev.title}{ev.is_active ? ' ✓ (Active)' : ''}</option>
+                                                ))}
+                                            </select>
+                                            <p className="text-xs text-neutral-400 mt-1">Only tiers linked to the active event appear on the home page.</p>
+                                        </div>
                                         <div className="flex flex-col md:flex-row gap-4">
                                             <div className="flex-1">
                                                 <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1">Tier Title</label>
@@ -708,10 +728,35 @@ export default function AdminDashboard() {
                                         </div>
                                         <button type="submit" disabled={saving} className="w-full mt-2 bg-neutral-900 hover:bg-orange-600 text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition">Deploy New Tier</button>
                                     </form>
-                                    <div className="space-y-6">
-                                        {categoriesList.map((cat) => (
-                                            <CategoryRow key={cat.id} category={cat} onUpdate={handleUpdateCategory} onDelete={handleDeleteCategory} />
-                                        ))}
+                                    {/* Group categories by event */}
+                                    <div className="space-y-8">
+                                        {eventsList.map(ev => {
+                                            const evCats = categoriesList.filter(c => c.event_id === ev.id);
+                                            if (!evCats.length) return null;
+                                            return (
+                                                <div key={ev.id}>
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <h3 className="text-sm font-bold text-neutral-700">{ev.title}</h3>
+                                                        {ev.is_active && <span className="text-xs font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Active</span>}
+                                                    </div>
+                                                    <div className="space-y-4">
+                                                        {evCats.map(cat => (
+                                                            <CategoryRow key={cat.id} category={cat} onUpdate={handleUpdateCategory} onDelete={handleDeleteCategory} />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        {categoriesList.filter(c => !c.event_id).length > 0 && (
+                                            <div>
+                                                <h3 className="text-sm font-bold text-neutral-400 mb-3">Unassigned (no event linked)</h3>
+                                                <div className="space-y-4">
+                                                    {categoriesList.filter(c => !c.event_id).map(cat => (
+                                                        <CategoryRow key={cat.id} category={cat} onUpdate={handleUpdateCategory} onDelete={handleDeleteCategory} />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}

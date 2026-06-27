@@ -97,10 +97,19 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                     </div>
 
                     {(!categories || categories.length === 0) ? (
-                        <div className="text-center py-20 bg-neutral-50 rounded-2xl border border-neutral-200">
+                        <div className="text-center py-16 bg-neutral-50 rounded-2xl border border-neutral-200 px-6">
                             <p className="text-5xl mb-5">🎵</p>
                             <h4 className="text-2xl font-bold text-neutral-700 mb-2">Registrations Opening Soon</h4>
-                            <p className="text-neutral-400 text-sm">Check back here when registration begins</p>
+                            {pageData?.title && (
+                                <p className="text-lg font-semibold text-neutral-800 mt-3">{pageData.title}</p>
+                            )}
+                            {pageData?.date_time && (
+                                <p className="text-neutral-500 text-sm mt-2">📅 {pageData.date_time}</p>
+                            )}
+                            {pageData?.venue && (
+                                <p className="text-neutral-500 text-sm mt-1">📍 {pageData.venue}</p>
+                            )}
+                            <p className="text-neutral-400 text-sm mt-4">Check back here when registration begins</p>
                         </div>
                     ) : (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
