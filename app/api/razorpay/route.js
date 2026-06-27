@@ -27,7 +27,7 @@ export async function POST(request) {
         }
 
         const body = await request.json();
-        const { categoryId, donation, attendeesCount, agreedToTerms, attendee, customFields } = body || {};
+        const { categoryId, donation, attendeesCount, agreedToTerms, attendee, customFields, paymentPlan } = body || {};
 
         // 1. Basic validation
         if (!agreedToTerms) return badRequest('You must agree to the Terms & Conditions.');
@@ -89,7 +89,7 @@ export async function POST(request) {
         // 2. Authoritative category lookup (price comes from the DB, never the client)
         const { data: category, error: catError } = await supabaseAdmin
             .from('categories')
-            .select('id, title, price, is_enquiry_only, is_full, max_capacity, max_attendees_per_reg')
+            .select('id, title, price, is_enquiry_only, is_full, max_capacity, max_attendees_per_reg, allow_part_payment, advance_percent')
             .eq('id', categoryId)
             .single();
 
@@ -107,7 +107,7 @@ export async function POST(request) {
                 .from('registrations')
                 .select('attendees_count')
                 .eq('category_id', category.id)
-                .in('payment_status', ['completed', 'contacted', 'enquired']);
+                .in('payment_status', ['completed', 'contacted', 'enquired', 'advance_paid']);
 
             if (takenError) {
                 console.error('Capacity check failed — code:', takenError.code, '| message:', takenError.message, '| hint:', takenError.hint);
@@ -127,7 +127,16 @@ export async function POST(request) {
         // 4. Authoritative amount
         const totalAmount = Number(category.price) + donationValue;
         if (!(totalAmount > 0)) return badRequest('Computed amount is invalid.');
-        const amountInPaise = Math.round(totalAmount * 100);
+
+        // Part payment: charge an advance now (% of PRICE only, never the donation).
+        // The remaining balance (rest of price + full donation) is collected later
+        // via a Razorpay Payment Link created in the webhook on advance capture.
+        const isPartial = paymentPlan === 'partial' && category.allow_part_payment === true;
+        const advancePct = Math.min(100, Math.max(1, Number(category.advance_percent) || 25));
+        const advanceAmount = isPartial ? Math.round(Number(category.price) * advancePct / 100) : totalAmount;
+        const chargeNow = isPartial ? advanceAmount : totalAmount;
+        const amountInPaise = Math.round(chargeNow * 100);
+        if (!(amountInPaise > 0)) return badRequest('Computed amount is invalid.');
 
         // 5. Create the Razorpay order
         const razorpay = new Razorpay({
@@ -162,6 +171,9 @@ export async function POST(request) {
                 attendees_count: seats,
                 donation_amount: donationValue,
                 total_amount: totalAmount,
+                amount_paid: 0,
+                amount_due: isPartial ? (totalAmount - advanceAmount) : 0,
+                payment_plan: isPartial ? 'partial' : 'full',
                 razorpay_order_id: order.id,
                 payment_status: 'pending',
             },
@@ -179,6 +191,9 @@ export async function POST(request) {
                 amount: order.amount, // paise, echoed from Razorpay
                 currency: order.currency,
                 keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+                partial: isPartial,
+                advanceAmount: isPartial ? advanceAmount : null,
+                balanceAmount: isPartial ? (totalAmount - advanceAmount) : 0,
             },
             { status: 200 }
         );

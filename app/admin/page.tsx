@@ -12,7 +12,7 @@ import FormFieldsManager from '@/components/FormFieldsManager';
 import HomeContentManager from '@/components/HomeContentManager';
 
 type Role = 'admin' | 'viewer';
-type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'enquired' | 'contacted' | 'amount_mismatch';
+type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'enquired' | 'contacted' | 'amount_mismatch' | 'advance_paid';
 
 interface Registration {
     id: string; created_at: string;
@@ -24,6 +24,8 @@ interface Registration {
     gotra: string; category_id: string | null;
     categories: { title: string } | null;
     custom_fields: Record<string, string> | null;
+    amount_paid: number; amount_due: number;
+    payment_plan: string | null; balance_link_url: string | null;
 }
 
 interface Category {
@@ -36,6 +38,9 @@ interface Category {
     show_availability: boolean;
     max_attendees_per_reg: number;
     event_id: string | null;
+    show_emi_badge: boolean;
+    allow_part_payment: boolean;
+    advance_percent: number;
 }
 
 interface EventItem {
@@ -54,11 +59,12 @@ interface EventItem {
 interface MediaItem { id: string; media_type: 'image' | 'youtube'; url: string; caption: string; event_id: string; events?: { title: string }; }
 
 // Money-terminal states are locked: they cannot be edited from the dashboard.
-const TERMINAL_STATUSES: PaymentStatus[] = ['completed', 'failed', 'refunded', 'amount_mismatch'];
+const TERMINAL_STATUSES: PaymentStatus[] = ['completed', 'failed', 'refunded', 'amount_mismatch', 'advance_paid'];
 
 const STATUS_LABEL: Record<PaymentStatus, string> = {
     completed: '✔ Paid', enquired: '💬 Enquired', contacted: '📞 Contacted',
     pending: '⏳ Pending', failed: '✖ Failed', refunded: '⏪ Refunded', amount_mismatch: '⚠ Amount Mismatch',
+    advance_paid: '◐ Advance Paid',
 };
 
 function statusClasses(status: PaymentStatus) {
@@ -69,6 +75,7 @@ function statusClasses(status: PaymentStatus) {
         case 'pending': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
         case 'failed': return 'bg-red-100 text-red-700 border-red-200';
         case 'amount_mismatch': return 'bg-orange-100 text-orange-800 border-orange-300';
+        case 'advance_paid': return 'bg-amber-100 text-amber-800 border-amber-300';
         default: return 'bg-neutral-200 text-neutral-700 border-neutral-300';
     }
 }
@@ -277,6 +284,16 @@ export default function AdminDashboard() {
         if (!ok) { alert(data.error || 'Failed to send QR codes.'); return; }
         alert(`QR codes sent!\n✉️ Email: ${data.emailSent} sent, ${data.emailFailed} failed\n📱 WhatsApp: ${data.waSent} sent, ${data.waFailed} failed`);
         setSelectedIds(new Set());
+    };
+
+    const [resendingId, setResendingId] = useState<string | null>(null);
+    const handleResendBalance = async (id: string) => {
+        if (!confirm('Re-send the balance payment link by email & WhatsApp?')) return;
+        setResendingId(id);
+        const { ok, data } = await mutate('/api/admin/resend-balance', 'POST', { id });
+        setResendingId(null);
+        if (!ok) { alert(data.error || 'Failed to send balance link.'); return; }
+        alert(`Balance link sent.\n✉️ Email: ${data.emailed ? 'yes' : 'no'}  📱 WhatsApp: ${data.waSent ? 'yes' : 'no'}`);
     };
 
     // ----- Categories -----
@@ -566,7 +583,7 @@ export default function AdminDashboard() {
                                 <select value={eventFilter} onChange={(e) => { setEventFilter(e.target.value); setCurrentPage(1); }} className="flex-1 min-w-[140px] px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600"><option value="all">All Events</option>{eventsList.map(ev => <option key={ev.id} value={ev.id}>{ev.title}{ev.is_active ? ' ✓' : ''}</option>)}</select>
                                 <select value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value); setCurrentPage(1); }} className="flex-1 min-w-[140px] px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600"><option value="all">All Categories</option>{uniqueCategories.map((cat, idx) => <option key={idx} value={cat as string}>{cat}</option>)}<option value="Deleted"> [Deleted Tiers]</option></select>
                                 <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }} className="flex-1 min-w-[160px] px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600">
-                                    <option value="all">All Statuses</option><option value="completed">Completed (Paid)</option><option value="enquired">Enquired</option><option value="contacted">Contacted</option><option value="pending">Pending Checkout</option><option value="failed">Failed Payment</option><option value="refunded">Refunded</option>
+                                    <option value="all">All Statuses</option><option value="completed">Completed (Paid)</option><option value="advance_paid">◐ Advance Paid (Balance Due)</option><option value="enquired">Enquired</option><option value="contacted">Contacted</option><option value="pending">Pending Checkout</option><option value="failed">Failed Payment</option><option value="refunded">Refunded</option>
                                 </select>
                             </div>
                         </div>
@@ -618,11 +635,19 @@ export default function AdminDashboard() {
                                                         </td>
                                                         <td className="px-6 py-4 text-neutral-600">{reg.gotra || '-'}</td>
                                                         <td className="px-6 py-4 text-neutral-600">{reg.categories?.title || 'Deleted Category'}</td>
-                                                        <td className="px-6 py-4 font-bold text-neutral-900">₹{reg.total_amount}</td>
+                                                        <td className="px-6 py-4 font-bold text-neutral-900">
+                                                            ₹{reg.total_amount}
+                                                            {reg.payment_status === 'advance_paid' && (
+                                                                <div className="text-[11px] font-semibold text-amber-700 mt-0.5">Paid ₹{reg.amount_paid} · Due ₹{reg.amount_due}</div>
+                                                            )}
+                                                        </td>
                                                         <td className="px-6 py-4 text-center">
                                                             <div className="flex items-center justify-center gap-2">
                                                                 <button onClick={() => setSelectedRegistration(reg)} className="p-2 border border-neutral-200 rounded-lg bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition shadow-sm" title="View details"><Eye className="w-4 h-4" /></button>
                                                                 <a href={`/api/admin/qr/${reg.id}`} className="p-2 border border-neutral-200 rounded-lg bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition shadow-sm" title="Download QR Code"><QrCode className="w-4 h-4" /></a>
+                                                                {reg.payment_status === 'advance_paid' && (
+                                                                    <button onClick={() => handleResendBalance(reg.id)} disabled={resendingId === reg.id} className="p-2 border border-amber-200 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition shadow-sm disabled:opacity-50" title="Re-send balance payment link"><IndianRupee className="w-4 h-4" /></button>
+                                                                )}
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -890,6 +915,9 @@ function CategoryRow({ category, onUpdate, onDelete }: { category: Category, onU
     const [capacity, setCapacity] = useState(category.max_capacity || 0);
     const [showAvail, setShowAvail] = useState(category.show_availability || false);
     const [maxPerReg, setMaxPerReg] = useState(category.max_attendees_per_reg || 5);
+    const [showEmi, setShowEmi] = useState(category.show_emi_badge || false);
+    const [allowPart, setAllowPart] = useState(category.allow_part_payment || false);
+    const [advancePct, setAdvancePct] = useState(category.advance_percent || 25);
     const [isChanged, setIsChanged] = useState(false);
 
     const handleUpdateClick = () => {
@@ -899,6 +927,7 @@ function CategoryRow({ category, onUpdate, onDelete }: { category: Category, onU
             description_hi: descHi || null, detailed_description_hi: detailedDescHi || null,
             is_full: isFull, is_enquiry_only: isEnquiry, max_capacity: capacity, show_availability: showAvail,
             max_attendees_per_reg: maxPerReg,
+            show_emi_badge: showEmi, allow_part_payment: allowPart, advance_percent: advancePct,
         });
         setIsChanged(false);
     };
@@ -931,6 +960,25 @@ function CategoryRow({ category, onUpdate, onDelete }: { category: Category, onU
                 <div className="md:col-span-2"><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Detailed Perks (EN)</label><textarea value={detailedDesc} onChange={(e) => { setDetailedDesc(e.target.value); setIsChanged(true); }} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition h-16 resize-none" /></div>
                 <div className="md:col-span-2"><label className="block text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1">विस्तृत विवरण (HI)</label><textarea value={detailedDescHi} onChange={(e) => { setDetailedDescHi(e.target.value); setIsChanged(true); }} className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg bg-blue-50/30 focus:outline-none focus:border-blue-500 focus:bg-white transition h-16 resize-none" /></div>
             </div>
+
+            {/* Payment options */}
+            {!isEnquiry && (
+                <div className="mt-5 pt-4 border-t border-neutral-100 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-neutral-700">
+                        <input type="checkbox" checked={showEmi} onChange={(e) => { setShowEmi(e.target.checked); setIsChanged(true); }} className="w-4 h-4 text-orange-600 rounded border-neutral-300 focus:ring-orange-600" />
+                        💳 Show “EMI available” badge
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-neutral-700">
+                        <input type="checkbox" checked={allowPart} onChange={(e) => { setAllowPart(e.target.checked); setIsChanged(true); }} className="w-4 h-4 text-orange-600 rounded border-neutral-300 focus:ring-orange-600" />
+                        ◐ Allow part payment
+                    </label>
+                    <div className={allowPart ? '' : 'opacity-40 pointer-events-none'}>
+                        <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Advance % (of price)</label>
+                        <input type="number" min="1" max="100" value={advancePct} onChange={(e) => { setAdvancePct(Math.min(100, Math.max(1, Number(e.target.value) || 25))); setIsChanged(true); }} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" />
+                    </div>
+                </div>
+            )}
+
             <div className="mt-5 pt-4 border-t border-neutral-100 flex justify-end">
                 <button onClick={handleUpdateClick} disabled={!isChanged} className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all ${isChanged ? 'bg-orange-600 text-white shadow-md hover:bg-orange-700' : 'bg-neutral-100 text-neutral-400 cursor-not-allowed border border-neutral-200'}`}><Save className="w-4 h-4" />{isChanged ? "Commit Updates" : "Up to date"}</button>
             </div>

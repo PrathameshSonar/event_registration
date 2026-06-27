@@ -13,13 +13,14 @@ function sanitize(input = {}) {
     const allowed = ['title', 'price', 'description', 'detailed_description', 'media_url',
         'is_full', 'is_enquiry_only', 'max_capacity', 'show_availability',
         'title_hi', 'description_hi', 'detailed_description_hi', 'max_attendees_per_reg',
-        'event_id'];
+        'event_id', 'show_emi_badge', 'allow_part_payment', 'advance_percent'];
     for (const key of allowed) {
         if (input[key] !== undefined) out[key] = input[key];
     }
     if (out.price !== undefined) out.price = Number(out.price) || 0;
     if (out.max_capacity !== undefined) out.max_capacity = Number(out.max_capacity) || 0;
     if (out.max_attendees_per_reg !== undefined) out.max_attendees_per_reg = Math.max(1, Number(out.max_attendees_per_reg) || 5);
+    if (out.advance_percent !== undefined) out.advance_percent = Math.min(100, Math.max(1, Number(out.advance_percent) || 25));
     return out;
 }
 

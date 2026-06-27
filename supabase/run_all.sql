@@ -40,6 +40,22 @@ ALTER TABLE categories
     ADD COLUMN IF NOT EXISTS max_attendees_per_reg INTEGER DEFAULT 5;
 
 
+-- 1b) ── Payment options: EMI badge + part payment (per category) ────────────
+ALTER TABLE categories
+    ADD COLUMN IF NOT EXISTS show_emi_badge     BOOLEAN DEFAULT false,
+    ADD COLUMN IF NOT EXISTS allow_part_payment BOOLEAN DEFAULT false,
+    ADD COLUMN IF NOT EXISTS advance_percent    INTEGER DEFAULT 25;  -- % of PRICE taken as advance
+
+-- Part-payment ledger on each registration.
+ALTER TABLE registrations
+    ADD COLUMN IF NOT EXISTS amount_paid      NUMERIC DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS amount_due       NUMERIC DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS payment_plan     TEXT DEFAULT 'full',  -- 'full' | 'partial'
+    ADD COLUMN IF NOT EXISTS balance_link_url TEXT;
+-- NOTE: registrations.payment_status also uses a new value 'advance_paid'.
+-- If that column has a CHECK constraint limiting its values, add 'advance_paid' to it.
+
+
 -- 2) ── Entry checkpoints + per-scan audit trail ────────────────────────────
 CREATE TABLE IF NOT EXISTS checkpoints (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

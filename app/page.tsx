@@ -50,7 +50,7 @@ export default async function Home() {
     const { data: regs } = await supabaseAdmin
         .from('registrations')
         .select('category_id, attendees_count')
-        .in('payment_status', ['completed', 'contacted', 'enquired']);
+        .in('payment_status', ['completed', 'contacted', 'enquired', 'advance_paid']);
 
     const seatsTaken: Record<string, number> = {};
     regs?.forEach(reg => {

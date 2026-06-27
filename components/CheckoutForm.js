@@ -76,6 +76,7 @@ export default function CheckoutForm({ category }) {
   // Admin-configured field visibility/requirements (null = still loading → defaults).
   const [serverFields, setServerFields] = useState(null);
   const [customValues, setCustomValues] = useState({});
+  const [payAdvance, setPayAdvance] = useState(false);
 
   useEffect(() => {
     fetch(`/api/form-fields?categoryId=${category.id}`)
@@ -108,6 +109,14 @@ export default function CheckoutForm({ category }) {
     ? 0
     : Math.max(0, parseFloat(formData.donation) || 0);
   const totalAmount = isEnquiry ? 0 : category.price + donationValue;
+
+  // Part payment (advance = % of PRICE only, never the donation).
+  const canPartPay = !isEnquiry && category.allow_part_payment === true && category.price > 0;
+  const advancePct = Math.min(100, Math.max(1, Number(category.advance_percent) || 25));
+  const advanceAmount = canPartPay ? Math.round(category.price * (advancePct / 100)) : 0;
+  const balanceAmount = canPartPay ? totalAmount - advanceAmount : 0;
+  const usePartial = canPartPay && payAdvance;
+  const payNow = usePartial ? advanceAmount : totalAmount;
 
   const clearError = (name) =>
     setFieldErrors((prev) => {
@@ -309,6 +318,7 @@ export default function CheckoutForm({ category }) {
         agreedToTerms,
         attendee: attendeePayload,
         customFields: customValues,
+        paymentPlan: usePartial ? "partial" : "full",
       }),
     });
     const orderData = await orderResponse.json();
@@ -340,6 +350,9 @@ export default function CheckoutForm({ category }) {
           amount: totalAmount,
           category: category.title,
           attendees: formData.attendeesCount,
+          partial: usePartial,
+          paidNow: payNow,
+          balance: usePartial ? balanceAmount : 0,
         });
         setLoading(false);
       },
@@ -370,12 +383,18 @@ export default function CheckoutForm({ category }) {
           <CheckCircle className="w-10 h-10 text-green-600" />
         </div>
         <h2 className="text-2xl font-black text-neutral-900 mb-1">
-          {successData.isEnquiry ? "Enquiry Received!" : "Payment Successful!"}
+          {successData.isEnquiry
+            ? "Enquiry Received!"
+            : successData.partial
+              ? "Advance Received!"
+              : "Payment Successful!"}
         </h2>
         <p className="text-neutral-500 text-sm mb-6">
           {successData.isEnquiry
             ? "Our team will contact you shortly."
-            : "Your registration is confirmed."}
+            : successData.partial
+              ? "Pay the balance to confirm your registration."
+              : "Your registration is confirmed."}
         </p>
 
         <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-5 text-left space-y-3 max-w-sm mx-auto mb-6">
@@ -407,14 +426,33 @@ export default function CheckoutForm({ category }) {
               </div>
               <div className="flex justify-between text-sm border-t border-neutral-200 pt-3 mt-1">
                 <span className="text-neutral-500">Payment Status</span>
-                <span className="font-bold text-green-600">✓ Paid</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-neutral-500">Amount</span>
-                <span className="font-bold text-neutral-900">
-                  ₹{successData.amount.toLocaleString("en-IN")}
+                <span className={`font-bold ${successData.partial ? "text-amber-600" : "text-green-600"}`}>
+                  {successData.partial ? "◐ Advance Paid" : "✓ Paid"}
                 </span>
               </div>
+              {successData.partial ? (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-neutral-500">Advance Paid</span>
+                    <span className="font-bold text-neutral-900">₹{successData.paidNow.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-neutral-500">Balance Due</span>
+                    <span className="font-bold text-orange-600">₹{successData.balance.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-neutral-500">Total</span>
+                    <span className="font-bold text-neutral-900">₹{successData.amount.toLocaleString("en-IN")}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between text-sm">
+                  <span className="text-neutral-500">Amount</span>
+                  <span className="font-bold text-neutral-900">
+                    ₹{successData.amount.toLocaleString("en-IN")}
+                  </span>
+                </div>
+              )}
               {successData.paymentId && (
                 <div className="flex justify-between text-sm">
                   <span className="text-neutral-500">Payment Ref</span>
@@ -427,12 +465,12 @@ export default function CheckoutForm({ category }) {
           )}
         </div>
 
-        <div className="flex items-center justify-center gap-2 text-xs text-neutral-400 mb-6">
-          <Mail className="w-4 h-4" />
+        <div className="flex items-center justify-center gap-2 text-xs text-neutral-400 mb-6 px-4">
+          <Mail className="w-4 h-4 flex-shrink-0" />
           <span>
-            Confirmation email{" "}
-            {successData.isEnquiry ? "" : "with your QR entry pass "}sent to{" "}
-            {successData.email}
+            {successData.partial
+              ? `Balance payment link sent to ${successData.email} & your WhatsApp. Your entry pass is issued after full payment.`
+              : `Confirmation email ${successData.isEnquiry ? "" : "with your QR entry pass "}sent to ${successData.email}`}
           </span>
         </div>
 
@@ -790,6 +828,35 @@ export default function CheckoutForm({ category }) {
               />
             </div>
           )}
+
+          {/* --- PART PAYMENT OPTION --- */}
+          {canPartPay && (
+            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setPayAdvance(false)}
+                className={`text-left p-4 rounded-xl border-2 transition ${!payAdvance ? "border-orange-500 bg-orange-50" : "border-neutral-200 hover:border-neutral-300"}`}
+              >
+                <div className="font-bold text-neutral-900 text-sm">Pay Full</div>
+                <div className="text-2xl font-black text-orange-600 mt-1">₹{totalAmount.toLocaleString("en-IN")}</div>
+                <div className="text-xs text-neutral-500 mt-1">Complete payment now</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPayAdvance(true)}
+                className={`text-left p-4 rounded-xl border-2 transition ${payAdvance ? "border-orange-500 bg-orange-50" : "border-neutral-200 hover:border-neutral-300"}`}
+              >
+                <div className="font-bold text-neutral-900 text-sm">Pay {advancePct}% Advance</div>
+                <div className="text-2xl font-black text-orange-600 mt-1">₹{advanceAmount.toLocaleString("en-IN")}</div>
+                <div className="text-xs text-neutral-500 mt-1">Balance ₹{balanceAmount.toLocaleString("en-IN")} via link later</div>
+              </button>
+              {payAdvance && (
+                <p className="sm:col-span-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  We&apos;ll send a payment link for the ₹{balanceAmount.toLocaleString("en-IN")} balance by email &amp; WhatsApp. Your entry pass is issued only after full payment. <strong>No-refund policy applies.</strong>
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -862,7 +929,9 @@ export default function CheckoutForm({ category }) {
             ? t("form_processing")
             : isEnquiry
               ? t("form_submit_enquiry")
-              : t("form_pay_button", totalAmount)}
+              : usePartial
+                ? `Pay ₹${payNow.toLocaleString("en-IN")} Advance Securely`
+                : t("form_pay_button", totalAmount)}
         </Button>
 
         {!isEnquiry && (

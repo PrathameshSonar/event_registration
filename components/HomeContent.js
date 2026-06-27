@@ -289,9 +289,17 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                                         <div className="text-3xl font-black mb-4 text-orange-600">
                                             {category.is_enquiry_only ? t('category_enquire_price') : `₹${category.price.toLocaleString('en-IN')}`}
                                         </div>
-                                        <p className="text-neutral-600 mb-8 text-sm leading-relaxed whitespace-pre-wrap">
+                                        <p className="text-neutral-600 mb-4 text-sm leading-relaxed whitespace-pre-wrap">
                                             {getCatDesc(category)}
                                         </p>
+                                        <div className="flex flex-wrap gap-2 mb-8">
+                                            {category.show_emi_badge && !category.is_enquiry_only && (
+                                                <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full px-2.5 py-1">💳 EMI available</span>
+                                            )}
+                                            {category.allow_part_payment && !category.is_enquiry_only && (
+                                                <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-2.5 py-1">◐ Part payment ({category.advance_percent || 25}% advance)</span>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {isEffectivelyFull ? (
