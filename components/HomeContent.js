@@ -2,14 +2,28 @@
 // Client Component — receives server-fetched data, handles language switching.
 "use client";
 
-import { Calendar, MapPin, Image as ImageIcon, Video, AlertCircle } from 'lucide-react';
+import { Calendar, MapPin, Image as ImageIcon, Video, AlertCircle, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useLanguage } from './LanguageProvider';
 import LangToggle from './LangToggle';
 import Footer from './Footer';
 import YouTubeEmbed from './YouTubeEmbed';
+import Countdown from './Countdown';
+import FloatingActions from './FloatingActions';
 
-export default function HomeContent({ pageData, categories, mediaItems, seatsTaken }) {
+// Shown when the admin hasn't added ritual highlights yet — keeps the page rich out of the box.
+const DEFAULT_HIGHLIGHTS = [
+    { icon: '🔥', en: 'Havan & Yagna', hi: 'हवन एवं यज्ञ', enD: 'Sacred fire rituals for purification and blessings', hiD: 'शुद्धि एवं आशीर्वाद हेतु पावन अग्नि अनुष्ठान' },
+    { icon: '🪔', en: 'Maha Aarti', hi: 'महा आरती', enD: 'Grand evening aarti with lamps and devotional chants', hiD: 'दीपों एवं भक्ति गीतों के साथ भव्य संध्या आरती' },
+    { icon: '🌺', en: 'Abhishekam', hi: 'अभिषेकम्', enD: 'Ceremonial bathing of the deity with sacred offerings', hiD: 'पावन सामग्री से देव का अभिषेक' },
+    { icon: '🍲', en: 'Annadān (Bhandara)', hi: 'अन्नदान (भंडारा)', enD: 'Community feast — prasad served to all devotees', hiD: 'सामुदायिक भोज — सभी भक्तों हेतु प्रसाद' },
+    { icon: '🎶', en: 'Bhajan Sandhya', hi: 'भजन संध्या', enD: 'An evening of soul-stirring devotional music', hiD: 'मनमोहक भक्ति संगीत की संध्या' },
+    { icon: '📿', en: 'Pravachan', hi: 'प्रवचन', enD: 'Spiritual discourses by revered saints', hiD: 'पूज्य संतों द्वारा आध्यात्मिक प्रवचन' },
+];
+
+export default function HomeContent({ pageData, categories, mediaItems, seatsTaken, schedule, highlights }) {
+    schedule = schedule || [];
+    highlights = highlights || [];
     const { t, lang } = useLanguage();
 
     const eventTitle = lang === 'hi'
@@ -36,8 +50,26 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
     const galleryImages = mediaItems?.filter(item => item.media_type === 'image') || [];
     const youtubeVideos = mediaItems?.filter(item => item.media_type === 'youtube') || [];
 
+    const hasCategories = Array.isArray(categories) && categories.length > 0;
+    const aboutText = lang === 'hi'
+        ? (pageData?.long_description_hi || pageData?.long_description || '')
+        : (pageData?.long_description || '');
+
+    // Ritual highlights: admin-defined if present, otherwise a curated default set.
+    const hl = (highlights && highlights.length)
+        ? highlights.map(h => ({
+            icon: h.icon || '🪔',
+            title: lang === 'hi' ? (h.title_hi || h.title) : h.title,
+            desc: lang === 'hi' ? (h.description_hi || h.description) : h.description,
+          }))
+        : DEFAULT_HIGHLIGHTS.map(h => ({
+            icon: h.icon,
+            title: lang === 'hi' ? h.hi : h.en,
+            desc: lang === 'hi' ? h.hiD : h.enD,
+          }));
+
     return (
-        <main className="min-h-screen bg-neutral-50 text-neutral-900 font-sans selection:bg-orange-100">
+        <main className="min-h-screen bg-neutral-50 text-neutral-900 font-sans selection:bg-orange-100 pb-20 md:pb-0">
 
             {/* HEADER */}
             <header className="bg-white border-b border-neutral-200 sticky top-0 z-50 bg-white/90 backdrop-blur-md">
@@ -62,32 +94,137 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                 </div>
             </header>
 
-            {/* HERO */}
-            <section className="max-w-4xl mx-auto px-4 py-12 md:py-24 text-center">
-                <span className="text-orange-600 font-bold tracking-widest uppercase text-xs mb-4 block">
-                    {t('hero_tagline')}
-                </span>
-                <h2 className="text-3xl sm:text-4xl md:text-6xl font-extrabold mb-6 leading-tight tracking-tight text-neutral-950">
-                    {eventTitle}
-                </h2>
-                <p className="text-base text-neutral-600 md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
-                    {eventDesc}
-                </p>
-                <div className="flex flex-col md:flex-row justify-center gap-6 md:gap-12 text-neutral-600 mb-16 font-medium text-sm">
-                    <div className="flex items-center justify-center gap-2">
-                        <Calendar className="w-5 h-5 text-orange-600" />
-                        <span>{displayDate}</span>
+            {/* HERO — devotional */}
+            <section className="relative overflow-hidden bg-gradient-to-b from-orange-700 via-orange-600 to-amber-700 text-white">
+                {/* Decorative motifs */}
+                <div className="pointer-events-none absolute inset-0 opacity-[0.12]" style={{ backgroundImage: 'radial-gradient(circle at 20% 20%, #fff 1px, transparent 1px), radial-gradient(circle at 80% 60%, #fff 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
+                <div className="pointer-events-none absolute -top-16 -left-16 w-64 h-64 rounded-full bg-amber-400/20 blur-3xl" />
+                <div className="pointer-events-none absolute -bottom-20 -right-10 w-72 h-72 rounded-full bg-orange-900/30 blur-3xl" />
+                <span className="pointer-events-none absolute top-6 left-1/2 -translate-x-1/2 text-5xl opacity-30">🕉️</span>
+
+                <div className="relative max-w-4xl mx-auto px-4 py-16 md:py-24 text-center">
+                    {/* Mantra */}
+                    <p className="text-amber-100 text-sm md:text-base font-medium leading-relaxed max-w-2xl mx-auto mb-6 mt-6" lang="sa">
+                        {t('hero_mantra')}
+                    </p>
+
+                    <span className="inline-block text-amber-200 font-bold tracking-widest uppercase text-xs mb-4 border border-amber-200/40 rounded-full px-4 py-1">
+                        🔱 {t('hero_tagline')}
+                    </span>
+                    <h2 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-6 leading-tight tracking-tight drop-shadow-sm">
+                        {eventTitle}
+                    </h2>
+                    <p className="text-base md:text-xl text-amber-50/90 max-w-2xl mx-auto mb-8 leading-relaxed">
+                        {eventDesc}
+                    </p>
+
+                    {/* Date + venue */}
+                    <div className="flex flex-col md:flex-row justify-center gap-4 md:gap-10 text-amber-50 mb-10 font-medium text-sm">
+                        <div className="flex items-center justify-center gap-2">
+                            <Calendar className="w-5 h-5 text-amber-200" />
+                            <span>{displayDate}</span>
+                        </div>
+                        <div className="flex items-center justify-center gap-2">
+                            <MapPin className="w-5 h-5 text-amber-200" />
+                            {mapUrl ? (
+                                <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="hover:text-white hover:underline transition">{displayVenue}</a>
+                            ) : (
+                                <span>{displayVenue}</span>
+                            )}
+                        </div>
                     </div>
-                    <div className="flex items-center justify-center gap-2">
-                        <MapPin className="w-5 h-5 text-orange-600" />
-                        {mapUrl ? (
-                            <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="hover:text-orange-600 hover:underline transition">{displayVenue}</a>
-                        ) : (
-                            <span>{displayVenue}</span>
+
+                    {/* Countdown */}
+                    {pageData?.start_at && (
+                        <div className="mb-10">
+                            <Countdown startAt={pageData.start_at} />
+                        </div>
+                    )}
+
+                    {/* CTAs */}
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                        {hasCategories && (
+                            <a href="#categories" className="inline-block bg-white text-orange-700 font-bold px-8 py-3.5 rounded-xl shadow-lg hover:bg-amber-50 hover:scale-[1.02] transition text-sm md:text-base">
+                                🪔 {t('hero_register_cta')}
+                            </a>
                         )}
+                        {schedule.length > 0 && (
+                            <a href="#schedule" className="inline-block bg-white/10 border border-white/30 backdrop-blur-sm text-white font-bold px-8 py-3.5 rounded-xl hover:bg-white/20 transition text-sm md:text-base">
+                                {t('hero_view_schedule')}
+                            </a>
+                        )}
+                    </div>
+
+                    <p className="text-amber-100/70 text-xs md:text-sm mt-8 italic">{t('hero_blessing')}</p>
+                </div>
+
+                {/* Wave divider */}
+                <div className="relative">
+                    <svg viewBox="0 0 1440 60" className="w-full h-[40px] md:h-[60px] block" preserveAspectRatio="none">
+                        <path fill="#fafafa" d="M0,32L48,37.3C96,43,192,53,288,53.3C384,53,480,43,576,37.3C672,32,768,32,864,37.3C960,43,1056,53,1152,50.7C1248,48,1344,32,1392,24L1440,16L1440,60L0,60Z" />
+                    </svg>
+                </div>
+            </section>
+
+            {/* ABOUT THE MAHOTSAV */}
+            {aboutText && (
+                <section className="bg-neutral-50 py-14 md:py-20 border-b border-neutral-200">
+                    <div className="max-w-3xl mx-auto px-4 text-center">
+                        <span className="text-3xl">🙏</span>
+                        <h3 className="text-2xl md:text-3xl font-bold mt-3 mb-5 tracking-tight text-neutral-900">{t('section_about_title')}</h3>
+                        <p className="text-neutral-600 leading-relaxed whitespace-pre-wrap text-sm md:text-base">{aboutText}</p>
+                    </div>
+                </section>
+            )}
+
+            {/* SACRED RITUALS & HIGHLIGHTS */}
+            <section className="bg-white py-14 md:py-20 border-b border-neutral-200">
+                <div className="max-w-5xl mx-auto px-4">
+                    <div className="text-center mb-10">
+                        <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-neutral-900">{t('section_highlights_title')}</h3>
+                        <p className="text-neutral-500 text-sm mt-2">{t('section_highlights_desc')}</p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+                        {hl.map((h, i) => (
+                            <div key={i} className="rounded-2xl border border-orange-100 bg-gradient-to-br from-orange-50/60 to-amber-50/40 p-6 text-center hover:shadow-md hover:border-orange-200 transition">
+                                <div className="text-4xl mb-3">{h.icon}</div>
+                                <h4 className="font-bold text-neutral-900 mb-1.5">{h.title}</h4>
+                                {h.desc && <p className="text-neutral-500 text-sm leading-relaxed">{h.desc}</p>}
+                            </div>
+                        ))}
                     </div>
                 </div>
             </section>
+
+            {/* PROGRAMME SCHEDULE */}
+            {schedule.length > 0 && (
+                <section id="schedule" className="bg-gradient-to-b from-amber-50/40 to-white py-14 md:py-20 border-b border-neutral-200">
+                    <div className="max-w-3xl mx-auto px-4">
+                        <div className="text-center mb-10">
+                            <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-neutral-900">{t('section_schedule_title')}</h3>
+                            <p className="text-neutral-500 text-sm mt-2">{t('section_schedule_desc')}</p>
+                        </div>
+                        <div className="space-y-3">
+                            {schedule.map((s) => {
+                                const sTitle = lang === 'hi' ? (s.title_hi || s.title) : s.title;
+                                const sDay = lang === 'hi' ? (s.day_label_hi || s.day_label) : s.day_label;
+                                return (
+                                    <div key={s.id} className="flex items-center gap-4 bg-white border border-neutral-200 rounded-xl p-4 hover:border-orange-200 hover:shadow-sm transition">
+                                        <div className="flex-shrink-0 flex flex-col items-center justify-center w-20 text-center">
+                                            <Clock className="w-4 h-4 text-orange-500 mb-1" />
+                                            <span className="text-xs font-bold text-orange-700">{s.time_label || '—'}</span>
+                                        </div>
+                                        <div className="flex-1 min-w-0 border-l border-neutral-100 pl-4">
+                                            <p className="font-semibold text-neutral-900">{sTitle}</p>
+                                            {sDay && <p className="text-xs text-neutral-400 mt-0.5">{sDay}</p>}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </section>
+            )}
 
             {/* REGISTRATION CATEGORIES */}
             <section id="categories" className="bg-white py-16 md:py-24 border-t border-neutral-200">
@@ -202,6 +339,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                     </div>
                 </section>
             )}
+            <FloatingActions phone={pageData?.contact_phone} hasCategories={hasCategories} />
             <Footer />
         </main>
     );
