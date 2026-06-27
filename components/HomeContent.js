@@ -10,6 +10,11 @@ import Footer from './Footer';
 import YouTubeEmbed from './YouTubeEmbed';
 import Countdown from './Countdown';
 import FloatingActions from './FloatingActions';
+import AddToCalendar from './AddToCalendar';
+import ShareButtons from './ShareButtons';
+import FaqAccordion from './FaqAccordion';
+import ReminderForm from './ReminderForm';
+import Reveal from './Reveal';
 
 // Shown when the admin hasn't added ritual highlights yet — keeps the page rich out of the box.
 const DEFAULT_HIGHLIGHTS = [
@@ -21,9 +26,10 @@ const DEFAULT_HIGHLIGHTS = [
     { icon: '📿', en: 'Pravachan', hi: 'प्रवचन', enD: 'Spiritual discourses by revered saints', hiD: 'पूज्य संतों द्वारा आध्यात्मिक प्रवचन' },
 ];
 
-export default function HomeContent({ pageData, categories, mediaItems, seatsTaken, schedule, highlights }) {
+export default function HomeContent({ pageData, categories, mediaItems, seatsTaken, schedule, highlights, faqs }) {
     schedule = schedule || [];
     highlights = highlights || [];
+    faqs = faqs || [];
     const { t, lang } = useLanguage();
 
     const eventTitle = lang === 'hi'
@@ -110,7 +116,8 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                 <div className="pointer-events-none absolute -bottom-20 -right-10 w-72 h-72 rounded-full bg-orange-900/30 blur-3xl" />
 
                 <div className="relative max-w-4xl mx-auto px-4 py-16 md:py-24 text-center">
-                    <span className="inline-block text-amber-200 font-bold tracking-widest uppercase text-xs mb-4 mt-4 border border-amber-200/40 rounded-full px-4 py-1">
+                    <div className="text-5xl md:text-6xl mb-4"><span className="diya-flicker">🪔</span></div>
+                    <span className="inline-block text-amber-200 font-bold tracking-widest uppercase text-xs mb-4 border border-amber-200/40 rounded-full px-4 py-1">
                         🔱 {t('hero_tagline')}
                     </span>
                     <h2 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-6 leading-tight tracking-tight drop-shadow-sm">
@@ -144,7 +151,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                     )}
 
                     {/* CTAs */}
-                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center flex-wrap">
                         {hasCategories && (
                             <a href="#categories" className="inline-block bg-white text-orange-700 font-bold px-8 py-3.5 rounded-xl shadow-lg hover:bg-amber-50 hover:scale-[1.02] transition text-sm md:text-base">
                                 🪔 {t('hero_register_cta')}
@@ -155,6 +162,12 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                                 {t('hero_view_schedule')}
                             </a>
                         )}
+                        <AddToCalendar title={eventTitle} startAt={pageData?.start_at} location={displayVenue} details={eventDesc} />
+                    </div>
+
+                    {/* Share */}
+                    <div className="mt-8">
+                        <ShareButtons title={eventTitle} />
                     </div>
 
                     <p className="text-amber-100/70 text-xs md:text-sm mt-8 italic">{t('hero_blessing')}</p>
@@ -170,6 +183,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
 
             {/* ABOUT THE MAHOTSAV */}
             {aboutText && (
+                <Reveal>
                 <section className="bg-neutral-50 py-14 md:py-20 border-b border-neutral-200">
                     <div className="max-w-3xl mx-auto px-4 text-center">
                         <span className="text-3xl">🙏</span>
@@ -177,9 +191,11 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                         <p className="text-neutral-600 leading-relaxed whitespace-pre-wrap text-sm md:text-base">{aboutText}</p>
                     </div>
                 </section>
+                </Reveal>
             )}
 
             {/* SACRED RITUALS & HIGHLIGHTS */}
+            <Reveal>
             <section className="bg-white py-14 md:py-20 border-b border-neutral-200">
                 <div className="max-w-5xl mx-auto px-4">
                     <div className="text-center mb-10">
@@ -197,9 +213,11 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                     </div>
                 </div>
             </section>
+            </Reveal>
 
             {/* PROGRAMME SCHEDULE */}
             {schedule.length > 0 && (
+                <Reveal>
                 <section id="schedule" className="bg-gradient-to-b from-amber-50/40 to-white py-14 md:py-20 border-b border-neutral-200">
                     <div className="max-w-3xl mx-auto px-4">
                         <div className="text-center mb-10">
@@ -226,6 +244,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                         </div>
                     </div>
                 </section>
+                </Reveal>
             )}
 
             {/* REGISTRATION CATEGORIES */}
@@ -295,6 +314,14 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                     )}
                 </div>
             </section>
+
+            {/* FAQ */}
+            <Reveal><FaqAccordion faqs={faqs} /></Reveal>
+
+            {/* REMINDER OPT-IN */}
+            {pageData?.id && (
+                <Reveal><ReminderForm eventId={pageData.id} /></Reveal>
+            )}
 
             {/* MEDIA */}
             {mediaItems && mediaItems.length > 0 && (

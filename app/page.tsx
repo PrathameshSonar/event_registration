@@ -30,16 +30,19 @@ export default async function Home() {
         .select('*')
         .order('created_at', { ascending: false });
 
-    // 3b. Devotional content for the active event (schedule + ritual highlights)
+    // 3b. Devotional content for the active event (schedule + highlights + FAQs)
     let schedule: any[] = [];
     let highlights: any[] = [];
+    let faqs: any[] = [];
     if (pageData?.id) {
-        const [schedRes, hlRes] = await Promise.all([
+        const [schedRes, hlRes, faqRes] = await Promise.all([
             supabase.from('event_schedule').select('*').eq('event_id', pageData.id).order('sort_order'),
             supabase.from('event_highlights').select('*').eq('event_id', pageData.id).order('sort_order'),
+            supabase.from('event_faqs').select('*').eq('event_id', pageData.id).order('sort_order'),
         ]);
         schedule = schedRes.data || [];
         highlights = hlRes.data || [];
+        faqs = faqRes.data || [];
     }
 
     // 4. Seat counts — requires service-role key (RLS blocks anon reads on registrations)
@@ -61,6 +64,7 @@ export default async function Home() {
             seatsTaken={seatsTaken}
             schedule={schedule}
             highlights={highlights}
+            faqs={faqs}
         />
     );
 }

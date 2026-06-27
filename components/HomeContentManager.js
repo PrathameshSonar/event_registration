@@ -5,7 +5,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Trash2, Save, Clock, Sparkles, Phone, CalendarClock, Image as ImageIcon } from "lucide-react";
+import { Plus, Trash2, Save, Clock, Sparkles, Phone, CalendarClock, Image as ImageIcon, HelpCircle, BellRing } from "lucide-react";
 
 export default function HomeContentManager(props) {
   const events = props.events || [];
@@ -22,7 +22,15 @@ export default function HomeContentManager(props) {
 
   const [schedule, setSchedule] = useState([]);
   const [highlights, setHighlights] = useState([]);
+  const [faqs, setFaqs] = useState([]);
+  const [reminders, setReminders] = useState([]);
   const [busy, setBusy] = useState(false);
+
+  // New FAQ
+  const [fq, setFq] = useState("");
+  const [fqHi, setFqHi] = useState("");
+  const [fa, setFa] = useState("");
+  const [faHi, setFaHi] = useState("");
 
   // New schedule row
   const [sTime, setSTime] = useState("");
@@ -47,12 +55,16 @@ export default function HomeContentManager(props) {
 
   const loadLists = useCallback(async (id) => {
     if (!id) return;
-    const [s, h] = await Promise.all([
+    const [s, h, f, r] = await Promise.all([
       fetch(`/api/admin/schedule?eventId=${id}`).then((r) => r.json()).catch(() => ({ items: [] })),
       fetch(`/api/admin/highlights?eventId=${id}`).then((r) => r.json()).catch(() => ({ items: [] })),
+      fetch(`/api/admin/faqs?eventId=${id}`).then((r) => r.json()).catch(() => ({ items: [] })),
+      fetch(`/api/admin/reminders?eventId=${id}`).then((r) => r.json()).catch(() => ({ items: [] })),
     ]);
     setSchedule(s.items || []);
     setHighlights(h.items || []);
+    setFaqs(f.items || []);
+    setReminders(r.items || []);
   }, []);
 
   useEffect(() => {
@@ -121,6 +133,37 @@ export default function HomeContentManager(props) {
     await fetch("/api/admin/highlights", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
     await loadLists(eventId);
     setBusy(false);
+  };
+
+  const addFaq = async (e) => {
+    e.preventDefault();
+    if (!fq.trim() || !fa.trim()) return;
+    setBusy(true);
+    await fetch("/api/admin/faqs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event_id: eventId, question: fq, question_hi: fqHi, answer: fa, answer_hi: faHi }),
+    });
+    setFq(""); setFqHi(""); setFa(""); setFaHi("");
+    await loadLists(eventId);
+    setBusy(false);
+  };
+
+  const delFaq = async (id) => {
+    setBusy(true);
+    await fetch("/api/admin/faqs", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    await loadLists(eventId);
+    setBusy(false);
+  };
+
+  const exportReminders = () => {
+    const rows = [["Date", "Email", "Phone"]];
+    reminders.forEach((r) => rows.push([new Date(r.created_at).toLocaleString(), r.email || "", r.phone || ""]));
+    const csv = rows.map((row) => row.map((c) => `"${c}"`).join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = `reminders-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
   };
 
   if (!events.length) {
@@ -224,6 +267,60 @@ export default function HomeContentManager(props) {
           <input type="text" placeholder="Short description (English)" value={hDesc} onChange={(e) => setHDesc(e.target.value)} className={inputCls} />
           <button type="submit" disabled={busy || !hTitle.trim()} className="md:col-span-2 flex items-center justify-center gap-2 bg-neutral-900 hover:bg-orange-600 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-lg text-sm transition"><Plus className="w-4 h-4" /> Add Highlight</button>
         </form>
+      </div>
+
+      {/* FAQ */}
+      <div className="mb-8">
+        <h3 className="font-bold text-sm uppercase tracking-wider text-neutral-700 mb-3 flex items-center gap-2"><HelpCircle className="w-4 h-4" /> FAQ</h3>
+        <div className="space-y-2 mb-4">
+          {faqs.length === 0 && <p className="text-neutral-400 text-sm">No FAQs yet — the FAQ section stays hidden until you add one.</p>}
+          {faqs.map((f) => (
+            <div key={f.id} className="flex items-start gap-3 bg-white border border-neutral-200 rounded-lg p-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-neutral-900">{f.question}</p>
+                <p className="text-xs text-neutral-400 mt-0.5 line-clamp-2">{f.answer}</p>
+              </div>
+              <button onClick={() => delFaq(f.id)} disabled={busy} className="p-2 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition flex-shrink-0"><Trash2 className="w-4 h-4" /></button>
+            </div>
+          ))}
+        </div>
+        <form onSubmit={addFaq} className="bg-neutral-50 border border-neutral-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <input type="text" placeholder="Question (English)" value={fq} onChange={(e) => setFq(e.target.value)} className={inputCls} required />
+          <input type="text" placeholder="प्रश्न (हिंदी)" value={fqHi} onChange={(e) => setFqHi(e.target.value)} className={inputHiCls} />
+          <textarea placeholder="Answer (English)" value={fa} onChange={(e) => setFa(e.target.value)} className={`${inputCls} resize-none h-20`} required />
+          <textarea placeholder="उत्तर (हिंदी)" value={faHi} onChange={(e) => setFaHi(e.target.value)} className={`${inputHiCls} resize-none h-20`} />
+          <button type="submit" disabled={busy || !fq.trim() || !fa.trim()} className="md:col-span-2 flex items-center justify-center gap-2 bg-neutral-900 hover:bg-orange-600 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-lg text-sm transition"><Plus className="w-4 h-4" /> Add FAQ</button>
+        </form>
+      </div>
+
+      {/* Reminder signups */}
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-bold text-sm uppercase tracking-wider text-neutral-700 flex items-center gap-2"><BellRing className="w-4 h-4" /> Reminder Signups ({reminders.length})</h3>
+          {reminders.length > 0 && (
+            <button onClick={exportReminders} className="text-xs font-bold text-orange-600 hover:text-orange-700 border border-orange-200 rounded-lg px-3 py-1.5 transition">↓ Export CSV</button>
+          )}
+        </div>
+        {reminders.length === 0 ? (
+          <p className="text-neutral-400 text-sm">No reminder signups yet.</p>
+        ) : (
+          <div className="border border-neutral-200 rounded-xl overflow-hidden max-h-72 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-neutral-100 text-neutral-600 text-xs sticky top-0">
+                <tr><th className="text-left px-4 py-2 font-semibold">Email</th><th className="text-left px-4 py-2 font-semibold">Phone</th><th className="text-left px-4 py-2 font-semibold">When</th></tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100">
+                {reminders.map((r) => (
+                  <tr key={r.id}>
+                    <td className="px-4 py-2 text-neutral-700 break-all">{r.email || "—"}</td>
+                    <td className="px-4 py-2 text-neutral-700">{r.phone || "—"}</td>
+                    <td className="px-4 py-2 text-neutral-400 text-xs whitespace-nowrap">{new Date(r.created_at).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
