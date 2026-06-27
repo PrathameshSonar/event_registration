@@ -52,8 +52,27 @@ ALTER TABLE registrations
     ADD COLUMN IF NOT EXISTS amount_due       NUMERIC DEFAULT 0,
     ADD COLUMN IF NOT EXISTS payment_plan     TEXT DEFAULT 'full',  -- 'full' | 'partial'
     ADD COLUMN IF NOT EXISTS balance_link_url TEXT;
--- NOTE: registrations.payment_status also uses a new value 'advance_paid'.
--- If that column has a CHECK constraint limiting its values, add 'advance_paid' to it.
+
+-- registrations.payment_status uses a new value 'advance_paid'. If a CHECK
+-- constraint limits the allowed values, this rebuilds it to include the full
+-- set. (No-op safe: drops the named constraint only if it exists, then adds it.)
+-- If your status column has NO check constraint, this block simply creates one
+-- that permits all the values the app uses.
+DO $$
+BEGIN
+    ALTER TABLE registrations DROP CONSTRAINT IF EXISTS registrations_payment_status_check;
+    ALTER TABLE registrations
+        ADD CONSTRAINT registrations_payment_status_check
+        CHECK (payment_status IN (
+            'pending', 'completed', 'failed', 'refunded',
+            'enquired', 'contacted', 'amount_mismatch', 'advance_paid'
+        ));
+EXCEPTION
+    -- If existing rows hold a status outside this set, skip rather than fail
+    -- the whole migration; widen the list above and re-run if needed.
+    WHEN check_violation THEN
+        RAISE NOTICE 'payment_status constraint not applied — existing rows have other values. Review and re-run.';
+END $$;
 
 
 -- 2) ── Entry checkpoints + per-scan audit trail ────────────────────────────
