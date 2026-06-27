@@ -59,6 +59,8 @@ export async function PATCH(request) {
         for (const key of allowed) {
             if (updates[key] !== undefined) sanitized[key] = updates[key] || null;
         }
+        // Boolean flag — handle separately so `false` isn't coerced to null.
+        if (updates.show_in_archive !== undefined) sanitized.show_in_archive = !!updates.show_in_archive;
         const { error } = await supabaseAdmin.from('events').update(sanitized).eq('id', id);
         if (error) {
             console.error('Event update error:', error.code, error.message);

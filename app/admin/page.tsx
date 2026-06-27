@@ -42,6 +42,7 @@ interface EventItem {
     venue: string | null; venue_hi: string | null;
     map_url: string | null;
     is_active: boolean;
+    show_in_archive: boolean;
 }
 interface MediaItem { id: string; media_type: 'image' | 'youtube'; url: string; caption: string; event_id: string; events?: { title: string }; }
 
@@ -955,6 +956,15 @@ function EventRow({ event, onSetActive, onUpdate, onDelete }: {
                     {event.venue && <p className="text-xs text-neutral-500 mt-0.5">📍 {event.venue}{event.date_time ? ` · ${event.date_time}` : ''}</p>}
                 </div>
                 <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                    {!event.is_active && (
+                        <button
+                            onClick={() => onUpdate(event.id, { show_in_archive: !event.show_in_archive })}
+                            title="Toggle whether this event appears on the public Previous Events page"
+                            className={`text-xs font-semibold border px-3 py-1.5 rounded-lg transition ${event.show_in_archive ? 'bg-green-50 text-green-700 border-green-300 hover:bg-green-100' : 'border-neutral-300 text-neutral-500 hover:bg-neutral-100'}`}
+                        >
+                            {event.show_in_archive ? '👁 In Archive' : '🚫 Hidden'}
+                        </button>
+                    )}
                     {event.is_active
                         ? <span className="bg-orange-600 text-white text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded">Active</span>
                         : <button onClick={() => onSetActive(event.id)} className="text-xs font-semibold border border-neutral-300 px-3 py-1.5 rounded-lg hover:bg-neutral-100 transition">Set Active</button>
