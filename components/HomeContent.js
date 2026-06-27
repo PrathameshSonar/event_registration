@@ -116,10 +116,6 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                 <div className="pointer-events-none absolute -bottom-20 -right-10 w-72 h-72 rounded-full bg-orange-900/30 blur-3xl" />
 
                 <div className="relative max-w-4xl mx-auto px-4 py-16 md:py-24 text-center">
-                    <div className="text-5xl md:text-6xl mb-4"><span className="diya-flicker">🪔</span></div>
-                    <span className="inline-block text-amber-200 font-bold tracking-widest uppercase text-xs mb-4 border border-amber-200/40 rounded-full px-4 py-1">
-                        🔱 {t('hero_tagline')}
-                    </span>
                     <h2 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-6 leading-tight tracking-tight drop-shadow-sm">
                         {eventTitle}
                     </h2>
@@ -162,11 +158,11 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                                 {t('hero_view_schedule')}
                             </a>
                         )}
-                        <AddToCalendar title={eventTitle} startAt={pageData?.start_at} location={displayVenue} details={eventDesc} />
                     </div>
 
-                    {/* Share */}
-                    <div className="mt-8">
+                    {/* Add to calendar + share — one row */}
+                    <div className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-3">
+                        <AddToCalendar title={eventTitle} startAt={pageData?.start_at} location={displayVenue} details={eventDesc} />
                         <ShareButtons title={eventTitle} />
                     </div>
 

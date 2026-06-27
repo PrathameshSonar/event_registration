@@ -48,9 +48,9 @@ export default function AddToCalendar({ title, startAt, location, details }) {
     <div className="relative inline-block">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-2 bg-white/10 border border-white/30 backdrop-blur-sm text-white font-bold px-6 py-3.5 rounded-xl hover:bg-white/20 transition text-sm md:text-base"
+        className="inline-flex items-center gap-1.5 bg-white/10 border border-white/25 backdrop-blur-sm text-white font-semibold px-3.5 py-2 rounded-full hover:bg-white/20 transition text-xs"
       >
-        <CalendarPlus className="w-4 h-4" /> Add to Calendar
+        <CalendarPlus className="w-3.5 h-3.5" /> Add to Calendar
       </button>
       {open && (
         <div className="absolute z-20 mt-2 left-1/2 -translate-x-1/2 bg-white rounded-xl shadow-xl border border-neutral-100 overflow-hidden w-48 text-left">

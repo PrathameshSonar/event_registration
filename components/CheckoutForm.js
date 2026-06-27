@@ -276,7 +276,11 @@ export default function CheckoutForm({ category }) {
           setLoading(false);
           return;
         }
-        setSuccessData({ isEnquiry: true, name: fullName, email: formData.email });
+        setSuccessData({
+          isEnquiry: true,
+          name: fullName,
+          email: formData.email,
+        });
       } catch {
         setFormError("Network error. Please try again.");
       }
@@ -339,7 +343,11 @@ export default function CheckoutForm({ category }) {
         });
         setLoading(false);
       },
-      prefill: { name: fullName, email: formData.email, contact: formData.phone },
+      prefill: {
+        name: fullName,
+        email: formData.email,
+        contact: formData.phone,
+      },
       theme: { color: "#ea580c" },
     };
     const paymentObject = new window.Razorpay(options);
@@ -481,9 +489,7 @@ export default function CheckoutForm({ category }) {
                 <MenuItem value="Shri">{t("sal_shri")}</MenuItem>
                 <MenuItem value="Smt">{t("sal_smt")}</MenuItem>
                 <MenuItem value="Kumari">{t("sal_kumari")}</MenuItem>
-                <MenuItem value="Mr">{t("sal_mr")}</MenuItem>
-                <MenuItem value="Ms">{t("sal_ms")}</MenuItem>
-                <MenuItem value="Dr">{t("sal_dr")}</MenuItem>
+                <MenuItem value="Kumar">{t("sal_kumar")}</MenuItem>
               </TextField>
             )}
             <TextField
@@ -803,15 +809,27 @@ export default function CheckoutForm({ category }) {
           label={
             <span className="text-sm text-neutral-600">
               {t("form_terms_prefix")}{" "}
-              <a href="/terms" className="text-orange-600 hover:underline" target="_blank">
+              <a
+                href="/terms"
+                className="text-orange-600 hover:underline"
+                target="_blank"
+              >
                 {t("form_terms_link")}
               </a>
               {", "}
-              <a href="/privacy" className="text-orange-600 hover:underline" target="_blank">
+              <a
+                href="/privacy"
+                className="text-orange-600 hover:underline"
+                target="_blank"
+              >
                 {t("form_privacy_link")}
               </a>
               {` ${t("form_terms_and")} `}
-              <a href="/refund" className="text-orange-600 hover:underline" target="_blank">
+              <a
+                href="/refund"
+                className="text-orange-600 hover:underline"
+                target="_blank"
+              >
                 {t("form_refund_link")}
               </a>
               {t("form_terms_suffix")}
