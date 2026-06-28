@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { logAudit } from '@/lib/auditLog';
 import { getCatalogForCategory } from '@/lib/formFieldsServer';
 import { BUILTIN_FIELDS, BUILTIN_KEYS, CUSTOM_FIELD_TYPES } from '@/lib/formFields';
 
@@ -35,7 +36,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-    const { response } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requireAdmin: true });
     if (response) return response;
     const { label, label_hi, field_type, options } = await request.json();
     if (!label?.trim()) return NextResponse.json({ error: 'Label required.' }, { status: 400 });
@@ -60,12 +61,17 @@ export async function POST(request) {
     };
     const { data, error } = await supabaseAdmin.from('form_fields').insert(row).select().single();
     if (error) return NextResponse.json({ error: 'Create failed.' }, { status: 500 });
+    await logAudit({
+        session, request,
+        action: 'form_field.create', entity: 'form_field', entityId: data?.id,
+        summary: `Created custom field "${row.label}" (${type})`,
+    });
     return NextResponse.json({ field: data });
 }
 
 // Batch-save a category's field settings (the "Save Changes" button).
 export async function PATCH(request) {
-    const { response } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requireAdmin: true });
     if (response) return response;
     const { categoryId, fields } = await request.json();
     if (!categoryId) return NextResponse.json({ error: 'Missing category.' }, { status: 400 });
@@ -88,11 +94,17 @@ export async function PATCH(request) {
         console.error('Field settings save error:', error.message);
         return NextResponse.json({ error: 'Save failed.' }, { status: 500 });
     }
+    await logAudit({
+        session, request,
+        action: 'form_field.update', entity: 'form_field', entityId: categoryId,
+        summary: `Saved form-field settings for a tier (${rows.length} field(s))`,
+        metadata: { categoryId, count: rows.length },
+    });
     return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(request) {
-    const { response } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requireAdmin: true });
     if (response) return response;
     const { id } = await request.json();
     if (!id) return NextResponse.json({ error: 'Missing id.' }, { status: 400 });
@@ -105,5 +117,10 @@ export async function DELETE(request) {
     // category_field_settings rows cascade-delete via FK.
     const { error } = await supabaseAdmin.from('form_fields').delete().eq('id', id);
     if (error) return NextResponse.json({ error: 'Delete failed.' }, { status: 500 });
+    await logAudit({
+        session, request,
+        action: 'form_field.delete', entity: 'form_field', entityId: id,
+        summary: `Deleted custom field "${existing.field_key}"`,
+    });
     return NextResponse.json({ ok: true });
 }

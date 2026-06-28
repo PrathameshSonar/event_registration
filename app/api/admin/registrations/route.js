@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { logAudit } from '@/lib/auditLog';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +14,7 @@ const VALID_STATUSES = ['pending', 'completed', 'failed', 'refunded', 'enquired'
 const TERMINAL_STATUSES = ['completed', 'failed', 'refunded', 'amount_mismatch'];
 
 export async function PATCH(request) {
-    const { response } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requireAdmin: true });
     if (response) return response;
 
     const { id, status } = await request.json();
@@ -37,6 +38,14 @@ export async function PATCH(request) {
 
     const { error } = await supabaseAdmin.from('registrations').update({ payment_status: status }).eq('id', id);
     if (error) return NextResponse.json({ error: 'Update failed.' }, { status: 500 });
+
+    await logAudit({
+        session, request,
+        action: 'registration.status_change',
+        entity: 'registration', entityId: id,
+        summary: `Status ${current.payment_status} → ${status}`,
+        metadata: { from: current.payment_status, to: status },
+    });
 
     return NextResponse.json({ ok: true });
 }

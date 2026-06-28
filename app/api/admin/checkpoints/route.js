@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { logAudit } from '@/lib/auditLog';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +18,7 @@ export async function GET() {
 }
 
 export async function POST(request) {
-    const { response } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requireAdmin: true });
     if (response) return response;
     const { name, sort_order } = await request.json();
     if (!name?.trim()) return NextResponse.json({ error: 'Name required' }, { status: 400 });
@@ -27,11 +28,16 @@ export async function POST(request) {
         .select()
         .single();
     if (error) return NextResponse.json({ error: 'Failed' }, { status: 500 });
+    await logAudit({
+        session, request,
+        action: 'checkpoint.create', entity: 'checkpoint', entityId: data?.id,
+        summary: `Created checkpoint "${name.trim()}"`,
+    });
     return NextResponse.json({ checkpoint: data });
 }
 
 export async function PATCH(request) {
-    const { response } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requireAdmin: true });
     if (response) return response;
     const { id, ...updates } = await request.json();
     if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
@@ -46,15 +52,26 @@ export async function PATCH(request) {
         .select()
         .single();
     if (error) return NextResponse.json({ error: 'Failed' }, { status: 500 });
+    await logAudit({
+        session, request,
+        action: 'checkpoint.update', entity: 'checkpoint', entityId: id,
+        summary: `Updated checkpoint${allowed.name ? ` "${allowed.name}"` : ''}`,
+        metadata: { fields: Object.keys(allowed) },
+    });
     return NextResponse.json({ checkpoint: data });
 }
 
 export async function DELETE(request) {
-    const { response } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requireAdmin: true });
     if (response) return response;
     const { id } = await request.json();
     if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
     const { error } = await supabaseAdmin.from('checkpoints').delete().eq('id', id);
     if (error) return NextResponse.json({ error: 'Failed' }, { status: 500 });
+    await logAudit({
+        session, request,
+        action: 'checkpoint.delete', entity: 'checkpoint', entityId: id,
+        summary: 'Deleted checkpoint',
+    });
     return NextResponse.json({ ok: true });
 }

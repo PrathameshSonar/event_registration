@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { logAudit } from '@/lib/auditLog';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +25,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-    const { response } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requireAdmin: true });
     if (response) return response;
     const body = await request.json();
     if (!body.event_id) return NextResponse.json({ error: 'Missing event.' }, { status: 400 });
@@ -32,25 +33,40 @@ export async function POST(request) {
     const { data: cnt } = await supabaseAdmin.from('event_schedule').select('id', { count: 'exact', head: true }).eq('event_id', body.event_id);
     const { error } = await supabaseAdmin.from('event_schedule').insert({ event_id: body.event_id, ...pick(body), sort_order: body.sort_order ?? (cnt ?? 0) });
     if (error) return NextResponse.json({ error: 'Create failed.' }, { status: 500 });
+    await logAudit({
+        session, request,
+        action: 'schedule.create', entity: 'schedule', entityId: body.event_id,
+        summary: `Added schedule item "${body.title.trim()}"`,
+    });
     return NextResponse.json({ ok: true });
 }
 
 export async function PATCH(request) {
-    const { response } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requireAdmin: true });
     if (response) return response;
     const { id, ...updates } = await request.json();
     if (!id) return NextResponse.json({ error: 'Missing id.' }, { status: 400 });
     const { error } = await supabaseAdmin.from('event_schedule').update(pick(updates)).eq('id', id);
     if (error) return NextResponse.json({ error: 'Update failed.' }, { status: 500 });
+    await logAudit({
+        session, request,
+        action: 'schedule.update', entity: 'schedule', entityId: id,
+        summary: 'Updated schedule item',
+    });
     return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(request) {
-    const { response } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requireAdmin: true });
     if (response) return response;
     const { id } = await request.json();
     if (!id) return NextResponse.json({ error: 'Missing id.' }, { status: 400 });
     const { error } = await supabaseAdmin.from('event_schedule').delete().eq('id', id);
     if (error) return NextResponse.json({ error: 'Delete failed.' }, { status: 500 });
+    await logAudit({
+        session, request,
+        action: 'schedule.delete', entity: 'schedule', entityId: id,
+        summary: 'Deleted schedule item',
+    });
     return NextResponse.json({ ok: true });
 }

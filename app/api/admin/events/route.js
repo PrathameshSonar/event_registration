@@ -4,11 +4,12 @@
 import { NextResponse } from 'next/server';
 import { authorize, verifyAdminPassword } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { logAudit } from '@/lib/auditLog';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
-    const { response } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requireAdmin: true });
     if (response) return response;
     const { title, short_description, long_description, title_hi, short_description_hi, long_description_hi, date_time, date_time_hi, venue, venue_hi, map_url, makeActive } = await request.json();
     if (!title) return NextResponse.json({ error: 'Title required.' }, { status: 400 });
@@ -28,16 +29,21 @@ export async function POST(request) {
     if (venue) insertData.venue = venue;
     if (venue_hi) insertData.venue_hi = venue_hi;
     if (map_url) insertData.map_url = map_url;
-    const { error } = await supabaseAdmin.from('events').insert([insertData]);
+    const { data: created, error } = await supabaseAdmin.from('events').insert([insertData]).select('id').single();
     if (error) {
         console.error('Event create error:', error.code, error.message);
         return NextResponse.json({ error: 'Create failed.', detail: error.message }, { status: 500 });
     }
+    await logAudit({
+        session, request,
+        action: 'event.create', entity: 'event', entityId: created?.id,
+        summary: `Created event "${title}"${makeActive ? ' (set live)' : ''}`,
+    });
     return NextResponse.json({ ok: true });
 }
 
 export async function PATCH(request) {
-    const { response } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requireAdmin: true });
     if (response) return response;
     const { id, setActive, updates } = await request.json();
     if (!id) return NextResponse.json({ error: 'Missing id.' }, { status: 400 });
@@ -48,6 +54,11 @@ export async function PATCH(request) {
         if (off.error) return NextResponse.json({ error: 'Update failed.' }, { status: 500 });
         const { error } = await supabaseAdmin.from('events').update({ is_active: true }).eq('id', id);
         if (error) return NextResponse.json({ error: 'Update failed.' }, { status: 500 });
+        await logAudit({
+            session, request,
+            action: 'event.activate', entity: 'event', entityId: id,
+            summary: 'Set event as the live event',
+        });
     } else if (updates) {
         // Update event content fields.
         const allowed = [
@@ -67,13 +78,19 @@ export async function PATCH(request) {
             console.error('Event update error:', error.code, error.message);
             return NextResponse.json({ error: 'Update failed.' }, { status: 500 });
         }
+        await logAudit({
+            session, request,
+            action: 'event.update', entity: 'event', entityId: id,
+            summary: 'Updated event content',
+            metadata: { fields: Object.keys(sanitized) },
+        });
     }
 
     return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(request) {
-    const { response } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requireAdmin: true });
     if (response) return response;
     const { id, password } = await request.json();
     if (!id) return NextResponse.json({ error: 'Missing id.' }, { status: 400 });
@@ -82,5 +99,10 @@ export async function DELETE(request) {
     }
     const { error } = await supabaseAdmin.from('events').delete().eq('id', id);
     if (error) return NextResponse.json({ error: 'Delete failed.' }, { status: 500 });
+    await logAudit({
+        session, request,
+        action: 'event.delete', entity: 'event', entityId: id,
+        summary: 'Deleted event',
+    });
     return NextResponse.json({ ok: true });
 }

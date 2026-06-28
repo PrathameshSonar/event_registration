@@ -48,6 +48,16 @@ body {
   display: none !important;
 }
 
+/* Hide the scrollbar on horizontally-scrollable strips (e.g. the admin tab nav)
+   while keeping them scrollable. */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Scroll-reveal: fade + slide sections into view */
 .reveal {
   opacity: 0;

@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import QRCode from 'qrcode';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { logAudit } from '@/lib/auditLog';
 import { Resend } from 'resend';
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +18,7 @@ function getResend() {
 const BATCH_LIMIT = 100;
 
 export async function POST(request) {
-    const { response } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requireAdmin: true });
     if (response) return response;
 
     const { registrationIds } = await request.json();
@@ -174,6 +175,15 @@ export async function POST(request) {
             .in('id', sentIds);
         if (stampErr) console.error('Failed to stamp qr_sent_at:', stampErr.message);
     }
+
+    await logAudit({
+        session, request,
+        action: 'qr.send',
+        entity: 'registration',
+        entityId: sentIds.length === 1 ? sentIds[0] : null,
+        summary: `Sent QR to ${sentIds.length} registration(s)${skippedNotPaid ? ` (skipped ${skippedNotPaid} not Paid)` : ''}`,
+        metadata: { requested: registrationIds.length, sent: sentIds.length, emailSent, waSent, emailFailed, waFailed, skippedNotPaid, ids: sentIds },
+    });
 
     return NextResponse.json({
         ok: true,

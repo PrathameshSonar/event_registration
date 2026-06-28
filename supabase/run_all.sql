@@ -59,6 +59,25 @@ ALTER TABLE registrations
 ALTER TABLE registrations
     ADD COLUMN IF NOT EXISTS qr_sent_at       TIMESTAMPTZ;
 
+-- Audit trail of mutating admin actions (status edits, sends, create/update/
+-- delete of events/tiers/media/etc). actor_id/actor_label are reserved for when
+-- RBAC introduces real per-user identities; today only actor_role is populated.
+CREATE TABLE IF NOT EXISTS admin_audit_logs (
+    id          BIGSERIAL PRIMARY KEY,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    actor_role  TEXT NOT NULL,              -- 'admin' | 'viewer' (today)
+    actor_id    UUID,                       -- reserved for RBAC user identity
+    actor_label TEXT,                       -- reserved: name/email when RBAC exists
+    action      TEXT NOT NULL,              -- e.g. 'registration.status_change'
+    entity      TEXT,                       -- 'registration' | 'event' | 'category' | ...
+    entity_id   TEXT,
+    summary     TEXT,                       -- human-readable one-liner for the UI
+    metadata    JSONB,                      -- structured detail (e.g. {from,to})
+    ip          TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_admin_audit_created_at ON admin_audit_logs (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_admin_audit_entity     ON admin_audit_logs (entity);
+
 -- registrations.payment_status uses a new value 'advance_paid'. If a CHECK
 -- constraint limits the allowed values, this rebuilds it to include the full
 -- set. (No-op safe: drops the named constraint only if it exists, then adds it.)

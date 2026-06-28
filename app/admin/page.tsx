@@ -5,11 +5,13 @@ import React, { useState } from 'react';
 import {
     Lock, Download, Users, IndianRupee, Activity, Eye, X, Settings, ListFilter,
     Save, Trash2, Plus, Image as ImageIcon, Video, CalendarDays,
-    Ticket, Calendar as CalendarIcon, Search, LogOut, QrCode, Copy, Check
+    Ticket, Calendar as CalendarIcon, Search, LogOut, QrCode, Copy, Check,
+    LayoutDashboard, ScrollText
 } from 'lucide-react';
 import { youtubeThumbnail } from '@/lib/youtube';
 import FormFieldsManager from '@/components/FormFieldsManager';
 import HomeContentManager from '@/components/HomeContentManager';
+import AuditLogPanel from '@/components/AuditLogPanel';
 
 type Role = 'admin' | 'viewer';
 type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'enquired' | 'contacted' | 'amount_mismatch' | 'advance_paid';
@@ -101,7 +103,7 @@ export default function AdminDashboard() {
     const [role, setRole] = useState<Role | null>(null);
     const isAdmin = role === 'admin';
 
-    const [activeTab, setActiveTab] = useState<'registrations' | 'settings'>('registrations');
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'settings' | 'audit'>('dashboard');
     const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'checkpoints' | 'formfields' | 'homecontent'>('events');
 
     const [loading, setLoading] = useState(false);
@@ -445,7 +447,6 @@ export default function AdminDashboard() {
         ? baseFilteredRegistrations
         : baseFilteredRegistrations.filter(reg => reg.payment_status === statusFilter);
 
-    const totalRevenue = filteredRegistrations.filter(r => r.payment_status === 'completed').reduce((sum, r) => sum + Number(r.total_amount || 0), 0);
     const totalPages = Math.max(1, Math.ceil(filteredRegistrations.length / PAGE_SIZE));
     const safePage = Math.min(currentPage, totalPages);
     const pagedRegistrations = filteredRegistrations.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
@@ -463,9 +464,13 @@ export default function AdminDashboard() {
         });
         return Object.values(map).sort((a, b) => b.revenue - a.revenue);
     })();
-    const completedCount = filteredRegistrations.filter(r => r.payment_status === 'completed').length;
 
-    const categoryMetrics = filteredRegistrations.reduce((acc, reg) => {
+    // Dashboard figures are GLOBAL (whole dataset), not tied to the registrations
+    // filter bar — so the overview stays meaningful on its own tab.
+    const globalCompleted = registrations.filter(r => r.payment_status === 'completed').length;
+    const globalRevenue = registrations.filter(r => r.payment_status === 'completed').reduce((s, r) => s + Number(r.total_amount || 0), 0);
+    const globalTotal = registrations.length;
+    const globalCategoryMetrics = registrations.reduce((acc, reg) => {
         if (reg.payment_status === 'completed' || reg.payment_status === 'enquired' || reg.payment_status === 'contacted') {
             const catTitle = reg.categories?.title || 'Deleted Tier';
             acc[catTitle] = (acc[catTitle] || 0) + 1;
@@ -481,6 +486,58 @@ export default function AdminDashboard() {
         const csvContent = [headers.join(","), ...csvData.map(row => row.join(","))].join("\n");
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `BaglaBhairav_Registrations_${new Date().toISOString().split('T')[0]}.csv`; link.click();
+    };
+
+    // Shared between the desktop table row and the mobile card so both stay in sync.
+    const renderStatusControl = (reg: Registration) => {
+        const locked = TERMINAL_STATUSES.includes(reg.payment_status);
+        const editable = isAdmin && !locked;
+        return editable ? (
+            <select
+                value={reg.payment_status}
+                onChange={(e) => handleUpdateStatus(reg.id, e.target.value)}
+                disabled={saving}
+                className={`py-1 px-2.5 rounded-full text-xs font-semibold cursor-pointer outline-none border hover:shadow-sm transition-all focus:ring-2 focus:ring-orange-500 disabled:opacity-50 ${statusClasses(reg.payment_status)}`}
+            >
+                <option value="completed">✔ Paid</option><option value="enquired">💬 Enquired</option><option value="contacted">📞 Contacted</option><option value="pending">⏳ Pending</option><option value="failed">✖ Failed</option><option value="refunded">⏪ Refunded</option>
+            </select>
+        ) : (
+            <span className={`inline-flex items-center py-1 px-2.5 rounded-full text-xs font-semibold border ${statusClasses(reg.payment_status)}`} title={locked ? 'Locked financial state' : undefined}>
+                {locked && <Lock className="w-3 h-3 mr-1" />}{STATUS_LABEL[reg.payment_status]}
+            </span>
+        );
+    };
+
+    const renderRowActions = (reg: Registration) => (
+        <div className="flex items-center gap-2">
+            <button onClick={() => setSelectedRegistration(reg)} className="p-2 border border-neutral-200 rounded-lg bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition shadow-sm" title="View details"><Eye className="w-4 h-4" /></button>
+            {reg.payment_status === 'completed' && (
+                <a href={`/api/admin/qr/${reg.id}`} className="p-2 border border-neutral-200 rounded-lg bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition shadow-sm" title="Download QR Code"><QrCode className="w-4 h-4" /></a>
+            )}
+            {reg.payment_status === 'advance_paid' && (
+                <button onClick={() => handleResendBalance(reg.id)} disabled={resendingId === reg.id} className="p-2 border border-amber-200 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition shadow-sm disabled:opacity-50" title="Re-send balance payment link"><IndianRupee className="w-4 h-4" /></button>
+            )}
+        </div>
+    );
+
+    const renderAmountCell = (reg: Registration) => (
+        <>
+            ₹{reg.total_amount}
+            {reg.payment_status === 'advance_paid' && (
+                <div className="text-[11px] font-semibold text-amber-700 mt-0.5">Paid ₹{reg.amount_paid} · Due ₹{reg.amount_due}</div>
+            )}
+            {reg.payment_status === 'completed' && (
+                reg.qr_sent_at
+                    ? <div className="text-[11px] font-semibold text-green-700 mt-0.5 flex items-center gap-1"><Check className="w-3 h-3" /> QR sent {new Date(reg.qr_sent_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</div>
+                    : <div className="text-[11px] font-semibold text-neutral-400 mt-0.5">QR not sent</div>
+            )}
+        </>
+    );
+
+    const toggleSelected = (id: string, checked: boolean) => {
+        const next = new Set(selectedIds);
+        if (checked) next.add(id); else next.delete(id);
+        setSelectedIds(next);
     };
 
     // ----- Login screen -----
@@ -501,8 +558,8 @@ export default function AdminDashboard() {
         );
     }
 
-    // Viewers cannot reach the settings tab.
-    const effectiveTab = activeTab === 'settings' && !isAdmin ? 'registrations' : activeTab;
+    // Viewers cannot reach the admin-only tabs (settings, audit) — fall back.
+    const effectiveTab = (activeTab === 'settings' || activeTab === 'audit') && !isAdmin ? 'dashboard' : activeTab;
 
     return (
         <div className="min-h-screen bg-neutral-50 p-4 md:p-8 font-sans text-neutral-900 [color-scheme:light]">
@@ -600,23 +657,38 @@ export default function AdminDashboard() {
                 </div>
             )}
 
-            <div className="max-w-7xl mx-auto mb-8 border-b border-neutral-200 pb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div><h1 className="text-3xl font-bold text-neutral-900">Control Center</h1></div>
-                <div className="flex bg-neutral-200 p-1 rounded-xl w-full md:w-auto">
-                    <button onClick={() => setActiveTab('registrations')} className={`w-full md:w-auto px-5 py-2.5 text-sm font-semibold rounded-lg transition flex justify-center items-center gap-2 ${effectiveTab === 'registrations' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600 hover:bg-neutral-300/50'}`}><ListFilter className="w-4 h-4" /> Registrations</button>
-                    {isAdmin && (
-                        <button onClick={() => setActiveTab('settings')} className={`w-full md:w-auto px-5 py-2.5 text-sm font-semibold rounded-lg transition flex justify-center items-center gap-2 ${effectiveTab === 'settings' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600 hover:bg-neutral-300/50'}`}><Settings className="w-4 h-4" /> System Settings</button>
-                    )}
+            <div className="max-w-7xl mx-auto mb-8 border-b border-neutral-200 pb-6 flex flex-col gap-4">
+                <h1 className="text-3xl font-bold text-neutral-900">Control Center</h1>
+                {/* Responsive segmented nav — scrolls horizontally on small screens
+                    instead of overflowing/wrapping. */}
+                <div className="flex gap-1 bg-neutral-200 p-1 rounded-xl overflow-x-auto no-scrollbar">
+                    {([
+                        { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, show: true },
+                        { key: 'registrations', label: 'Registrations', icon: ListFilter, show: true },
+                        { key: 'settings', label: 'Settings', icon: Settings, show: isAdmin },
+                        { key: 'audit', label: 'Audit', icon: ScrollText, show: isAdmin },
+                    ] as const).filter(t => t.show).map(t => {
+                        const Icon = t.icon;
+                        return (
+                            <button
+                                key={t.key}
+                                onClick={() => setActiveTab(t.key)}
+                                className={`flex-shrink-0 flex-1 md:flex-none px-4 sm:px-5 py-2.5 text-sm font-semibold rounded-lg transition flex justify-center items-center gap-2 whitespace-nowrap ${effectiveTab === t.key ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600 hover:bg-neutral-300/50'}`}
+                            >
+                                <Icon className="w-4 h-4 flex-shrink-0" /> {t.label}
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
             <div className="max-w-7xl mx-auto">
-                {effectiveTab === 'registrations' && (
+                {effectiveTab === 'dashboard' && (
                     <div className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="bg-white border border-neutral-200 p-6 rounded-xl flex items-center gap-4 shadow-sm"><div className="p-4 bg-orange-100 text-orange-600 rounded-lg"><Users className="w-6 h-6" /></div><div><p className="text-sm font-medium text-neutral-500">Confirmed Attendees</p><p className="text-2xl font-bold">{completedCount}</p></div></div>
-                            <div className="bg-white border border-neutral-200 p-6 rounded-xl flex items-center gap-4 shadow-sm"><div className="p-4 bg-green-100 text-green-600 rounded-lg"><IndianRupee className="w-6 h-6" /></div><div><p className="text-sm font-medium text-neutral-500">Filtered Revenue</p><p className="text-2xl font-bold">₹{totalRevenue.toLocaleString('en-IN')}</p></div></div>
-                            <div className="bg-white border border-neutral-200 p-6 rounded-xl flex items-center gap-4 shadow-sm"><div className="p-4 bg-blue-100 text-blue-600 rounded-lg"><Activity className="w-6 h-6" /></div><div><p className="text-sm font-medium text-neutral-500">Filtered Attempts</p><p className="text-2xl font-bold">{filteredRegistrations.length}</p></div></div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
+                            <div className="bg-white border border-neutral-200 p-5 md:p-6 rounded-xl flex items-center gap-4 shadow-sm"><div className="p-4 bg-orange-100 text-orange-600 rounded-lg"><Users className="w-6 h-6" /></div><div><p className="text-sm font-medium text-neutral-500">Confirmed Attendees</p><p className="text-2xl font-bold">{globalCompleted}</p></div></div>
+                            <div className="bg-white border border-neutral-200 p-5 md:p-6 rounded-xl flex items-center gap-4 shadow-sm"><div className="p-4 bg-green-100 text-green-600 rounded-lg"><IndianRupee className="w-6 h-6" /></div><div><p className="text-sm font-medium text-neutral-500">Total Revenue (Paid)</p><p className="text-2xl font-bold">₹{globalRevenue.toLocaleString('en-IN')}</p></div></div>
+                            <div className="bg-white border border-neutral-200 p-5 md:p-6 rounded-xl flex items-center gap-4 shadow-sm"><div className="p-4 bg-blue-100 text-blue-600 rounded-lg"><Activity className="w-6 h-6" /></div><div><p className="text-sm font-medium text-neutral-500">Total Registrations</p><p className="text-2xl font-bold">{globalTotal}</p></div></div>
                         </div>
 
                         {/* Sales per category */}
@@ -665,12 +737,16 @@ export default function AdminDashboard() {
                         <div className="bg-white p-6 rounded-xl border border-neutral-200 shadow-sm">
                             <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-500 mb-4 flex items-center gap-2"><Ticket className="w-4 h-4" /> Sales & Enquiries per Category</h3>
                             <div className="flex flex-wrap gap-4">
-                                {Object.keys(categoryMetrics).length === 0 ? <span className="text-sm text-neutral-400">No data matches current filters.</span> : Object.entries(categoryMetrics).map(([cat, count]) => (
+                                {Object.keys(globalCategoryMetrics).length === 0 ? <span className="text-sm text-neutral-400">No data yet.</span> : Object.entries(globalCategoryMetrics).map(([cat, count]) => (
                                     <div key={cat} className="bg-neutral-50 border border-neutral-200 px-4 py-2 rounded-lg flex items-center gap-3"><span className="font-semibold text-neutral-700 text-sm">{cat}</span><span className="bg-orange-100 text-orange-800 text-xs font-bold px-2.5 py-1 rounded-full">{count}</span></div>
                                 ))}
                             </div>
                         </div>
+                    </div>
+                )}
 
+                {effectiveTab === 'registrations' && (
+                    <div className="space-y-6">
                         <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm space-y-3">
                             <div className="flex flex-col sm:flex-row gap-3">
                                 <div className="relative flex-1">
@@ -713,7 +789,7 @@ export default function AdminDashboard() {
                             const selAlready = selPaid.length - selUnsent;
                             const willSend = resendQr ? selPaid.length : selUnsent;
                             return (
-                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-orange-50 border border-orange-200 rounded-xl px-5 py-3">
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-orange-50 border border-orange-200 rounded-xl px-5 py-3 sticky bottom-2 z-20 shadow-lg sm:static sm:shadow-none">
                                     <div className="text-sm text-orange-900">
                                         <span className="font-semibold">{selectedIds.size} selected</span>
                                         <span className="text-orange-700/80">
@@ -735,69 +811,65 @@ export default function AdminDashboard() {
                             );
                         })()}
                         <div className="bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden">
-                            <div className="overflow-x-auto">
+                            {/* Desktop: table */}
+                            <div className="hidden md:block overflow-x-auto">
                                 <table className="w-full text-left text-sm whitespace-nowrap">
                                     <thead className="bg-neutral-100 text-neutral-600 font-medium border-b border-neutral-200">
                                         <tr><th className="w-10 px-4 py-3"><input type="checkbox" className="w-4 h-4 rounded border-neutral-300 text-orange-600 focus:ring-orange-500" checked={pagedRegistrations.length > 0 && pagedRegistrations.every(r => selectedIds.has(r.id))} onChange={(e) => { const next = new Set(selectedIds); pagedRegistrations.forEach(r => e.target.checked ? next.add(r.id) : next.delete(r.id)); setSelectedIds(next); }} /></th><th className="px-6 py-4">Status</th><th className="px-6 py-4">Name & Contact</th><th className="px-6 py-4">Gotra</th><th className="px-6 py-4">Category</th><th className="px-6 py-4">Amount</th><th className="px-6 py-4 text-center">Action</th></tr>
                                     </thead>
                                     <tbody className="divide-y divide-neutral-100">
                                         {loading ? (<tr><td colSpan={7} className="px-6 py-8 text-center text-neutral-400">Loading ledger data...</td></tr>) : filteredRegistrations.length === 0 ? (<tr><td colSpan={7} className="px-6 py-8 text-center text-neutral-400">No records match your filters.</td></tr>) : (
-                                            pagedRegistrations.map((reg) => {
-                                                const locked = TERMINAL_STATUSES.includes(reg.payment_status);
-                                                const editable = isAdmin && !locked;
-                                                return (
-                                                    <tr key={reg.id} className="hover:bg-neutral-50 transition">
-                                                        <td className="px-4 py-4"><input type="checkbox" className="w-4 h-4 rounded border-neutral-300 text-orange-600 focus:ring-orange-500" checked={selectedIds.has(reg.id)} onChange={(e) => { const next = new Set(selectedIds); e.target.checked ? next.add(reg.id) : next.delete(reg.id); setSelectedIds(next); }} /></td>
-                                                        <td className="px-6 py-4">
-                                                            {editable ? (
-                                                                <select
-                                                                    value={reg.payment_status}
-                                                                    onChange={(e) => handleUpdateStatus(reg.id, e.target.value)}
-                                                                    disabled={saving}
-                                                                    className={`py-1 px-2.5 rounded-full text-xs font-semibold cursor-pointer outline-none border hover:shadow-sm transition-all focus:ring-2 focus:ring-orange-500 disabled:opacity-50 ${statusClasses(reg.payment_status)}`}
-                                                                >
-                                                                    <option value="completed">✔ Paid</option><option value="enquired">💬 Enquired</option><option value="contacted">📞 Contacted</option><option value="pending">⏳ Pending</option><option value="failed">✖ Failed</option><option value="refunded">⏪ Refunded</option>
-                                                                </select>
-                                                            ) : (
-                                                                <span className={`inline-flex items-center py-1 px-2.5 rounded-full text-xs font-semibold border ${statusClasses(reg.payment_status)}`} title={locked ? 'Locked financial state' : undefined}>
-                                                                    {locked && <Lock className="w-3 h-3 mr-1" />}{STATUS_LABEL[reg.payment_status]}
-                                                                </span>
-                                                            )}
-                                                        </td>
-                                                        <td className="px-6 py-4 font-medium text-neutral-900">
-                                                            {reg.first_name} {reg.last_name}
-                                                            <br /><span className="text-xs font-normal text-neutral-500">{reg.phone}</span>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-neutral-600">{reg.gotra || '-'}</td>
-                                                        <td className="px-6 py-4 text-neutral-600">{reg.categories?.title || 'Deleted Category'}</td>
-                                                        <td className="px-6 py-4 font-bold text-neutral-900">
-                                                            ₹{reg.total_amount}
-                                                            {reg.payment_status === 'advance_paid' && (
-                                                                <div className="text-[11px] font-semibold text-amber-700 mt-0.5">Paid ₹{reg.amount_paid} · Due ₹{reg.amount_due}</div>
-                                                            )}
-                                                            {reg.payment_status === 'completed' && (
-                                                                reg.qr_sent_at
-                                                                    ? <div className="text-[11px] font-semibold text-green-700 mt-0.5 flex items-center gap-1"><Check className="w-3 h-3" /> QR sent {new Date(reg.qr_sent_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</div>
-                                                                    : <div className="text-[11px] font-semibold text-neutral-400 mt-0.5">QR not sent</div>
-                                                            )}
-                                                        </td>
-                                                        <td className="px-6 py-4 text-center">
-                                                            <div className="flex items-center justify-center gap-2">
-                                                                <button onClick={() => setSelectedRegistration(reg)} className="p-2 border border-neutral-200 rounded-lg bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition shadow-sm" title="View details"><Eye className="w-4 h-4" /></button>
-                                                                {reg.payment_status === 'completed' && (
-                                                                    <a href={`/api/admin/qr/${reg.id}`} className="p-2 border border-neutral-200 rounded-lg bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition shadow-sm" title="Download QR Code"><QrCode className="w-4 h-4" /></a>
-                                                                )}
-                                                                {reg.payment_status === 'advance_paid' && (
-                                                                    <button onClick={() => handleResendBalance(reg.id)} disabled={resendingId === reg.id} className="p-2 border border-amber-200 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition shadow-sm disabled:opacity-50" title="Re-send balance payment link"><IndianRupee className="w-4 h-4" /></button>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })
+                                            pagedRegistrations.map((reg) => (
+                                                <tr key={reg.id} className="hover:bg-neutral-50 transition">
+                                                    <td className="px-4 py-4"><input type="checkbox" className="w-4 h-4 rounded border-neutral-300 text-orange-600 focus:ring-orange-500" checked={selectedIds.has(reg.id)} onChange={(e) => toggleSelected(reg.id, e.target.checked)} /></td>
+                                                    <td className="px-6 py-4">{renderStatusControl(reg)}</td>
+                                                    <td className="px-6 py-4 font-medium text-neutral-900">
+                                                        {reg.first_name} {reg.last_name}
+                                                        <br /><span className="text-xs font-normal text-neutral-500">{reg.phone}</span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-neutral-600">{reg.gotra || '-'}</td>
+                                                    <td className="px-6 py-4 text-neutral-600">{reg.categories?.title || 'Deleted Category'}</td>
+                                                    <td className="px-6 py-4 font-bold text-neutral-900">{renderAmountCell(reg)}</td>
+                                                    <td className="px-6 py-4"><div className="flex justify-center">{renderRowActions(reg)}</div></td>
+                                                </tr>
+                                            ))
                                         )}
                                     </tbody>
                                 </table>
+                            </div>
+
+                            {/* Mobile: stacked cards (no horizontal scroll) */}
+                            <div className="md:hidden">
+                                {loading ? (
+                                    <div className="px-6 py-8 text-center text-neutral-400 text-sm">Loading ledger data...</div>
+                                ) : filteredRegistrations.length === 0 ? (
+                                    <div className="px-6 py-8 text-center text-neutral-400 text-sm">No records match your filters.</div>
+                                ) : (
+                                    <div className="divide-y divide-neutral-100">
+                                        {pagedRegistrations.map((reg) => (
+                                            <div key={reg.id} className="p-4 flex gap-3">
+                                                <input type="checkbox" className="mt-1 w-4 h-4 flex-shrink-0 rounded border-neutral-300 text-orange-600 focus:ring-orange-500" checked={selectedIds.has(reg.id)} onChange={(e) => toggleSelected(reg.id, e.target.checked)} />
+                                                <div className="flex-1 min-w-0 space-y-2">
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div className="min-w-0">
+                                                            <p className="font-semibold text-neutral-900 truncate">{reg.first_name} {reg.last_name}</p>
+                                                            <p className="text-xs text-neutral-500">{reg.phone}</p>
+                                                        </div>
+                                                        <div className="flex-shrink-0">{renderStatusControl(reg)}</div>
+                                                    </div>
+                                                    <div className="flex justify-between text-xs text-neutral-500">
+                                                        <span>{reg.categories?.title || 'Deleted Category'}</span>
+                                                        {reg.gotra && <span className="truncate ml-2">Gotra: {reg.gotra}</span>}
+                                                    </div>
+                                                    <div className="flex items-end justify-between gap-2 pt-1">
+                                                        <div className="font-bold text-neutral-900 text-sm">{renderAmountCell(reg)}</div>
+                                                        {renderRowActions(reg)}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                             {/* Pagination */}
                             {totalPages > 1 && (
@@ -820,6 +892,10 @@ export default function AdminDashboard() {
                             )}
                         </div>
                     </div>
+                )}
+
+                {effectiveTab === 'audit' && isAdmin && (
+                    <AuditLogPanel />
                 )}
 
                 {effectiveTab === 'settings' && isAdmin && (

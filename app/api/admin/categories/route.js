@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server';
 import { authorize, verifyAdminPassword } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { logAudit } from '@/lib/auditLog';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,31 +26,43 @@ function sanitize(input = {}) {
 }
 
 export async function POST(request) {
-    const { response } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requireAdmin: true });
     if (response) return response;
     const body = await request.json();
     const values = sanitize(body);
     if (!values.title) return NextResponse.json({ error: 'Title required.' }, { status: 400 });
-    const { error } = await supabaseAdmin.from('categories').insert([values]);
+    const { data: created, error } = await supabaseAdmin.from('categories').insert([values]).select('id').single();
     if (error) {
         console.error('Category create error:', error.code, error.message);
         return NextResponse.json({ error: 'Create failed.', detail: error.message }, { status: 500 });
     }
+    await logAudit({
+        session, request,
+        action: 'category.create', entity: 'category', entityId: created?.id,
+        summary: `Created tier "${values.title}" (₹${values.price ?? 0})`,
+    });
     return NextResponse.json({ ok: true });
 }
 
 export async function PATCH(request) {
-    const { response } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requireAdmin: true });
     if (response) return response;
     const { id, updates } = await request.json();
     if (!id) return NextResponse.json({ error: 'Missing id.' }, { status: 400 });
-    const { error } = await supabaseAdmin.from('categories').update(sanitize(updates)).eq('id', id);
+    const clean = sanitize(updates);
+    const { error } = await supabaseAdmin.from('categories').update(clean).eq('id', id);
     if (error) return NextResponse.json({ error: 'Update failed.' }, { status: 500 });
+    await logAudit({
+        session, request,
+        action: 'category.update', entity: 'category', entityId: id,
+        summary: `Updated tier${clean.title ? ` "${clean.title}"` : ''}`,
+        metadata: { fields: Object.keys(clean) },
+    });
     return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(request) {
-    const { response } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requireAdmin: true });
     if (response) return response;
     const { id, password, force } = await request.json();
     if (!id) return NextResponse.json({ error: 'Missing id.' }, { status: 400 });
@@ -71,5 +84,11 @@ export async function DELETE(request) {
     }
     const { error } = await supabaseAdmin.from('categories').delete().eq('id', id);
     if (error) return NextResponse.json({ error: 'Delete failed.' }, { status: 500 });
+    await logAudit({
+        session, request,
+        action: 'category.delete', entity: 'category', entityId: id,
+        summary: `Deleted tier${force ? ' (forced, had paid registrations)' : ''}`,
+        metadata: { force: !!force },
+    });
     return NextResponse.json({ ok: true });
 }

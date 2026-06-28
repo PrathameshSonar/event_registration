@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { logAudit } from '@/lib/auditLog';
 import { Resend } from 'resend';
 
 export const dynamic = 'force-dynamic';
@@ -12,7 +13,7 @@ let _resend = null;
 const getResend = () => (_resend ||= new Resend(process.env.RESEND_API_KEY));
 
 export async function POST(request) {
-    const { response } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requireAdmin: true });
     if (response) return response;
 
     const { id } = await request.json();
@@ -94,6 +95,14 @@ export async function POST(request) {
             waSent = true;
         } catch (e) { console.error('Resend balance WhatsApp failed:', e); }
     }
+
+    await logAudit({
+        session, request,
+        action: 'balance.resend',
+        entity: 'registration', entityId: reg.id,
+        summary: `Re-sent balance link (₹${dueRupees.toLocaleString('en-IN')}) to ${reg.first_name} ${reg.last_name}`,
+        metadata: { amount_due: dueRupees, emailed, waSent },
+    });
 
     return NextResponse.json({ ok: true, link: shortUrl, emailed, waSent });
 }
