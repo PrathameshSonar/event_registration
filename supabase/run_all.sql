@@ -82,6 +82,12 @@ CREATE TABLE IF NOT EXISTS admin_audit_logs (
 CREATE INDEX IF NOT EXISTS idx_admin_audit_created_at ON admin_audit_logs (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_admin_audit_entity     ON admin_audit_logs (entity);
 
+-- The app reads/writes this table with the service-role key, which respects
+-- table GRANTs. Without these, SELECT/INSERT silently fail (audit appears empty).
+-- BIGSERIAL also needs the sequence grant so inserts can get the next id.
+GRANT ALL ON admin_audit_logs TO service_role;
+GRANT USAGE, SELECT ON SEQUENCE admin_audit_logs_id_seq TO service_role;
+
 -- registrations.payment_status uses a new value 'advance_paid'. If a CHECK
 -- constraint limits the allowed values, this rebuilds it to include the full
 -- set. (No-op safe: drops the named constraint only if it exists, then adds it.)
