@@ -1,7 +1,7 @@
 // app/admin/page.tsx
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Lock, Download, Users, IndianRupee, Activity, Eye, X, Settings, ListFilter,
     Save, Trash2, Plus, Image as ImageIcon, Video, CalendarDays,
@@ -110,6 +110,9 @@ export default function AdminDashboard() {
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const [refreshing, setRefreshing] = useState(false);
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+    const [autoRefresh, setAutoRefresh] = useState(true);
 
     const [registrations, setRegistrations] = useState<Registration[]>([]);
     const [categoriesList, setCategoriesList] = useState<Category[]>([]);
@@ -220,10 +223,41 @@ export default function AdminDashboard() {
             const activeEv = (data.events || []).find((ev: EventItem) => ev.is_active);
             if (activeEv) setMediaEventId(activeEv.id);
             if (cpRes.ok) { const cpData = await cpRes.json(); setCheckpointsList(cpData.checkpoints || []); }
+            setLastUpdated(new Date());
         } finally {
             setLoading(false);
         }
     };
+
+    // Lightweight, silent refresh of just the registrations list — used by the
+    // manual Refresh button and the auto-refresh poll. Never toggles the global
+    // loading spinner (so the table doesn't flash) and leaves Settings state alone.
+    const refreshRegistrations = useCallback(async () => {
+        setRefreshing(true);
+        try {
+            const res = await fetch('/api/admin/data');
+            if (res.status === 401) { setRole(null); return; }
+            const data = await res.json();
+            setRegistrations(data.registrations || []);
+            setLastUpdated(new Date());
+        } catch {
+            // transient network error — keep showing the last good data
+        } finally {
+            setRefreshing(false);
+        }
+    }, []);
+
+    // Auto-refresh new registrations every 30s while viewing the Dashboard or
+    // Registrations tab, so the admin never has to reload the page. Paused while
+    // a detail modal is open (to avoid yanking data mid-read) or when toggled off.
+    useEffect(() => {
+        if (!role || !autoRefresh) return;
+        if (activeTab !== 'dashboard' && activeTab !== 'registrations') return;
+        const interval = setInterval(() => {
+            if (!selectedRegistration && !saving) refreshRegistrations();
+        }, 30000);
+        return () => clearInterval(interval);
+    }, [role, autoRefresh, activeTab, selectedRegistration, saving, refreshRegistrations]);
 
     // Small helper for JSON mutations; returns parsed body, ok flag, and HTTP status code.
     const mutate = async (url: string, method: string, body: unknown) => {
@@ -598,7 +632,27 @@ export default function AdminDashboard() {
                         <span className="font-bold tracking-wide break-all">{activeEvent.title}</span>
                     </div>
                 ) : <div />}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                    {lastUpdated && (
+                        <span className="text-xs text-neutral-400 hidden sm:inline" title="Registrations auto-refresh every 30s">
+                            Updated {lastUpdated.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </span>
+                    )}
+                    <button
+                        onClick={refreshRegistrations}
+                        disabled={refreshing}
+                        title="Refresh registrations now"
+                        className="flex items-center gap-2 text-sm font-semibold text-neutral-600 hover:text-orange-600 border border-neutral-200 px-3 py-1.5 rounded-lg hover:border-orange-200 hover:bg-orange-50 transition disabled:opacity-50"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
+                    </button>
+                    <button
+                        onClick={() => setAutoRefresh((v) => !v)}
+                        title={autoRefresh ? 'Auto-refresh is ON (every 30s)' : 'Auto-refresh is OFF'}
+                        className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition ${autoRefresh ? 'bg-green-50 text-green-700 border-green-200' : 'bg-neutral-100 text-neutral-500 border-neutral-200'}`}
+                    >
+                        Auto {autoRefresh ? 'ON' : 'OFF'}
+                    </button>
                     <span className={`text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-full ${isAdmin ? 'bg-orange-100 text-orange-700' : 'bg-neutral-200 text-neutral-600'}`}>
                         {isAdmin ? 'Admin' : 'Viewer (read-only)'}
                     </span>
