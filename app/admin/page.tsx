@@ -81,6 +81,7 @@ const REGISTRATION_SECTIONS: { key: string; label: string }[] = [
     { key: 'advance_paid', label: '◐ Advance Paid' },
     { key: 'completed', label: '✔ Paid' },
     { key: 'pending', label: '⏳ Pending' },
+    { key: 'amount_mismatch', label: '⚠ Amount Mismatch' },
     { key: 'failed', label: '✖ Failed' },
     { key: 'refunded', label: '⏪ Refunded' },
 ];
@@ -364,6 +365,9 @@ export default function AdminDashboard() {
         if (!ok) { alert(data.error || 'Failed to sync with Razorpay.'); return; }
         if (data.completed) {
             alert(data.alreadyCompleted ? 'Already marked as paid.' : '✅ Payment verified on Razorpay — registration marked as Paid.');
+            await fetchAllData();
+        } else if (data.status === 'amount_mismatch') {
+            alert(`⚠️ ${data.message}`);
             await fetchAllData();
         } else {
             alert(data.message || 'Balance is not paid on Razorpay yet.');

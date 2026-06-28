@@ -1,109 +1,10 @@
 // app/api/webhook/razorpay/route.js
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import Razorpay from 'razorpay';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { Resend } from 'resend';
-import { dispatchTicket } from '@/lib/ticket';
+import { finalizeOrderCapture, finalizeBalancePaid } from '@/lib/payments';
 
 export const dynamic = 'force-dynamic';
-
-// Lazily initialized so missing RESEND_API_KEY during `next build` doesn't throw.
-let _resend = null;
-function getResend() {
-    if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY);
-    return _resend;
-}
-
-let _razorpay = null;
-function getRazorpay() {
-    if (!_razorpay) {
-        _razorpay = new Razorpay({
-            key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-            key_secret: process.env.RAZORPAY_KEY_SECRET,
-        });
-    }
-    return _razorpay;
-}
-
-// Creates a Razorpay Payment Link for the outstanding balance and sends it
-// to the registrant by email + WhatsApp. Returns the short URL (or null).
-async function sendBalanceLink(reg) {
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
-        || (process.env.NEXT_PUBLIC_VERCEL_URL ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` : 'http://localhost:3000');
-    const categoryTitle = reg.categories?.title || 'Registration';
-    const dueRupees = Number(reg.amount_due) || 0;
-    if (dueRupees <= 0) return null;
-
-    let shortUrl = null;
-    try {
-        let cleanPhone = String(reg.phone || '').replace(/\D/g, '');
-        if (cleanPhone.length === 10) cleanPhone = `91${cleanPhone}`;
-        const link = await getRazorpay().paymentLink.create({
-            amount: Math.round(dueRupees * 100),
-            currency: 'INR',
-            accept_partial: false,
-            description: `Balance payment — ${categoryTitle} (BaglaBhairav)`,
-            reference_id: `bal_${reg.id}`,
-            customer: { name: `${reg.first_name} ${reg.last_name}`.trim(), email: reg.email || undefined, contact: cleanPhone || undefined },
-            notify: { sms: false, email: false }, // we notify ourselves below
-            reminder_enable: true,
-            notes: { registration_id: reg.id, kind: 'balance' },
-            callback_url: `${siteUrl}/`,
-            callback_method: 'get',
-        });
-        shortUrl = link?.short_url || null;
-        if (shortUrl) {
-            await supabaseAdmin.from('registrations')
-                .update({ balance_link_url: shortUrl, balance_link_id: link?.id || null })
-                .eq('id', reg.id);
-        }
-    } catch (e) {
-        console.error('🚨 Balance payment link creation failed:', e);
-        return null;
-    }
-
-    if (shortUrl) {
-
-        if (reg.email) {
-            try {
-                await getResend().emails.send({
-                    from: process.env.RESEND_FROM || 'BaglaBhairav <onboarding@resend.dev>',
-                    to: [reg.email],
-                    subject: '⏳ Pay your balance — BaglaBhairav registration',
-                    html: `
-                        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
-                          <div style="background:#171717;padding:28px;text-align:center;"><h1 style="color:#fff;margin:0;font-size:24px;font-weight:800;">BaglaBhairav</h1></div>
-                          <div style="padding:32px;background:#fff;">
-                            <p style="font-size:16px;color:#404040;margin-top:0;">Namaste <strong>${reg.first_name} ${reg.last_name}</strong>,</p>
-                            <p style="font-size:14px;color:#6b7280;line-height:1.6;">Thank you — your advance of <strong>₹${Number(reg.amount_paid).toLocaleString('en-IN')}</strong> for <strong>${categoryTitle}</strong> is received. To confirm your registration and receive your entry pass, please clear the remaining balance:</p>
-                            <div style="text-align:center;margin:24px 0;">
-                              <div style="font-size:13px;color:#6b7280;">Balance due</div>
-                              <div style="font-size:28px;font-weight:800;color:#ea580c;margin:4px 0 16px;">₹${dueRupees.toLocaleString('en-IN')}</div>
-                              <a href="${shortUrl}" style="display:inline-block;background:#ea580c;color:#fff;font-weight:700;padding:14px 28px;border-radius:10px;text-decoration:none;">Pay Balance Now</a>
-                            </div>
-                            <p style="font-size:12px;color:#9ca3af;">Your entry pass is issued only after the full amount is paid. This is a No-Refund registration.</p>
-                          </div>
-                        </div>`,
-                });
-            } catch (e) { console.error('🚨 Balance email failed:', e); }
-        }
-
-        if (reg.phone && process.env.WHATSAPP_API_URL && process.env.WHATSAPP_ACCESS_TOKEN) {
-            try {
-                let cleanPhone = String(reg.phone).replace(/\D/g, '');
-                if (cleanPhone.length === 10) cleanPhone = `91${cleanPhone}`;
-                const text = `🙏 *BaglaBhairav* — advance received for *${categoryTitle}*.\n\n*Balance due: ₹${dueRupees.toLocaleString('en-IN')}*\nPay here to confirm your registration:\n${shortUrl}\n\nYour entry pass is issued only after full payment.`;
-                await fetch(process.env.WHATSAPP_API_URL, {
-                    method: 'POST',
-                    headers: { Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ messaging_product: 'whatsapp', to: cleanPhone, type: 'text', text: { preview_url: true, body: text } }),
-                });
-            } catch (e) { console.error('🚨 Balance WhatsApp failed:', e); }
-        }
-    }
-    return shortUrl;
-}
 
 // Constant-time comparison to avoid timing side-channels on the signature.
 function safeEqual(a, b) {
@@ -145,7 +46,6 @@ export async function POST(request) {
         if (eventType === 'payment.captured') {
             const payment = event.payload.payment.entity;
             const orderId = payment.order_id;
-            const paymentId = payment.id;
 
             const { data: reg, error: fetchError } = await supabaseAdmin
                 .from('registrations')
@@ -160,51 +60,11 @@ export async function POST(request) {
                 return NextResponse.json({ status: "no_order_match_acknowledged" }, { status: 200 });
             }
 
-            // Idempotency
-            if (reg.payment_status === 'completed' || reg.payment_status === 'advance_paid') {
-                console.log(`✅ Idempotency: registration ${reg.id} already ${reg.payment_status}.`);
-                return NextResponse.json({ status: "already_processed" }, { status: 200 });
-            }
-
-            const capturedRupees = payment.amount / 100;
-            console.log(`💰 Captured ₹${capturedRupees.toFixed(2)} for order ${orderId} (plan: ${reg.payment_plan || 'full'})`);
-
-            // ── PART PAYMENT: this was the advance ──────────────────────────
-            if (reg.payment_plan === 'partial' && Number(reg.amount_due) > 0) {
-                const { error: upErr } = await supabaseAdmin
-                    .from('registrations')
-                    .update({
-                        payment_status: 'advance_paid',
-                        amount_paid: capturedRupees,
-                        razorpay_payment_id: paymentId,
-                    })
-                    .eq('id', reg.id);
-                if (upErr) {
-                    console.error('❌ DB update (advance) failed:', upErr);
-                    return NextResponse.json({ error: "Database update failed" }, { status: 500 });
-                }
-                console.log(`◐ Advance recorded for ${reg.id}. Generating balance link…`);
-                // reg.amount_paid not yet reflecting capture in our local object — patch for the email
-                await sendBalanceLink({ ...reg, amount_paid: capturedRupees });
-                return NextResponse.json({ status: "advance_recorded" }, { status: 200 });
-            }
-
-            // ── FULL PAYMENT ────────────────────────────────────────────────
-            const { error: updateError } = await supabaseAdmin
-                .from('registrations')
-                .update({
-                    payment_status: 'completed',
-                    razorpay_payment_id: paymentId,
-                    amount_paid: reg.total_amount,
-                    amount_due: 0,
-                })
-                .eq('id', reg.id);
-            if (updateError) {
-                console.error(`❌ DB Update Failed for Order ${orderId}:`, updateError);
-                return NextResponse.json({ error: "Database update failed" }, { status: 500 });
-            }
-            console.log(`✅ Order ${orderId} marked COMPLETED.`);
-            await dispatchTicket(reg, paymentId);
+            // Shared money-state logic: asserts captured == expected (→ amount_mismatch
+            // if not), records advance + balance link, or completes + issues ticket.
+            const result = await finalizeOrderCapture({ reg, capturedPaise: payment.amount, paymentId: payment.id });
+            console.log(`💰 order ${orderId} → ${result.status}`);
+            return NextResponse.json({ status: result.status }, { status: 200 });
         }
 
         // ==========================================
@@ -230,25 +90,13 @@ export async function POST(request) {
                 console.error(`❌ payment_link.paid: registration ${regId} not found. Acknowledged.`);
                 return NextResponse.json({ status: "record_not_found_acknowledged" }, { status: 200 });
             }
-            if (reg.payment_status === 'completed') {
-                return NextResponse.json({ status: "already_processed" }, { status: 200 });
-            }
 
-            const { error: upErr } = await supabaseAdmin
-                .from('registrations')
-                .update({
-                    payment_status: 'completed',
-                    amount_paid: reg.total_amount,
-                    amount_due: 0,
-                    razorpay_payment_id: linkPayment.id || reg.razorpay_payment_id,
-                })
-                .eq('id', reg.id);
-            if (upErr) {
-                console.error('❌ DB update (balance) failed:', upErr);
-                return NextResponse.json({ error: "Database update failed" }, { status: 500 });
-            }
-            console.log(`✅ Balance cleared for ${reg.id} — registration COMPLETED.`);
-            await dispatchTicket(reg, linkPayment.id || 'balance-paid');
+            // The captured balance amount comes from the payment entity (paise);
+            // fall back to the link's amount_paid. Shared logic asserts it matches.
+            const capturedPaise = Number(linkPayment.amount) || Number(link.amount_paid) || 0;
+            const result = await finalizeBalancePaid({ reg, capturedPaise, paymentId: linkPayment.id });
+            console.log(`💰 balance link for ${reg.id} → ${result.status}`);
+            return NextResponse.json({ status: result.status }, { status: 200 });
         }
 
         // ==========================================
@@ -258,7 +106,13 @@ export async function POST(request) {
             const payment = event.payload.payment.entity;
             const orderId = payment.order_id;
             console.log(`⚠️ Payment Failed for Order ${orderId}. Reason: ${payment.error_description}`);
-            await supabaseAdmin.from('registrations').update({ payment_status: 'failed' }).eq('razorpay_order_id', orderId);
+            // Only downgrade a still-pending order. A failed attempt can arrive
+            // after a successful retry on the same order — never overwrite a
+            // completed/advance_paid/mismatch row with 'failed'.
+            await supabaseAdmin.from('registrations')
+                .update({ payment_status: 'failed' })
+                .eq('razorpay_order_id', orderId)
+                .eq('payment_status', 'pending');
         } else if (eventType === 'refund.processed') {
             const refund = event.payload.refund.entity;
             console.log(`⏪ Refund Processed for Payment ${refund.payment_id}`);

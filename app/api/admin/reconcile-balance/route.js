@@ -1,26 +1,14 @@
 // app/api/admin/reconcile-balance/route.js
-// Admin "Sync payment": re-checks a balance payment link against Razorpay and,
-// if it's actually paid, completes the registration. This is the safety net for
-// when the `payment_link.paid` webhook is missed or not configured in Razorpay.
+// Admin "Sync payment": re-checks a registration against Razorpay and applies any
+// catch-up state change. Shares the exact reconciliation path as the cron and the
+// live webhook (lib/payments). Use when a webhook was missed or not configured.
 import { NextResponse } from 'next/server';
-import Razorpay from 'razorpay';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAudit } from '@/lib/auditLog';
-import { dispatchTicket } from '@/lib/ticket';
+import { reconcileRegistrationWithRazorpay } from '@/lib/payments';
 
 export const dynamic = 'force-dynamic';
-
-let _razorpay = null;
-function getRazorpay() {
-    if (!_razorpay) {
-        _razorpay = new Razorpay({
-            key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-            key_secret: process.env.RAZORPAY_KEY_SECRET,
-        });
-    }
-    return _razorpay;
-}
 
 export async function POST(request) {
     const { response, session } = await authorize({ requireAdmin: true });
@@ -39,63 +27,50 @@ export async function POST(request) {
     if (reg.payment_status === 'completed') {
         return NextResponse.json({ ok: true, completed: true, alreadyCompleted: true });
     }
-    if (reg.payment_status !== 'advance_paid') {
-        return NextResponse.json({ error: 'This registration has no pending balance to sync.' }, { status: 400 });
+    if (reg.payment_status !== 'advance_paid' && reg.payment_status !== 'pending') {
+        return NextResponse.json({ error: 'This registration has no pending payment to sync.' }, { status: 400 });
     }
 
-    // Find the relevant payment link on Razorpay. Prefer the stored id; fall back
-    // to looking up by the reference_id the webhook uses (bal_<registrationId>).
-    let link = null;
+    let result;
     try {
-        if (reg.balance_link_id) {
-            link = await getRazorpay().paymentLink.fetch(reg.balance_link_id);
-        } else {
-            const res = await getRazorpay().paymentLink.all({ reference_id: `bal_${reg.id}`, count: 10 });
-            const items = res?.payment_links || [];
-            // Prefer a paid link; otherwise take the most recent.
-            link = items.find((l) => l.status === 'paid') || items[items.length - 1] || null;
-        }
+        result = await reconcileRegistrationWithRazorpay(reg);
     } catch (e) {
-        console.error('reconcile-balance: Razorpay lookup failed:', e?.message);
+        console.error('reconcile-balance: failed:', e?.message);
         return NextResponse.json({ error: 'Could not reach Razorpay to verify the payment.' }, { status: 502 });
     }
 
-    if (!link) {
-        return NextResponse.json({ ok: true, completed: false, status: 'no_link', message: 'No balance payment link found on Razorpay for this registration.' });
+    if (result.status === 'completed' || result.status === 'advance_recorded') {
+        await logAudit({
+            session, request,
+            action: 'balance.reconcile',
+            entity: 'registration', entityId: reg.id,
+            summary: `Synced from Razorpay → ${result.status === 'completed' ? 'completed' : 'advance paid'} (${reg.first_name} ${reg.last_name})`,
+            metadata: { result: result.status },
+        });
+        return NextResponse.json({ ok: true, completed: result.status === 'completed', status: result.status });
     }
 
-    if (link.status !== 'paid') {
-        return NextResponse.json({ ok: true, completed: false, status: link.status, message: `Razorpay shows the balance link as "${link.status}", not paid yet.` });
+    if (result.status === 'amount_mismatch') {
+        await logAudit({
+            session, request,
+            action: 'balance.reconcile',
+            entity: 'registration', entityId: reg.id,
+            summary: `Sync found an AMOUNT MISMATCH for ${reg.first_name} ${reg.last_name}`,
+            metadata: { expectedPaise: result.expectedPaise, capturedPaise: result.capturedPaise },
+        });
+        return NextResponse.json({ ok: true, completed: false, status: 'amount_mismatch', message: 'Razorpay shows a different amount than expected — flagged as Amount Mismatch for review. NOT marked paid.' });
     }
 
-    // Paid on Razorpay but not reflected here → complete it now.
-    // `payments` may be an array or a single object depending on API shape.
-    const pay = Array.isArray(link.payments) ? link.payments[0] : link.payments;
-    const paymentId = pay?.payment_id || link.id || reg.razorpay_payment_id;
-    const { error: upErr } = await supabaseAdmin
-        .from('registrations')
-        .update({
-            payment_status: 'completed',
-            amount_paid: reg.total_amount,
-            amount_due: 0,
-            razorpay_payment_id: paymentId,
-            balance_link_id: reg.balance_link_id || link.id,
-        })
-        .eq('id', reg.id);
-    if (upErr) {
-        console.error('reconcile-balance: DB update failed:', upErr.message);
-        return NextResponse.json({ error: 'Database update failed.' }, { status: 500 });
+    if (result.status === 'error') {
+        return NextResponse.json({ error: 'Could not reach Razorpay to verify the payment.' }, { status: 502 });
     }
 
-    await dispatchTicket(reg, paymentId);
-
-    await logAudit({
-        session, request,
-        action: 'balance.reconcile',
-        entity: 'registration', entityId: reg.id,
-        summary: `Synced balance from Razorpay → completed (${reg.first_name} ${reg.last_name})`,
-        metadata: { paymentLinkId: link.id, paymentId },
-    });
-
-    return NextResponse.json({ ok: true, completed: true });
+    // still_pending / still_due / no_link / skipped_no_order
+    const messages = {
+        still_due: 'Razorpay shows the balance link is not paid yet.',
+        still_pending: 'Razorpay shows no captured payment for this order yet.',
+        no_link: 'No balance payment link was found on Razorpay for this registration.',
+        skipped_no_order: 'This registration has no Razorpay order to check.',
+    };
+    return NextResponse.json({ ok: true, completed: false, status: result.status, message: messages[result.status] || 'No payment found to apply yet.' });
 }
