@@ -26,6 +26,7 @@ interface Registration {
     custom_fields: Record<string, string> | null;
     amount_paid: number; amount_due: number;
     payment_plan: string | null; balance_link_url: string | null;
+    qr_sent_at: string | null;
 }
 
 interface Category {
@@ -290,15 +291,40 @@ export default function AdminDashboard() {
         setSaving(false);
     };
 
+    const [resendQr, setResendQr] = useState(false);
     const handleSendQr = async () => {
         if (selectedIds.size === 0) return;
-        if (!confirm(`Send QR entry passes to ${selectedIds.size} selected registration(s) via email and WhatsApp?`)) return;
+        const selected = registrations.filter(r => selectedIds.has(r.id));
+        const paid = selected.filter(r => r.payment_status === 'completed');
+        const notPaid = selected.length - paid.length;
+        // By default only message people who haven't received a QR yet, so the
+        // earlier batch isn't re-messaged. Tick "Resend" to include them again.
+        const targets = resendQr ? paid : paid.filter(r => !r.qr_sent_at);
+        const alreadySent = paid.length - paid.filter(r => !r.qr_sent_at).length;
+
+        if (targets.length === 0) {
+            alert(
+                paid.length === 0
+                    ? 'None of the selected registrations are fully Paid. QR passes are only sent to Paid registrations.'
+                    : `All ${paid.length} Paid registration(s) selected have already received a QR. Tick "Resend to already-sent" to send again.`
+            );
+            return;
+        }
+
+        const lines = [`Send QR entry passes to ${targets.length} registration(s) via email & WhatsApp?`];
+        if (notPaid > 0) lines.push(`• ${notPaid} not Paid — will be skipped.`);
+        if (!resendQr && alreadySent > 0) lines.push(`• ${alreadySent} already received a QR — will be skipped.`);
+        if (resendQr && alreadySent > 0) lines.push(`• ${alreadySent} will be RE-SENT a QR.`);
+        if (!confirm(lines.join('\n'))) return;
+
         setSendingQr(true);
-        const { ok, data } = await mutate('/api/admin/send-qr', 'POST', { registrationIds: Array.from(selectedIds) });
+        const { ok, data } = await mutate('/api/admin/send-qr', 'POST', { registrationIds: targets.map(r => r.id) });
         setSendingQr(false);
         if (!ok) { alert(data.error || 'Failed to send QR codes.'); return; }
         alert(`QR codes sent!\n✉️ Email: ${data.emailSent} sent, ${data.emailFailed} failed\n📱 WhatsApp: ${data.waSent} sent, ${data.waFailed} failed`);
         setSelectedIds(new Set());
+        setResendQr(false);
+        await fetchAllData();
     };
 
     const [resendingId, setResendingId] = useState<string | null>(null);
@@ -679,17 +705,35 @@ export default function AdminDashboard() {
                             })}
                         </div>
 
-                        {selectedIds.size > 0 && (
-                            <div className="flex items-center justify-between bg-orange-50 border border-orange-200 rounded-xl px-5 py-3">
-                                <span className="text-sm font-semibold text-orange-900">{selectedIds.size} registration(s) selected</span>
-                                <div className="flex items-center gap-3">
-                                    <button onClick={() => setSelectedIds(new Set())} className="text-xs text-orange-600 hover:text-orange-800 font-semibold transition">Clear selection</button>
-                                    <button onClick={handleSendQr} disabled={sendingQr} className="flex items-center gap-2 bg-orange-600 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-orange-700 disabled:opacity-50 transition">
-                                        {sendingQr ? 'Sending...' : `📲 Send QR (${selectedIds.size})`}
-                                    </button>
+                        {selectedIds.size > 0 && (() => {
+                            const selSel = registrations.filter(r => selectedIds.has(r.id));
+                            const selPaid = selSel.filter(r => r.payment_status === 'completed');
+                            const selNotPaid = selSel.length - selPaid.length;
+                            const selUnsent = selPaid.filter(r => !r.qr_sent_at).length;
+                            const selAlready = selPaid.length - selUnsent;
+                            const willSend = resendQr ? selPaid.length : selUnsent;
+                            return (
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-orange-50 border border-orange-200 rounded-xl px-5 py-3">
+                                    <div className="text-sm text-orange-900">
+                                        <span className="font-semibold">{selectedIds.size} selected</span>
+                                        <span className="text-orange-700/80">
+                                            {' · '}{selPaid.length} Paid ({selUnsent} new, {selAlready} already sent)
+                                            {selNotPaid > 0 && ` · ${selNotPaid} not Paid (skipped)`}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                        <label className="flex items-center gap-1.5 text-xs font-semibold text-orange-900 cursor-pointer select-none">
+                                            <input type="checkbox" checked={resendQr} onChange={(e) => setResendQr(e.target.checked)} className="w-4 h-4 rounded border-orange-300 text-orange-600 focus:ring-orange-500" />
+                                            Resend to already-sent
+                                        </label>
+                                        <button onClick={() => { setSelectedIds(new Set()); setResendQr(false); }} className="text-xs text-orange-600 hover:text-orange-800 font-semibold transition">Clear</button>
+                                        <button onClick={handleSendQr} disabled={sendingQr || willSend === 0} className="flex items-center gap-2 bg-orange-600 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition">
+                                            {sendingQr ? 'Sending...' : `📲 Send QR (${willSend})`}
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            );
+                        })()}
                         <div className="bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden">
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left text-sm whitespace-nowrap">
@@ -731,11 +775,18 @@ export default function AdminDashboard() {
                                                             {reg.payment_status === 'advance_paid' && (
                                                                 <div className="text-[11px] font-semibold text-amber-700 mt-0.5">Paid ₹{reg.amount_paid} · Due ₹{reg.amount_due}</div>
                                                             )}
+                                                            {reg.payment_status === 'completed' && (
+                                                                reg.qr_sent_at
+                                                                    ? <div className="text-[11px] font-semibold text-green-700 mt-0.5 flex items-center gap-1"><Check className="w-3 h-3" /> QR sent {new Date(reg.qr_sent_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</div>
+                                                                    : <div className="text-[11px] font-semibold text-neutral-400 mt-0.5">QR not sent</div>
+                                                            )}
                                                         </td>
                                                         <td className="px-6 py-4 text-center">
                                                             <div className="flex items-center justify-center gap-2">
                                                                 <button onClick={() => setSelectedRegistration(reg)} className="p-2 border border-neutral-200 rounded-lg bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition shadow-sm" title="View details"><Eye className="w-4 h-4" /></button>
-                                                                <a href={`/api/admin/qr/${reg.id}`} className="p-2 border border-neutral-200 rounded-lg bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition shadow-sm" title="Download QR Code"><QrCode className="w-4 h-4" /></a>
+                                                                {reg.payment_status === 'completed' && (
+                                                                    <a href={`/api/admin/qr/${reg.id}`} className="p-2 border border-neutral-200 rounded-lg bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition shadow-sm" title="Download QR Code"><QrCode className="w-4 h-4" /></a>
+                                                                )}
                                                                 {reg.payment_status === 'advance_paid' && (
                                                                     <button onClick={() => handleResendBalance(reg.id)} disabled={resendingId === reg.id} className="p-2 border border-amber-200 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition shadow-sm disabled:opacity-50" title="Re-send balance payment link"><IndianRupee className="w-4 h-4" /></button>
                                                                 )}

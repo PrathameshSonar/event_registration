@@ -32,16 +32,23 @@ export async function POST(request) {
         process.env.NEXT_PUBLIC_SITE_URL ||
         (process.env.NEXT_PUBLIC_VERCEL_URL ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` : 'http://localhost:3000');
 
-    const { data: regs, error } = await supabaseAdmin
+    const { data: allRegs, error } = await supabaseAdmin
         .from('registrations')
         .select('id, first_name, last_name, salutation, attendees_count, total_amount, payment_status, email, phone, categories(title)')
         .in('id', registrationIds);
 
-    if (error || !regs) {
+    if (error || !allRegs) {
         return NextResponse.json({ error: 'Failed to fetch registrations.' }, { status: 500 });
     }
 
+    // QR entry passes are only valid for fully-paid registrations. Anything else
+    // (advance_paid, pending, enquired, failed, …) is skipped server-side so a QR
+    // can never go out for an unpaid seat, regardless of what the UI sent.
+    const regs = allRegs.filter((r) => r.payment_status === 'completed');
+    const skippedNotPaid = allRegs.length - regs.length;
+
     let emailSent = 0, emailFailed = 0, waSent = 0, waFailed = 0;
+    const sentIds = [];
 
     for (const reg of regs) {
         const verifyUrl = `${siteUrl}/entry/${reg.id}`;
@@ -63,6 +70,7 @@ export async function POST(request) {
             continue;
         }
         const qrDataUrl = `data:image/png;base64,${qrBuffer.toString('base64')}`;
+        let delivered = false;
 
         // Upload to a PRIVATE Supabase Storage bucket named "qr-codes", then generate a
         // 30-day signed URL for WhatsApp (WhatsApp servers need a public URL to fetch the image).
@@ -118,6 +126,7 @@ export async function POST(request) {
 </div>`,
                 });
                 emailSent++;
+                delivered = true;
             } catch (e) {
                 console.error('Email QR failed for', reg.id, e);
                 emailFailed++;
@@ -146,12 +155,31 @@ export async function POST(request) {
                     body: JSON.stringify(waBody),
                 });
                 waSent++;
+                delivered = true;
             } catch (e) {
                 console.error('WhatsApp QR failed for', reg.id, e);
                 waFailed++;
             }
         }
+
+        if (delivered) sentIds.push(reg.id);
     }
 
-    return NextResponse.json({ ok: true, emailSent, emailFailed, waSent, waFailed, total: regs.length });
+    // Stamp the QR-sent timestamp on every registration we successfully reached,
+    // so the admin UI can mark them as "Sent" and skip them on the next batch.
+    if (sentIds.length > 0) {
+        const { error: stampErr } = await supabaseAdmin
+            .from('registrations')
+            .update({ qr_sent_at: new Date().toISOString() })
+            .in('id', sentIds);
+        if (stampErr) console.error('Failed to stamp qr_sent_at:', stampErr.message);
+    }
+
+    return NextResponse.json({
+        ok: true,
+        emailSent, emailFailed, waSent, waFailed,
+        total: regs.length,
+        sent: sentIds.length,
+        skippedNotPaid,
+    });
 }

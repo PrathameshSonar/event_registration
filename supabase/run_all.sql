@@ -53,6 +53,12 @@ ALTER TABLE registrations
     ADD COLUMN IF NOT EXISTS payment_plan     TEXT DEFAULT 'full',  -- 'full' | 'partial'
     ADD COLUMN IF NOT EXISTS balance_link_url TEXT;
 
+-- Tracks when the QR entry pass was last sent to a registration. NULL = never
+-- sent. Used so admins can send only to people who haven't received their pass
+-- yet, without re-messaging those who already have one.
+ALTER TABLE registrations
+    ADD COLUMN IF NOT EXISTS qr_sent_at       TIMESTAMPTZ;
+
 -- registrations.payment_status uses a new value 'advance_paid'. If a CHECK
 -- constraint limits the allowed values, this rebuilds it to include the full
 -- set. (No-op safe: drops the named constraint only if it exists, then adds it.)
