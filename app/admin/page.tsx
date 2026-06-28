@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import {
     Lock, Download, Users, IndianRupee, Activity, Eye, X, Settings, ListFilter,
     Save, Trash2, Plus, Image as ImageIcon, Video, CalendarDays,
-    Ticket, Calendar as CalendarIcon, Search, LogOut, QrCode
+    Ticket, Calendar as CalendarIcon, Search, LogOut, QrCode, Copy, Check
 } from 'lucide-react';
 import { youtubeThumbnail } from '@/lib/youtube';
 import FormFieldsManager from '@/components/FormFieldsManager';
@@ -66,6 +66,21 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
     pending: '⏳ Pending', failed: '✖ Failed', refunded: '⏪ Refunded', amount_mismatch: '⚠ Amount Mismatch',
     advance_paid: '◐ Advance Paid',
 };
+
+// Section tabs for the registrations ledger. Each tab is a saved view over a
+// single payment status (plus a "Master List" showing everything). Keeping the
+// key === statusFilter value means these map cleanly onto future RBAC, where a
+// role can be granted access to one or more sections.
+const REGISTRATION_SECTIONS: { key: string; label: string }[] = [
+    { key: 'all', label: 'Master List' },
+    { key: 'enquired', label: '💬 Enquired' },
+    { key: 'contacted', label: '📞 Contacted' },
+    { key: 'advance_paid', label: '◐ Advance Paid' },
+    { key: 'completed', label: '✔ Paid' },
+    { key: 'pending', label: '⏳ Pending' },
+    { key: 'failed', label: '✖ Failed' },
+    { key: 'refunded', label: '⏪ Refunded' },
+];
 
 function statusClasses(status: PaymentStatus) {
     switch (status) {
@@ -287,6 +302,21 @@ export default function AdminDashboard() {
     };
 
     const [resendingId, setResendingId] = useState<string | null>(null);
+    const [copiedLink, setCopiedLink] = useState(false);
+    const handleCopyLink = async (url: string) => {
+        try {
+            await navigator.clipboard.writeText(url);
+        } catch {
+            // Fallback for browsers/contexts where the Clipboard API is unavailable.
+            const ta = document.createElement('textarea');
+            ta.value = url; ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); } catch { /* ignore */ }
+            document.body.removeChild(ta);
+        }
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 2000);
+    };
     const handleResendBalance = async (id: string) => {
         if (!confirm('Re-send the balance payment link by email & WhatsApp?')) return;
         setResendingId(id);
@@ -367,17 +397,27 @@ export default function AdminDashboard() {
         acc[ev.id] = new Set(categoriesList.filter(c => c.event_id === ev.id).map(c => c.id));
         return acc;
     }, {} as Record<string, Set<string>>);
-    const filteredRegistrations = registrations.filter(reg => {
+    // Apply every filter EXCEPT status here, so each section tab can show a live
+    // count and switching sections doesn't change the other active filters.
+    const baseFilteredRegistrations = registrations.filter(reg => {
         const searchMatch = `${reg.first_name} ${reg.last_name} ${reg.phone} ${reg.gotra || ''}`.toLowerCase().includes(searchTerm.toLowerCase());
-        const statusMatch = statusFilter === 'all' || reg.payment_status === statusFilter;
         const catTitle = reg.categories?.title || 'Deleted Tier';
         const catMatch = categoryFilter === 'all' || (categoryFilter === 'Deleted' && !reg.categories) || catTitle === categoryFilter;
         const eventMatch = eventFilter === 'all' || (reg.category_id != null && catIdsByEvent[eventFilter]?.has(reg.category_id));
         let dateMatch = true;
         if (startDate) { dateMatch = dateMatch && new Date(reg.created_at) >= new Date(startDate); }
         if (endDate) { const end = new Date(endDate); end.setDate(end.getDate() + 1); dateMatch = dateMatch && new Date(reg.created_at) < end; }
-        return searchMatch && statusMatch && catMatch && eventMatch && dateMatch;
+        return searchMatch && catMatch && eventMatch && dateMatch;
     });
+
+    const sectionCounts = baseFilteredRegistrations.reduce((acc, reg) => {
+        acc[reg.payment_status] = (acc[reg.payment_status] || 0) + 1;
+        return acc;
+    }, {} as Record<string, number>);
+
+    const filteredRegistrations = statusFilter === 'all'
+        ? baseFilteredRegistrations
+        : baseFilteredRegistrations.filter(reg => reg.payment_status === statusFilter);
 
     const totalRevenue = filteredRegistrations.filter(r => r.payment_status === 'completed').reduce((sum, r) => sum + Number(r.total_amount || 0), 0);
     const totalPages = Math.max(1, Math.ceil(filteredRegistrations.length / PAGE_SIZE));
@@ -500,7 +540,18 @@ export default function AdminDashboard() {
                                         <p className="mt-3"><span className="text-neutral-500 block text-xs">Payment Ref</span><span className="font-mono text-xs text-neutral-600 break-all">{selectedRegistration.razorpay_payment_id}</span></p>
                                     )}
                                     {selectedRegistration.payment_status === 'advance_paid' && selectedRegistration.balance_link_url && (
-                                        <p className="mt-2"><a href={selectedRegistration.balance_link_url} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-orange-600 hover:underline break-all">Balance payment link →</a></p>
+                                        <div className="mt-2">
+                                            <a href={selectedRegistration.balance_link_url} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-orange-600 hover:underline break-all">Balance payment link →</a>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleCopyLink(selectedRegistration.balance_link_url!)}
+                                                className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs font-semibold text-neutral-700 hover:bg-neutral-100 transition"
+                                                title="Copy balance payment link to clipboard"
+                                            >
+                                                {copiedLink ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                                                {copiedLink ? 'Copied!' : 'Copy link'}
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
                                 <div className="col-span-1 md:col-span-2 bg-orange-50 border border-orange-100 p-4 rounded-xl">
@@ -606,10 +657,26 @@ export default function AdminDashboard() {
                                 <div className="flex items-center gap-2 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus-within:border-orange-600 transition flex-wrap"><CalendarIcon className="w-4 h-4 text-neutral-400 flex-shrink-0" /><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-transparent focus:outline-none text-neutral-600 min-w-0" /><span className="text-neutral-400">–</span><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="bg-transparent focus:outline-none text-neutral-600 min-w-0" /></div>
                                 <select value={eventFilter} onChange={(e) => { setEventFilter(e.target.value); setCurrentPage(1); }} className="flex-1 min-w-[140px] px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600"><option value="all">All Events</option>{eventsList.map(ev => <option key={ev.id} value={ev.id}>{ev.title}{ev.is_active ? ' ✓' : ''}</option>)}</select>
                                 <select value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value); setCurrentPage(1); }} className="flex-1 min-w-[140px] px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600"><option value="all">All Categories</option>{uniqueCategories.map((cat, idx) => <option key={idx} value={cat as string}>{cat}</option>)}<option value="Deleted"> [Deleted Tiers]</option></select>
-                                <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }} className="flex-1 min-w-[160px] px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600">
-                                    <option value="all">All Statuses</option><option value="completed">Completed (Paid)</option><option value="advance_paid">◐ Advance Paid (Balance Due)</option><option value="enquired">Enquired</option><option value="contacted">Contacted</option><option value="pending">Pending Checkout</option><option value="failed">Failed Payment</option><option value="refunded">Refunded</option>
-                                </select>
                             </div>
+                        </div>
+
+                        {/* Section tabs — saved views by payment status, plus a master list.
+                            Counts respect every other active filter (search, event, category, date). */}
+                        <div className="bg-white p-2 rounded-xl border border-neutral-200 shadow-sm flex flex-wrap gap-2">
+                            {REGISTRATION_SECTIONS.map(section => {
+                                const active = statusFilter === section.key;
+                                const count = section.key === 'all' ? baseFilteredRegistrations.length : (sectionCounts[section.key] || 0);
+                                return (
+                                    <button
+                                        key={section.key}
+                                        onClick={() => { setStatusFilter(section.key); setCurrentPage(1); setSelectedIds(new Set()); }}
+                                        className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition border ${active ? 'bg-neutral-900 text-white border-neutral-900' : 'bg-neutral-50 text-neutral-600 border-neutral-200 hover:bg-neutral-100'}`}
+                                    >
+                                        {section.label}
+                                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${active ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-600'}`}>{count}</span>
+                                    </button>
+                                );
+                            })}
                         </div>
 
                         {selectedIds.size > 0 && (

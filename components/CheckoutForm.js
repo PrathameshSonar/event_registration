@@ -65,7 +65,9 @@ function buildReceiptCanvas(data) {
     ["Date", dateStr],
     ["Name", data.name],
     ["Email", data.email],
+    ["Mobile", data.phone],
   ];
+  if (data.gotra) rows.push(["Gotra", data.gotra]);
   if (!data.isEnquiry) {
     rows.push(["Category", data.category]);
     rows.push(["Attendees", `${data.attendees} Person(s)`]);
@@ -439,6 +441,8 @@ export default function CheckoutForm({ category }) {
           isEnquiry: true,
           name: fullName,
           email: formData.email,
+          phone: formData.phone,
+          gotra: formData.gotra,
         });
       } catch {
         setFormError("Network error. Please try again.");
@@ -497,6 +501,8 @@ export default function CheckoutForm({ category }) {
           orderId: response.razorpay_order_id,
           name: fullName,
           email: formData.email,
+          phone: formData.phone,
+          gotra: formData.gotra,
           amount: totalAmount,
           category: category.title,
           attendees: formData.attendeesCount,
