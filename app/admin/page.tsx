@@ -366,6 +366,9 @@ export default function AdminDashboard() {
         if (data.completed) {
             alert(data.alreadyCompleted ? 'Already marked as paid.' : '✅ Payment verified on Razorpay — registration marked as Paid.');
             await fetchAllData();
+        } else if (data.status === 'advance_recorded') {
+            alert('✅ Verified on Razorpay — advance recorded. Balance payment link re-sent.');
+            await fetchAllData();
         } else if (data.status === 'amount_mismatch') {
             alert(`⚠️ ${data.message}`);
             await fetchAllData();
@@ -534,11 +537,11 @@ export default function AdminDashboard() {
             {reg.payment_status === 'completed' && (
                 <a href={`/api/admin/qr/${reg.id}`} className="p-2 border border-neutral-200 rounded-lg bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition shadow-sm" title="Download QR Code"><QrCode className="w-4 h-4" /></a>
             )}
+            {(reg.payment_status === 'advance_paid' || reg.payment_status === 'amount_mismatch') && (
+                <button onClick={() => handleSyncBalance(reg.id)} disabled={syncingId === reg.id} className="p-2 border border-green-200 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition shadow-sm disabled:opacity-50" title="Re-check this payment against Razorpay"><RefreshCw className={`w-4 h-4 ${syncingId === reg.id ? 'animate-spin' : ''}`} /></button>
+            )}
             {reg.payment_status === 'advance_paid' && (
-                <>
-                    <button onClick={() => handleSyncBalance(reg.id)} disabled={syncingId === reg.id} className="p-2 border border-green-200 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition shadow-sm disabled:opacity-50" title="Sync balance payment from Razorpay"><RefreshCw className={`w-4 h-4 ${syncingId === reg.id ? 'animate-spin' : ''}`} /></button>
-                    <button onClick={() => handleResendBalance(reg.id)} disabled={resendingId === reg.id} className="p-2 border border-amber-200 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition shadow-sm disabled:opacity-50" title="Re-send balance payment link"><IndianRupee className="w-4 h-4" /></button>
-                </>
+                <button onClick={() => handleResendBalance(reg.id)} disabled={resendingId === reg.id} className="p-2 border border-amber-200 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition shadow-sm disabled:opacity-50" title="Re-send balance payment link"><IndianRupee className="w-4 h-4" /></button>
             )}
         </div>
     );

@@ -37,7 +37,7 @@ async function runReconcile() {
     const { data: rows, error } = await supabaseAdmin
         .from('registrations')
         .select('*, categories(title)')
-        .in('payment_status', ['pending', 'advance_paid'])
+        .in('payment_status', ['pending', 'advance_paid', 'amount_mismatch'])
         .gte('created_at', sinceIso)
         .order('created_at', { ascending: true })
         .limit(BATCH_LIMIT);
