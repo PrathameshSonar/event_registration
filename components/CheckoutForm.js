@@ -14,6 +14,7 @@ import {
   Heart,
   CheckCircle,
   Download,
+  Loader2,
 } from "lucide-react";
 import {
   TextField,
@@ -656,6 +657,17 @@ export default function CheckoutForm({ category }) {
   // ── FORM ──────────────────────────────────────────────────────────────
   return (
     <form onSubmit={handlePayment} noValidate className="space-y-8">
+      {/* Full-screen loader while we create the order + load Razorpay, before
+          the gateway modal appears — so the wait never looks frozen. Sits below
+          Razorpay's own overlay (which takes over once the modal opens). */}
+      {loading && !isEnquiry && (
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-4 bg-neutral-900/70 backdrop-blur-sm px-6 text-center">
+          <Loader2 className="w-12 h-12 text-white animate-spin" />
+          <p className="text-white font-semibold text-lg">{t("form_gateway_opening")}</p>
+          <p className="text-neutral-300 text-sm max-w-xs">{t("form_gateway_wait")}</p>
+        </div>
+      )}
+
       {totalAmount >= 100000 && !isEnquiry && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg flex items-start gap-3 text-sm">
           <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
@@ -1094,13 +1106,18 @@ export default function CheckoutForm({ category }) {
             fontWeight: 600,
           }}
         >
-          {loading
-            ? t("form_processing")
-            : isEnquiry
-              ? t("form_submit_enquiry")
-              : usePartial
-                ? `Pay ₹${payNow.toLocaleString("en-IN")} Advance Securely`
-                : t("form_pay_button", totalAmount)}
+          {loading ? (
+            <span className="flex items-center justify-center gap-2">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              {t("form_processing")}
+            </span>
+          ) : isEnquiry ? (
+            t("form_submit_enquiry")
+          ) : usePartial ? (
+            `Pay ₹${payNow.toLocaleString("en-IN")} Advance Securely`
+          ) : (
+            t("form_pay_button", totalAmount)
+          )}
         </Button>
 
         {!isEnquiry && (
