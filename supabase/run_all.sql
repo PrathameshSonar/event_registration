@@ -51,7 +51,11 @@ ALTER TABLE registrations
     ADD COLUMN IF NOT EXISTS amount_paid      NUMERIC DEFAULT 0,
     ADD COLUMN IF NOT EXISTS amount_due       NUMERIC DEFAULT 0,
     ADD COLUMN IF NOT EXISTS payment_plan     TEXT DEFAULT 'full',  -- 'full' | 'partial'
-    ADD COLUMN IF NOT EXISTS balance_link_url TEXT;
+    ADD COLUMN IF NOT EXISTS balance_link_url TEXT,
+    -- Razorpay payment-link id (plink_xxx) for the balance link, so admins can
+    -- re-verify ("Sync") a balance payment against Razorpay if the webhook is
+    -- missed or not configured.
+    ADD COLUMN IF NOT EXISTS balance_link_id  TEXT;
 
 -- Tracks when the QR entry pass was last sent to a registration. NULL = never
 -- sent. Used so admins can send only to people who haven't received their pass

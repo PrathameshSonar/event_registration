@@ -6,7 +6,7 @@ import {
     Lock, Download, Users, IndianRupee, Activity, Eye, X, Settings, ListFilter,
     Save, Trash2, Plus, Image as ImageIcon, Video, CalendarDays,
     Ticket, Calendar as CalendarIcon, Search, LogOut, QrCode, Copy, Check,
-    LayoutDashboard, ScrollText
+    LayoutDashboard, ScrollText, RefreshCw
 } from 'lucide-react';
 import { youtubeThumbnail } from '@/lib/youtube';
 import FormFieldsManager from '@/components/FormFieldsManager';
@@ -354,6 +354,22 @@ export default function AdminDashboard() {
         alert(`Balance link sent.\n✉️ Email: ${data.emailed ? 'yes' : 'no'}  📱 WhatsApp: ${data.waSent ? 'yes' : 'no'}`);
     };
 
+    // Re-check a balance payment against Razorpay; completes the registration if
+    // the link is actually paid (catches missed payment_link.paid webhooks).
+    const [syncingId, setSyncingId] = useState<string | null>(null);
+    const handleSyncBalance = async (id: string) => {
+        setSyncingId(id);
+        const { ok, data } = await mutate('/api/admin/reconcile-balance', 'POST', { id });
+        setSyncingId(null);
+        if (!ok) { alert(data.error || 'Failed to sync with Razorpay.'); return; }
+        if (data.completed) {
+            alert(data.alreadyCompleted ? 'Already marked as paid.' : '✅ Payment verified on Razorpay — registration marked as Paid.');
+            await fetchAllData();
+        } else {
+            alert(data.message || 'Balance is not paid on Razorpay yet.');
+        }
+    };
+
     // ----- Categories -----
     const handleCreateCategory = async (e: React.FormEvent) => {
         e.preventDefault(); setSaving(true);
@@ -515,7 +531,10 @@ export default function AdminDashboard() {
                 <a href={`/api/admin/qr/${reg.id}`} className="p-2 border border-neutral-200 rounded-lg bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition shadow-sm" title="Download QR Code"><QrCode className="w-4 h-4" /></a>
             )}
             {reg.payment_status === 'advance_paid' && (
-                <button onClick={() => handleResendBalance(reg.id)} disabled={resendingId === reg.id} className="p-2 border border-amber-200 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition shadow-sm disabled:opacity-50" title="Re-send balance payment link"><IndianRupee className="w-4 h-4" /></button>
+                <>
+                    <button onClick={() => handleSyncBalance(reg.id)} disabled={syncingId === reg.id} className="p-2 border border-green-200 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition shadow-sm disabled:opacity-50" title="Sync balance payment from Razorpay"><RefreshCw className={`w-4 h-4 ${syncingId === reg.id ? 'animate-spin' : ''}`} /></button>
+                    <button onClick={() => handleResendBalance(reg.id)} disabled={resendingId === reg.id} className="p-2 border border-amber-200 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition shadow-sm disabled:opacity-50" title="Re-send balance payment link"><IndianRupee className="w-4 h-4" /></button>
+                </>
             )}
         </div>
     );
@@ -622,18 +641,34 @@ export default function AdminDashboard() {
                                     {selectedRegistration.razorpay_payment_id && (
                                         <p className="mt-3"><span className="text-neutral-500 block text-xs">Payment Ref</span><span className="font-mono text-xs text-neutral-600 break-all">{selectedRegistration.razorpay_payment_id}</span></p>
                                     )}
-                                    {selectedRegistration.payment_status === 'advance_paid' && selectedRegistration.balance_link_url && (
+                                    {selectedRegistration.payment_status === 'advance_paid' && (
                                         <div className="mt-2">
-                                            <a href={selectedRegistration.balance_link_url} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-orange-600 hover:underline break-all">Balance payment link →</a>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleCopyLink(selectedRegistration.balance_link_url!)}
-                                                className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs font-semibold text-neutral-700 hover:bg-neutral-100 transition"
-                                                title="Copy balance payment link to clipboard"
-                                            >
-                                                {copiedLink ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
-                                                {copiedLink ? 'Copied!' : 'Copy link'}
-                                            </button>
+                                            {selectedRegistration.balance_link_url && (
+                                                <a href={selectedRegistration.balance_link_url} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-orange-600 hover:underline break-all">Balance payment link →</a>
+                                            )}
+                                            <div className="flex flex-wrap items-center gap-2 mt-2">
+                                                {selectedRegistration.balance_link_url && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleCopyLink(selectedRegistration.balance_link_url!)}
+                                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs font-semibold text-neutral-700 hover:bg-neutral-100 transition"
+                                                        title="Copy balance payment link to clipboard"
+                                                    >
+                                                        {copiedLink ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                                                        {copiedLink ? 'Copied!' : 'Copy link'}
+                                                    </button>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleSyncBalance(selectedRegistration.id)}
+                                                    disabled={syncingId === selectedRegistration.id}
+                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-green-300 rounded-lg text-xs font-semibold text-green-700 bg-green-50 hover:bg-green-100 transition disabled:opacity-50"
+                                                    title="Check Razorpay and mark as paid if the balance is cleared"
+                                                >
+                                                    <RefreshCw className={`w-3.5 h-3.5 ${syncingId === selectedRegistration.id ? 'animate-spin' : ''}`} />
+                                                    {syncingId === selectedRegistration.id ? 'Syncing…' : 'Sync payment'}
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
                                 </div>

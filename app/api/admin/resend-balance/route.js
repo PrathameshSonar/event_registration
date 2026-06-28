@@ -54,7 +54,7 @@ export async function POST(request) {
                 notes: { registration_id: reg.id, kind: 'balance' },
             });
             shortUrl = link?.short_url || null;
-            if (shortUrl) await supabaseAdmin.from('registrations').update({ balance_link_url: shortUrl }).eq('id', reg.id);
+            if (shortUrl) await supabaseAdmin.from('registrations').update({ balance_link_url: shortUrl, balance_link_id: link?.id || null }).eq('id', reg.id);
         } catch (e) {
             console.error('Resend balance link creation failed:', e);
             return NextResponse.json({ error: 'Could not create payment link.' }, { status: 500 });

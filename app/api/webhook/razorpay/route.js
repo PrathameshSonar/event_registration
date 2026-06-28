@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import Razorpay from 'razorpay';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { Resend } from 'resend';
+import { dispatchTicket } from '@/lib/ticket';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,73 +24,6 @@ function getRazorpay() {
         });
     }
     return _razorpay;
-}
-
-// Sends the confirmation "ticket" email + WhatsApp once a registration is fully paid.
-async function dispatchTicket(reg, paymentId) {
-    const { data: activeEvent } = await supabaseAdmin
-        .from('events').select('venue, date_time').eq('is_active', true).single();
-    const eventVenue = activeEvent?.venue || null;
-    const eventDate = activeEvent?.date_time || null;
-    const firstName = reg.first_name, lastName = reg.last_name;
-    const categoryTitle = reg.categories?.title || 'General Admission';
-    const totalAmount = reg.total_amount;
-    const attendeesCount = reg.attendees_count;
-
-    if (reg.email) {
-        try {
-            await getResend().emails.send({
-                from: process.env.RESEND_FROM || 'BaglaBhairav <onboarding@resend.dev>',
-                to: [reg.email],
-                subject: `✅ Confirmed: Your Ticket for BaglaBhairav`,
-                html: `
-                    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 16px; overflow: hidden;">
-                    <div style="background-color: #171717; padding: 32px; text-align: center;">
-                        <span style="color: #ea580c; font-size: 12px; font-weight: bold; text-transform: uppercase;">Registration Confirmed</span>
-                        <h1 style="color: #ffffff; margin: 8px 0 0 0; font-size: 28px; font-weight: 800;">BaglaBhairav</h1>
-                    </div>
-                    <div style="padding: 32px; background-color: #ffffff;">
-                        <p style="font-size: 16px; color: #404040; margin-top: 0;">Namaste <strong>${firstName} ${lastName}</strong>,</p>
-                        <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">Your registration is confirmed and your payment has been fully received. Below are your registration details. Your QR entry pass will be sent separately a few days before the event — please carry it at the venue gateway.</p>
-                        <div style="background-color: #f9fafb; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 24px; margin: 24px 0;">
-                        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-                            <tr><td style="padding: 6px 0; color: #6b7280;">Access Tier:</td><td style="padding: 6px 0; font-weight: bold; color: #111827; text-align: right;">${categoryTitle}</td></tr>
-                            <tr><td style="padding: 6px 0; color: #6b7280;">Total Attendees:</td><td style="padding: 6px 0; font-weight: bold; color: #111827; text-align: right;">${attendeesCount} Person(s)</td></tr>
-                            <tr><td style="padding: 6px 0; color: #6b7280;">Payment Reference:</td><td style="padding: 6px 0; font-family: monospace; color: #ea580c; text-align: right; font-size: 12px;">${paymentId}</td></tr>
-                            <tr style="border-top: 1px solid #e5e7eb;"><td style="padding: 12px 0 0 0; font-weight: bold; color: #111827;">Total Paid:</td><td style="padding: 12px 0 0 0; font-weight: 800; color: #16a34a; text-align: right; font-size: 18px;">₹${totalAmount}</td></tr>
-                        </table>
-                        </div>
-                        ${eventVenue || eventDate ? `
-                        <div style="background-color: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 16px; margin: 16px 0;">
-                            ${eventDate ? `<div style="font-size: 13px; color: #9a3412; margin-bottom: 6px;">📅 <strong>Date:</strong> ${eventDate}</div>` : ''}
-                            ${eventVenue ? `<div style="font-size: 13px; color: #9a3412;">📍 <strong>Venue:</strong> ${eventVenue}</div>` : ''}
-                        </div>` : ''}
-                    </div>
-                    </div>`,
-            });
-        } catch (e) { console.error('🚨 Ticket email failed:', e); }
-    }
-
-    if (reg.phone && process.env.WHATSAPP_API_URL && process.env.WHATSAPP_ACCESS_TOKEN) {
-        try {
-            let cleanPhone = reg.phone.replace(/\D/g, '');
-            if (cleanPhone.length === 10) cleanPhone = `91${cleanPhone}`;
-            await fetch(process.env.WHATSAPP_API_URL, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    messaging_product: 'whatsapp', to: cleanPhone, type: 'template',
-                    template: { name: 'ticket_confirmation', language: { code: 'en' }, components: [
-                        { type: 'body', parameters: [
-                            { type: 'text', text: `${firstName} ${lastName}` },
-                            { type: 'text', text: categoryTitle },
-                            { type: 'text', text: paymentId },
-                        ] },
-                    ] },
-                }),
-            });
-        } catch (e) { console.error('🚨 Ticket WhatsApp failed:', e); }
-    }
 }
 
 // Creates a Razorpay Payment Link for the outstanding balance and sends it
@@ -119,13 +53,17 @@ async function sendBalanceLink(reg) {
             callback_method: 'get',
         });
         shortUrl = link?.short_url || null;
+        if (shortUrl) {
+            await supabaseAdmin.from('registrations')
+                .update({ balance_link_url: shortUrl, balance_link_id: link?.id || null })
+                .eq('id', reg.id);
+        }
     } catch (e) {
         console.error('🚨 Balance payment link creation failed:', e);
         return null;
     }
 
     if (shortUrl) {
-        await supabaseAdmin.from('registrations').update({ balance_link_url: shortUrl }).eq('id', reg.id);
 
         if (reg.email) {
             try {
