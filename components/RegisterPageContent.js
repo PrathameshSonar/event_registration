@@ -34,7 +34,12 @@ export default function RegisterPageContent({ category }) {
                     </span>
                     <div className="flex justify-between items-start gap-4 mb-3">
                         <h2 className="text-2xl font-bold">{catTitle}</h2>
-                        {!isEnquiry && <div className="text-2xl font-black text-neutral-900">₹{category.price}</div>}
+                        {category.price > 0 && (
+                            <div className="text-right">
+                                <div className="text-2xl font-black text-neutral-900">₹{category.price}</div>
+                                {isEnquiry && <div className="text-[11px] text-neutral-400 uppercase tracking-wider">Fee</div>}
+                            </div>
+                        )}
                     </div>
                     <p className="text-neutral-600 text-sm leading-relaxed">{catDesc}</p>
                 </div>

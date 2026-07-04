@@ -108,7 +108,9 @@ export async function POST(request) {
                 .from('registrations')
                 .select('attendees_count')
                 .eq('category_id', category.id)
-                .in('payment_status', ['completed', 'contacted', 'enquired', 'advance_paid']);
+                // Only Paid + Partial Paid hold a seat. Open enquiries (enquired/
+                // contacted/awaiting_payment) do NOT reserve capacity.
+                .in('payment_status', ['completed', 'advance_paid']);
 
             if (takenError) {
                 console.error('Capacity check failed — code:', takenError.code, '| message:', takenError.message, '| hint:', takenError.hint);

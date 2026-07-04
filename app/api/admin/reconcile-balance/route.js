@@ -27,7 +27,7 @@ export async function POST(request) {
     if (reg.payment_status === 'completed') {
         return NextResponse.json({ ok: true, completed: true, alreadyCompleted: true });
     }
-    if (!['advance_paid', 'pending', 'amount_mismatch'].includes(reg.payment_status)) {
+    if (!['advance_paid', 'pending', 'amount_mismatch', 'awaiting_payment'].includes(reg.payment_status)) {
         return NextResponse.json({ error: 'This registration has no pending payment to sync.' }, { status: 400 });
     }
 

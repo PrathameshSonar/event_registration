@@ -10,7 +10,7 @@ import { logAudit } from '@/lib/auditLog';
 
 export const dynamic = 'force-dynamic';
 
-const VALID_STATUSES = ['pending', 'completed', 'failed', 'refunded', 'enquired', 'contacted', 'amount_mismatch'];
+const VALID_STATUSES = ['pending', 'completed', 'failed', 'refunded', 'enquired', 'contacted', 'amount_mismatch', 'closed'];
 const TERMINAL_STATUSES = ['completed', 'failed', 'refunded', 'amount_mismatch'];
 
 export async function PATCH(request) {

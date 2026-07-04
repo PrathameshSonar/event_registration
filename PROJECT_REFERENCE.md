@@ -150,7 +150,7 @@ Run via `supabase/run_all.sql`. Key tables:
 Active-event model. Columns: `id, title, title_hi, short_description(+_hi), long_description(+_hi), date_time(+_hi), venue(+_hi), map_url, start_at, contact_phone, hero_image_url, is_active, show_in_archive, created_at`.
 
 ### `categories` (ticket tiers)
-`id, event_id→events, title(+_hi), description(+_hi), detailed_description(+_hi), price, media_url, is_full, is_enquiry_only, max_capacity, show_availability, max_attendees_per_reg (default 5, ceiling 20), show_emi_badge, allow_part_payment, advance_percent (% of PRICE taken as advance, default 25)`.
+`id, event_id→events, title(+_hi), description(+_hi), detailed_description(+_hi), price, media_url, is_full, is_enquiry_only, allow_enquiry (also show "Enquire Now" on a paid tier), max_capacity, show_availability, max_attendees_per_reg (default 5, ceiling 20), show_emi_badge, allow_part_payment, advance_percent (% of PRICE taken as advance, default 25)`.
 
 ### `registrations` (the ledger — one row per registration attempt)
 - Identity: `id, profile_id→profiles, full_name, salutation, first_name, last_name, gotra, gender, date_of_birth, email, phone, pincode, taluka, state, problem_samasya`
@@ -173,6 +173,9 @@ Catalog of registration fields + per-category visibility/required/order. See §1
 
 ### `event_schedule` / `event_highlights` / `event_faqs` / `event_reminders` / `event_media`
 Homepage content per event (programme, ritual cards, FAQ accordion, reminder opt-ins, gallery image/YouTube).
+
+### `registration_notes`
+Contact-history log for the enquiry pipeline: `id, registration_id→registrations (cascade), note, actor_role, created_at`. One row per note. Needs `GRANT ALL ... TO service_role`.
 
 ### `admin_audit_logs`
 `id BIGSERIAL, created_at, actor_role, actor_id (RBAC-reserved), actor_label (RBAC-reserved), action, entity, entity_id, summary, metadata jsonb, ip`. See §12. **Needs `GRANT ALL ... TO service_role` + sequence grant** (in run_all.sql).
@@ -273,7 +276,7 @@ Goal: DB matches Razorpay's reality; no silent under-recording or underpayment.
 
 **Auto-refresh:** the registrations list silently re-fetches every 30s while on the Dashboard or Registrations tab (paused while a detail modal is open, or when toggled off via the **Auto ON/OFF** chip in the header). A manual **Refresh** button + "Updated HH:MM:SS" sit in the top header. So new registrations appear without reloading the page. (`refreshRegistrations()` updates only the registrations array — no loading flicker, no Settings disruption.)
 
-**Top nav (4 tabs, horizontally scrollable on mobile):**
+**Top nav (5 tabs — Dashboard, Registrations, Enquiries, Settings, Audit — horizontally scrollable on mobile):**
 
 ### Dashboard (everyone)
 Global overview: 3 stat cards (Confirmed Attendees, Total Revenue (Paid), Total Registrations — all **global**, not filtered), "Sales by Category" table, and per-category "Sales & Enquiries" chips.
@@ -289,6 +292,13 @@ Global overview: 3 stat cards (Confirmed Attendees, Total Revenue (Paid), Total 
 
 ### Settings (admin only) — sidebar sub-tabs
 Event Setup, Ticket Tiers, Media Gallery, Entry Checkpoints, Form Fields ([components/FormFieldsManager.js](components/FormFieldsManager.js)), Home Page Content ([components/HomeContentManager.js](components/HomeContentManager.js) — schedule/highlights/faqs/hero/contact). Destructive deletes (events/tiers/media) require **re-entering the admin password**.
+
+### Enquiries (everyone; actions admin-only) — the leads pipeline
+[components/EnquiriesPanel.js](components/EnquiriesPanel.js). Kept **separate** from the Registrations ledger. Shows rows with status ∈ `{enquired, contacted, awaiting_payment, closed}` under section tabs: **New**, **Contacted**, **Payment Link Sent**, **Closed/Lost**, **All Open**.
+- **Enquiry sources:** a tier can be **Enquiry Only** (`is_enquiry_only`) or **Paid + Enquire** (`allow_enquiry` → shows both "Pay" and "Enquire Now" on the form). "Enquire Now" posts to `/api/enquiry` → `enquired` (holds no seat).
+- **Contact history:** admins append **multiple** timestamped notes per lead (`registration_notes` table) via the Notes drawer. The first note on a New lead auto-advances it to Contacted.
+- **Convert to paid (fixed price):** **Request Payment** → `POST /api/admin/request-enquiry-payment` sets `total_amount = amount_due = category.price`, status → `awaiting_payment`, and sends a Razorpay payment link (email + WhatsApp) via `sendPaymentLink(reg, 'enquiry')`. When paid, the **same record** completes via the normal `payment_link.paid` → `finalizeBalancePaid` path (and cron/Sync backstop). No amount is ever typed — it's the tier's fixed price.
+- **Close/Reopen:** **Close** (prompts for a reason note) → `closed`; **Reopen** → `contacted`.
 
 ### Audit (admin only)
 [components/AuditLogPanel.js](components/AuditLogPanel.js) — filterable list of all admin changes. See §12.
@@ -369,7 +379,9 @@ Event Setup, Ticket Tiers, Media Gallery, Entry Checkpoints, Form Fields ([compo
 - `POST /api/admin/send-qr` — bulk QR send (completed only).
 - `GET /api/admin/qr/[id]` — single QR PNG (completed only; 409 otherwise).
 - `POST /api/admin/resend-balance` — re-send balance link.
-- `POST /api/admin/reconcile-balance` — "Sync payment" against Razorpay.
+- `POST /api/admin/reconcile-balance` — "Sync payment" against Razorpay (advance/pending/mismatch/awaiting_payment).
+- `POST /api/admin/request-enquiry-payment` — convert an enquiry: set the tier price + send a payment link.
+- `GET|POST /api/admin/registration-notes` — enquiry contact-notes history (GET any role; POST admin).
 - `GET /api/admin/audit-logs` — read audit trail.
 
 Every admin route uses `authorize()` from [lib/adminGuard.js](lib/adminGuard.js); destructive ones also call `verifyAdminPassword()`.
@@ -399,15 +411,18 @@ Every admin route uses `authorize()` from [lib/adminGuard.js](lib/adminGuard.js)
 
 ## 19. Components
 
-`CheckoutForm.js` (registration+payment+receipt), `RegisterPageContent.js`, `HomeContent.js`, `HomeContentManager.js` (admin home editor), `FormFieldsManager.js`, `AuditLogPanel.js`, `LanguageProvider.tsx`, `LangToggle.js`, `Countdown.js`, `FaqAccordion.js`, `ReminderForm.js`, `AddToCalendar.js`, `ShareButtons.js`, `FloatingActions.js`, `Reveal.js` (scroll-reveal), `YouTubeEmbed.js`, `PreviousEventsContent.js`, `Footer.js`.
+`CheckoutForm.js` (registration+payment+receipt+enquire/pay choice), `RegisterPageContent.js`, `HomeContent.js`, `HomeContentManager.js` (admin home editor), `FormFieldsManager.js`, `AuditLogPanel.js`, `EnquiriesPanel.js` (leads pipeline), `LanguageProvider.tsx`, `LangToggle.js`, `Countdown.js`, `FaqAccordion.js`, `ReminderForm.js`, `AddToCalendar.js`, `ShareButtons.js`, `FloatingActions.js`, `Reveal.js` (scroll-reveal), `YouTubeEmbed.js`, `PreviousEventsContent.js`, `Footer.js`.
 
 ---
 
 ## 20. Payment status lifecycle
 
 ```
-enquired ───────────────► contacted        (enquiry-only tiers; admin-managed)
+Enquiry pipeline (separate tab):
+enquired ──notes──► contacted ──Request Payment──► awaiting_payment ──pays──► completed ──► (QR)
+   └───────────────┴────────── Close (reason) ─────┴────────► closed  (reopen → contacted)
 
+Payment ledger:
 pending ──capture(full)──► completed         (+ ticket, eligible for QR)
 pending ──capture(advance)► advance_paid ──balance paid──► completed
 pending ──fail──────────► failed
@@ -415,9 +430,10 @@ pending ──fail──────────► failed
 completed ──refund───────► refunded
 ```
 
-- **Terminal/locked (not editable from dashboard):** `completed, failed, refunded, amount_mismatch, advance_paid`.
+- **Terminal/locked (not editable from the status dropdown):** `completed, failed, refunded, amount_mismatch, advance_paid, awaiting_payment`.
 - **QR eligibility:** `completed` only.
-- `amount_paid + amount_due` always equals `total_amount` (advance recorded; balance clears `amount_due` to 0).
+- **Capacity held by:** `completed` + `advance_paid` only (Paid + Partial Paid). Open enquiries (`enquired/contacted/awaiting_payment`) and `closed` do NOT reserve seats.
+- `amount_paid + amount_due` always equals `total_amount` (advance recorded; balance/enquiry link clears `amount_due` to 0).
 
 ---
 
@@ -450,7 +466,8 @@ completed ──refund───────► refunded
 Keep newest first. Add an entry for every meaningful change.
 
 - **2026-06-28**
-  - **Admin auto-refresh** — registrations list polls every 30s (Dashboard/Registrations tabs) + manual Refresh button, "Updated" timestamp, and Auto ON/OFF toggle in the header. No more manual page reloads.
+  - **Enquiries leads pipeline** — new admin **Enquiries** tab (separate from the ledger): New/Contacted/Payment Link Sent/Closed stages, running **contact-notes history** (`registration_notes` table), **Request Payment** to convert a lead at the tier's fixed price (reuses the payment-link engine → same record completes), Close/Reopen. New category flag **`allow_enquiry`** (Paid + Enquire Now); enquiry tiers can carry a price/fee. New statuses `awaiting_payment` + `closed`. **Capacity now counts only Paid + Partial Paid** (open enquiries don't hold a seat). New routes: `request-enquiry-payment`, `registration-notes`; `sendBalanceLink` generalised to `sendPaymentLink(reg, kind)`.
+  - **Admin auto-refresh** — registrations list polls every 30s (Dashboard/Registrations/Enquiries tabs) + manual Refresh button, "Updated" timestamp, and Auto ON/OFF toggle in the header. No more manual page reloads.
   - **Receipt download** on the registration success screen (canvas PNG; name/email/mobile/gotra/category/amounts/refs/date).
   - **Copy balance link** button in admin (manual share when WhatsApp fails).
   - **QR only for Paid** — `send-qr` + `qr/[id]` enforce `completed`; added `qr_sent_at` tracking and smart "send only unsent" bulk UX.

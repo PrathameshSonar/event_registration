@@ -14,7 +14,7 @@ function sanitize(input = {}) {
     const allowed = ['title', 'price', 'description', 'detailed_description', 'media_url',
         'is_full', 'is_enquiry_only', 'max_capacity', 'show_availability',
         'title_hi', 'description_hi', 'detailed_description_hi', 'max_attendees_per_reg',
-        'event_id', 'show_emi_badge', 'allow_part_payment', 'advance_percent'];
+        'event_id', 'show_emi_badge', 'allow_part_payment', 'advance_percent', 'allow_enquiry'];
     for (const key of allowed) {
         if (input[key] !== undefined) out[key] = input[key];
     }

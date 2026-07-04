@@ -39,15 +39,16 @@ export async function POST(request) {
 
         const seats = Math.min(MAX_ATTENDEES, Math.max(1, parseInt(attendeesCount, 10) || 1));
 
-        // Confirm the category exists and really is enquiry-only.
+        // Confirm the category exists and accepts enquiries (enquiry-only, or a
+        // payable tier that also offers "Enquire Now").
         const { data: category, error: catError } = await supabaseAdmin
             .from('categories')
-            .select('id, is_enquiry_only')
+            .select('id, is_enquiry_only, allow_enquiry')
             .eq('id', categoryId)
             .single();
 
         if (catError || !category) return badRequest('Selected category does not exist.');
-        if (!category.is_enquiry_only) return badRequest('This category requires payment, not an enquiry.');
+        if (!category.is_enquiry_only && !category.allow_enquiry) return badRequest('This category does not accept enquiries.');
 
         const profileId = await upsertProfile(supabaseAdmin, attendee);
 

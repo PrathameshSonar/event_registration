@@ -204,6 +204,7 @@ export default function CheckoutForm({ category }) {
   const { t, lang } = useLanguage();
 
   const [loading, setLoading] = useState(false);
+  const [submitAction, setSubmitAction] = useState("pay"); // 'pay' | 'enquire' — which button is in flight
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [formError, setFormError] = useState(""); // global (payment/network/terms)
   const [termsError, setTermsError] = useState("");
@@ -257,7 +258,10 @@ export default function CheckoutForm({ category }) {
   const customLabel = (f) =>
     lang === "hi" && f.label_hi ? f.label_hi : f.label;
 
+  // `isEnquiry` = the tier is ENQUIRY-ONLY (no direct pay, no price shown).
+  // `showEnquireBtn` = also offer "Enquire Now" next to "Pay" on a payable tier.
   const isEnquiry = category.is_enquiry_only === true;
+  const showEnquireBtn = isEnquiry || category.allow_enquiry === true;
   const donationValue = isEnquiry
     ? 0
     : Math.max(0, parseFloat(formData.donation) || 0);
@@ -378,7 +382,7 @@ export default function CheckoutForm({ category }) {
       document.body.appendChild(script);
     });
 
-  const handlePayment = async (e) => {
+  const handlePayment = async (e, intent = "pay") => {
     e.preventDefault();
     setFormError("");
     setTermsError("");
@@ -396,6 +400,9 @@ export default function CheckoutForm({ category }) {
       return;
     }
     setFieldErrors({});
+    // Enquiry-only tiers always enquire; on a dual tier the clicked button decides.
+    const asEnquiry = isEnquiry || intent === "enquire";
+    setSubmitAction(asEnquiry ? "enquire" : "pay");
     setLoading(true);
 
     const attendeePayload = {
@@ -417,7 +424,7 @@ export default function CheckoutForm({ category }) {
       `${formData.salutation} ${formData.firstName} ${formData.lastName}`.trim();
 
     // ── ENQUIRY ──────────────────────────────────────────────────────
-    if (isEnquiry) {
+    if (asEnquiry) {
       try {
         const res = await fetch("/api/enquiry", {
           method: "POST",
@@ -660,7 +667,7 @@ export default function CheckoutForm({ category }) {
       {/* Full-screen loader while we create the order + load Razorpay, before
           the gateway modal appears — so the wait never looks frozen. Sits below
           Razorpay's own overlay (which takes over once the modal opens). */}
-      {loading && !isEnquiry && (
+      {loading && submitAction === "pay" && (
         <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-4 bg-neutral-900/70 backdrop-blur-sm px-6 text-center">
           <Loader2 className="w-12 h-12 text-white animate-spin" />
           <p className="text-white font-semibold text-lg">{t("form_gateway_opening")}</p>
@@ -1091,34 +1098,73 @@ export default function CheckoutForm({ category }) {
 
       {/* --- SUBMISSION --- */}
       <div>
-        <Button
-          type="submit"
-          variant="contained"
-          disabled={loading || !agreedToTerms}
-          fullWidth
-          sx={{
-            py: 1.5,
-            backgroundColor: "#171717",
-            "&:hover": { backgroundColor: "#ea580c" },
-            "&:disabled": { backgroundColor: "#d4d4d4", color: "#737373" },
-            textTransform: "none",
-            fontSize: "1.05rem",
-            fontWeight: 600,
-          }}
-        >
-          {loading ? (
-            <span className="flex items-center justify-center gap-2">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              {t("form_processing")}
-            </span>
-          ) : isEnquiry ? (
-            t("form_submit_enquiry")
-          ) : usePartial ? (
-            `Pay ₹${payNow.toLocaleString("en-IN")} Advance Securely`
-          ) : (
-            t("form_pay_button", totalAmount)
-          )}
-        </Button>
+        {/* Pay button — hidden on enquiry-only tiers */}
+        {!isEnquiry && (
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={loading || !agreedToTerms}
+            fullWidth
+            sx={{
+              py: 1.5,
+              backgroundColor: "#171717",
+              "&:hover": { backgroundColor: "#ea580c" },
+              "&:disabled": { backgroundColor: "#d4d4d4", color: "#737373" },
+              textTransform: "none",
+              fontSize: "1.05rem",
+              fontWeight: 600,
+            }}
+          >
+            {loading && submitAction === "pay" ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                {t("form_processing")}
+              </span>
+            ) : usePartial ? (
+              `Pay ₹${payNow.toLocaleString("en-IN")} Advance Securely`
+            ) : (
+              t("form_pay_button", totalAmount)
+            )}
+          </Button>
+        )}
+
+        {/* Enquire button — primary on enquiry-only tiers, secondary alongside Pay */}
+        {showEnquireBtn && (
+          <Button
+            type={isEnquiry ? "submit" : "button"}
+            onClick={isEnquiry ? undefined : (e) => handlePayment(e, "enquire")}
+            variant={isEnquiry ? "contained" : "outlined"}
+            disabled={loading || !agreedToTerms}
+            fullWidth
+            sx={{
+              mt: isEnquiry ? 0 : 1.5,
+              py: 1.5,
+              textTransform: "none",
+              fontSize: "1.05rem",
+              fontWeight: 600,
+              ...(isEnquiry
+                ? {
+                    backgroundColor: "#171717",
+                    "&:hover": { backgroundColor: "#ea580c" },
+                    "&:disabled": { backgroundColor: "#d4d4d4", color: "#737373" },
+                  }
+                : {
+                    color: "#171717",
+                    borderColor: "#d4d4d4",
+                    "&:hover": { borderColor: "#ea580c", backgroundColor: "#fff7ed" },
+                  }),
+            }}
+          >
+            {loading && submitAction === "enquire" ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                {t("form_processing")}
+              </span>
+            ) : (
+              t("form_enquire_now")
+            )}
+          </Button>
+        )}
 
         {!isEnquiry && (
           <div className="flex items-center justify-center gap-2 text-xs text-neutral-400 pt-3">

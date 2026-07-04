@@ -6,15 +6,16 @@ import {
     Lock, Download, Users, IndianRupee, Activity, Eye, X, Settings, ListFilter,
     Save, Trash2, Plus, Image as ImageIcon, Video, CalendarDays,
     Ticket, Calendar as CalendarIcon, Search, LogOut, QrCode, Copy, Check,
-    LayoutDashboard, ScrollText, RefreshCw
+    LayoutDashboard, ScrollText, RefreshCw, MessageSquare
 } from 'lucide-react';
 import { youtubeThumbnail } from '@/lib/youtube';
 import FormFieldsManager from '@/components/FormFieldsManager';
 import HomeContentManager from '@/components/HomeContentManager';
 import AuditLogPanel from '@/components/AuditLogPanel';
+import EnquiriesPanel from '@/components/EnquiriesPanel';
 
 type Role = 'admin' | 'viewer';
-type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'enquired' | 'contacted' | 'amount_mismatch' | 'advance_paid';
+type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'enquired' | 'contacted' | 'amount_mismatch' | 'advance_paid' | 'awaiting_payment' | 'closed';
 
 interface Registration {
     id: string; created_at: string;
@@ -44,6 +45,7 @@ interface Category {
     show_emi_badge: boolean;
     allow_part_payment: boolean;
     advance_percent: number;
+    allow_enquiry: boolean;
 }
 
 interface EventItem {
@@ -62,22 +64,23 @@ interface EventItem {
 interface MediaItem { id: string; media_type: 'image' | 'youtube'; url: string; caption: string; event_id: string; events?: { title: string }; }
 
 // Money-terminal states are locked: they cannot be edited from the dashboard.
-const TERMINAL_STATUSES: PaymentStatus[] = ['completed', 'failed', 'refunded', 'amount_mismatch', 'advance_paid'];
+const TERMINAL_STATUSES: PaymentStatus[] = ['completed', 'failed', 'refunded', 'amount_mismatch', 'advance_paid', 'awaiting_payment'];
 
 const STATUS_LABEL: Record<PaymentStatus, string> = {
     completed: '✔ Paid', enquired: '💬 Enquired', contacted: '📞 Contacted',
     pending: '⏳ Pending', failed: '✖ Failed', refunded: '⏪ Refunded', amount_mismatch: '⚠ Amount Mismatch',
-    advance_paid: '◐ Advance Paid',
+    advance_paid: '◐ Advance Paid', awaiting_payment: '⌛ Payment Link Sent', closed: '⊘ Closed/Lost',
 };
 
 // Section tabs for the registrations ledger. Each tab is a saved view over a
 // single payment status (plus a "Master List" showing everything). Keeping the
 // key === statusFilter value means these map cleanly onto future RBAC, where a
 // role can be granted access to one or more sections.
+// Enquiry-pipeline statuses live in the separate Enquiries tab, not the ledger.
+const ENQUIRY_STATUSES = ['enquired', 'contacted', 'awaiting_payment', 'closed'];
+
 const REGISTRATION_SECTIONS: { key: string; label: string }[] = [
     { key: 'all', label: 'Master List' },
-    { key: 'enquired', label: '💬 Enquired' },
-    { key: 'contacted', label: '📞 Contacted' },
     { key: 'advance_paid', label: '◐ Advance Paid' },
     { key: 'completed', label: '✔ Paid' },
     { key: 'pending', label: '⏳ Pending' },
@@ -95,6 +98,8 @@ function statusClasses(status: PaymentStatus) {
         case 'failed': return 'bg-red-100 text-red-700 border-red-200';
         case 'amount_mismatch': return 'bg-orange-100 text-orange-800 border-orange-300';
         case 'advance_paid': return 'bg-amber-100 text-amber-800 border-amber-300';
+        case 'awaiting_payment': return 'bg-sky-100 text-sky-700 border-sky-200';
+        case 'closed': return 'bg-neutral-200 text-neutral-500 border-neutral-300';
         default: return 'bg-neutral-200 text-neutral-700 border-neutral-300';
     }
 }
@@ -104,7 +109,7 @@ export default function AdminDashboard() {
     const [role, setRole] = useState<Role | null>(null);
     const isAdmin = role === 'admin';
 
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'settings' | 'audit'>('dashboard');
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'enquiries' | 'settings' | 'audit'>('dashboard');
     const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'checkpoints' | 'formfields' | 'homecontent'>('events');
 
     const [loading, setLoading] = useState(false);
@@ -141,6 +146,7 @@ export default function AdminDashboard() {
     const [newCatPrice, setNewCatPrice] = useState('');
     const [newCatDesc, setNewCatDesc] = useState('');
     const [newCatIsEnquiry, setNewCatIsEnquiry] = useState(false);
+    const [newCatAllowEnquiry, setNewCatAllowEnquiry] = useState(false);
     const [newCatCapacity, setNewCatCapacity] = useState('0');
     const [newCatShowAvail, setNewCatShowAvail] = useState(false);
     const [newCatEventId, setNewCatEventId] = useState('');
@@ -252,7 +258,7 @@ export default function AdminDashboard() {
     // a detail modal is open (to avoid yanking data mid-read) or when toggled off.
     useEffect(() => {
         if (!role || !autoRefresh) return;
-        if (activeTab !== 'dashboard' && activeTab !== 'registrations') return;
+        if (activeTab !== 'dashboard' && activeTab !== 'registrations' && activeTab !== 'enquiries') return;
         const interval = setInterval(() => {
             if (!selectedRegistration && !saving) refreshRegistrations();
         }, 30000);
@@ -416,13 +422,14 @@ export default function AdminDashboard() {
         e.preventDefault(); setSaving(true);
         const { ok, data } = await mutate('/api/admin/categories', 'POST', {
             title: newCatTitle, price: Number(newCatPrice), description: newCatDesc,
-            is_enquiry_only: newCatIsEnquiry, max_capacity: Number(newCatCapacity), show_availability: newCatShowAvail,
+            is_enquiry_only: newCatIsEnquiry, allow_enquiry: newCatAllowEnquiry,
+            max_capacity: Number(newCatCapacity), show_availability: newCatShowAvail,
             event_id: newCatEventId || null,
         });
         if (!ok) alert(data.error || 'Failed to create tier.');
         else {
             setNewCatTitle(''); setNewCatPrice(''); setNewCatDesc('');
-            setNewCatIsEnquiry(false); setNewCatCapacity('0'); setNewCatShowAvail(false);
+            setNewCatIsEnquiry(false); setNewCatAllowEnquiry(false); setNewCatCapacity('0'); setNewCatShowAvail(false);
             await fetchAllData();
         }
         setSaving(false);
@@ -485,6 +492,8 @@ export default function AdminDashboard() {
     // Apply every filter EXCEPT status here, so each section tab can show a live
     // count and switching sections doesn't change the other active filters.
     const baseFilteredRegistrations = registrations.filter(reg => {
+        // Enquiry-pipeline rows live in the Enquiries tab, not the ledger.
+        if (ENQUIRY_STATUSES.includes(reg.payment_status)) return false;
         const searchMatch = `${reg.first_name} ${reg.last_name} ${reg.phone} ${reg.gotra || ''}`.toLowerCase().includes(searchTerm.toLowerCase());
         const catTitle = reg.categories?.title || 'Deleted Tier';
         const catMatch = categoryFilter === 'all' || (categoryFilter === 'Deleted' && !reg.categories) || catTitle === categoryFilter;
@@ -761,6 +770,7 @@ export default function AdminDashboard() {
                     {([
                         { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, show: true },
                         { key: 'registrations', label: 'Registrations', icon: ListFilter, show: true },
+                        { key: 'enquiries', label: 'Enquiries', icon: MessageSquare, show: true },
                         { key: 'settings', label: 'Settings', icon: Settings, show: isAdmin },
                         { key: 'audit', label: 'Audit', icon: ScrollText, show: isAdmin },
                     ] as const).filter(t => t.show).map(t => {
@@ -990,6 +1000,10 @@ export default function AdminDashboard() {
                     </div>
                 )}
 
+                {effectiveTab === 'enquiries' && (
+                    <EnquiriesPanel registrations={registrations} isAdmin={isAdmin} onChanged={refreshRegistrations} />
+                )}
+
                 {effectiveTab === 'audit' && isAdmin && (
                     <AuditLogPanel />
                 )}
@@ -1063,14 +1077,23 @@ export default function AdminDashboard() {
                                             </div>
                                             <div>
                                                 <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1">Status Type</label>
-                                                <select value={newCatIsEnquiry ? 'yes' : 'no'} onChange={(e) => setNewCatIsEnquiry(e.target.value === 'yes')} className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600 text-sm bg-white cursor-pointer">
-                                                    <option value="no">Standard Paid</option>
-                                                    <option value="yes">Enquiry Only</option>
+                                                <select
+                                                    value={newCatIsEnquiry ? 'enquiry' : (newCatAllowEnquiry ? 'paid_enquire' : 'paid')}
+                                                    onChange={(e) => {
+                                                        const v = e.target.value;
+                                                        setNewCatIsEnquiry(v === 'enquiry');
+                                                        setNewCatAllowEnquiry(v === 'paid_enquire');
+                                                    }}
+                                                    className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600 text-sm bg-white cursor-pointer"
+                                                >
+                                                    <option value="paid">Standard Paid</option>
+                                                    <option value="paid_enquire">Paid + Enquire Now</option>
+                                                    <option value="enquiry">Enquiry Only</option>
                                                 </select>
                                             </div>
                                             <div>
-                                                <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1">Price (₹)</label>
-                                                <input type="number" placeholder="5000" value={newCatPrice} onChange={(e) => setNewCatPrice(e.target.value)} disabled={newCatIsEnquiry} className="w-full md:w-32 px-3 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600 text-sm disabled:opacity-50" required={!newCatIsEnquiry} />
+                                                <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1">Price / Fee (₹)</label>
+                                                <input type="number" placeholder="5000" value={newCatPrice} onChange={(e) => setNewCatPrice(e.target.value)} className="w-full md:w-32 px-3 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600 text-sm" required={!newCatIsEnquiry} />
                                             </div>
                                         </div>
                                         <div className="flex flex-col md:flex-row gap-4 pt-2 border-t border-neutral-200">
@@ -1231,6 +1254,7 @@ function CategoryRow({ category, onUpdate, onDelete }: { category: Category, onU
     const [maxPerReg, setMaxPerReg] = useState(category.max_attendees_per_reg || 5);
     const [showEmi, setShowEmi] = useState(category.show_emi_badge || false);
     const [allowPart, setAllowPart] = useState(category.allow_part_payment || false);
+    const [allowEnquiry, setAllowEnquiry] = useState(category.allow_enquiry || false);
     const [advancePct, setAdvancePct] = useState(category.advance_percent || 25);
     const [isChanged, setIsChanged] = useState(false);
 
@@ -1242,6 +1266,7 @@ function CategoryRow({ category, onUpdate, onDelete }: { category: Category, onU
             is_full: isFull, is_enquiry_only: isEnquiry, max_capacity: capacity, show_availability: showAvail,
             max_attendees_per_reg: maxPerReg,
             show_emi_badge: showEmi, allow_part_payment: allowPart, advance_percent: advancePct,
+            allow_enquiry: allowEnquiry,
         });
         setIsChanged(false);
     };
@@ -1285,6 +1310,10 @@ function CategoryRow({ category, onUpdate, onDelete }: { category: Category, onU
                     <label className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-neutral-700">
                         <input type="checkbox" checked={allowPart} onChange={(e) => { setAllowPart(e.target.checked); setIsChanged(true); }} className="w-4 h-4 text-orange-600 rounded border-neutral-300 focus:ring-orange-600" />
                         ◐ Allow part payment
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-neutral-700">
+                        <input type="checkbox" checked={allowEnquiry} onChange={(e) => { setAllowEnquiry(e.target.checked); setIsChanged(true); }} className="w-4 h-4 text-orange-600 rounded border-neutral-300 focus:ring-orange-600" />
+                        💬 Also show “Enquire Now” button
                     </label>
                     <div className={allowPart ? '' : 'opacity-40 pointer-events-none'}>
                         <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Advance % (of price)</label>

@@ -44,7 +44,11 @@ ALTER TABLE categories
 ALTER TABLE categories
     ADD COLUMN IF NOT EXISTS show_emi_badge     BOOLEAN DEFAULT false,
     ADD COLUMN IF NOT EXISTS allow_part_payment BOOLEAN DEFAULT false,
-    ADD COLUMN IF NOT EXISTS advance_percent    INTEGER DEFAULT 25;  -- % of PRICE taken as advance
+    ADD COLUMN IF NOT EXISTS advance_percent    INTEGER DEFAULT 25,  -- % of PRICE taken as advance
+    -- Show an "Enquire Now" button alongside "Pay" on a payable tier. Enquiry-only
+    -- tiers (is_enquiry_only) still show only "Enquire Now". A tier may carry a
+    -- price even when enquiry-only — it's charged when an admin converts the lead.
+    ADD COLUMN IF NOT EXISTS allow_enquiry      BOOLEAN DEFAULT false;
 
 -- Part-payment ledger on each registration.
 ALTER TABLE registrations
@@ -88,6 +92,18 @@ CREATE INDEX IF NOT EXISTS idx_admin_audit_entity     ON admin_audit_logs (entit
 GRANT ALL ON admin_audit_logs TO service_role;
 GRANT USAGE, SELECT ON SEQUENCE admin_audit_logs_id_seq TO service_role;
 
+-- Contact-history log for the enquiry leads pipeline: admins append a timestamped
+-- note each time they follow up, so the next contact has context. One row per note.
+CREATE TABLE IF NOT EXISTS registration_notes (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    registration_id UUID NOT NULL REFERENCES registrations(id) ON DELETE CASCADE,
+    note            TEXT NOT NULL,
+    actor_role      TEXT,
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS registration_notes_reg_idx ON registration_notes(registration_id);
+GRANT ALL ON registration_notes TO service_role;
+
 -- registrations.payment_status uses a new value 'advance_paid'. If a CHECK
 -- constraint limits the allowed values, this rebuilds it to include the full
 -- set. (No-op safe: drops the named constraint only if it exists, then adds it.)
@@ -100,7 +116,9 @@ BEGIN
         ADD CONSTRAINT registrations_payment_status_check
         CHECK (payment_status IN (
             'pending', 'completed', 'failed', 'refunded',
-            'enquired', 'contacted', 'amount_mismatch', 'advance_paid'
+            'enquired', 'contacted', 'amount_mismatch', 'advance_paid',
+            -- Enquiry pipeline: link sent & awaiting payment, and closed/lost lead.
+            'awaiting_payment', 'closed'
         ));
 EXCEPTION
     -- If existing rows hold a status outside this set, skip rather than fail
