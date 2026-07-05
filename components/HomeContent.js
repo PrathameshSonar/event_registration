@@ -12,6 +12,7 @@ import Countdown from './Countdown';
 import FloatingActions from './FloatingActions';
 import AddToCalendar from './AddToCalendar';
 import ShareButtons from './ShareButtons';
+import { ageLimitLabel } from '@/lib/age';
 import FaqAccordion from './FaqAccordion';
 import ReminderForm from './ReminderForm';
 import Reveal from './Reveal';
@@ -298,6 +299,9 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                                             )}
                                             {category.allow_part_payment && !category.is_enquiry_only && (
                                                 <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-2.5 py-1">◐ Part payment ({category.advance_percent || 25}% advance)</span>
+                                            )}
+                                            {ageLimitLabel(category) && (
+                                                <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-2.5 py-1">🎂 {ageLimitLabel(category)}</span>
                                             )}
                                         </div>
                                     </div>

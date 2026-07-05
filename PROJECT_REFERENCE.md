@@ -150,7 +150,7 @@ Run via `supabase/run_all.sql`. Key tables:
 Active-event model. Columns: `id, title, title_hi, short_description(+_hi), long_description(+_hi), date_time(+_hi), venue(+_hi), map_url, start_at, contact_phone, hero_image_url, is_active, show_in_archive, created_at`.
 
 ### `categories` (ticket tiers)
-`id, event_id→events, title(+_hi), description(+_hi), detailed_description(+_hi), price, media_url, is_full, is_enquiry_only, allow_enquiry (also show "Enquire Now" on a paid tier), max_capacity, show_availability, max_attendees_per_reg (default 5, ceiling 20), show_emi_badge, allow_part_payment, advance_percent (% of PRICE taken as advance, default 25)`.
+`id, event_id→events, title(+_hi), description(+_hi), detailed_description(+_hi), price, media_url, is_full, is_enquiry_only, allow_enquiry (also show "Enquire Now" on a paid tier), max_capacity, show_availability, max_attendees_per_reg (default 5, ceiling 20), show_emi_badge, allow_part_payment, advance_percent (% of PRICE taken as advance, default 25), min_age / max_age (per-tier age limit; both null = open to all — enforced from the DOB via [lib/age.js](lib/age.js) on client + all submit routes)`.
 
 ### `registrations` (the ledger — one row per registration attempt)
 - Identity: `id, profile_id→profiles, full_name, salutation, first_name, last_name, gotra, gender, date_of_birth, email, phone, pincode, taluka, state, problem_samasya`
@@ -489,6 +489,7 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
 Keep newest first. Add an entry for every meaningful change.
 
 - **2026-06-28**
+  - **Per-tier age restriction** — `categories.min_age`/`max_age` (blank = open to all). Age computed from DOB in [lib/age.js](lib/age.js); enforced client-side (CheckoutForm, DOB forced required) **and** server-side (razorpay / enquiry / offline routes). Admin sets it per tier; home card + form show the limit ("Ages 14+").
   - **Security hardening** — admin **login lockout** (5 failed attempts/IP → 15-min cooldown, Supabase-backed `admin_login_attempts`, fail-open); **HTML-escape** all user/admin text in outbound emails ([lib/escape.js](lib/escape.js) applied across ticket/notify/payments/send-qr/resend-balance). Reminder: set strong `ADMIN_PASSWORD`/`VIEWER_PASSWORD`/`SESSION_SECRET` in prod env; put Cloudflare + per-IP rate limiting + Turnstile in front before launch.
   - **Payment-mode filter + row label** in the Registrations ledger (All Modes / Online / Bank / Cheque / Cash / DD); each row shows "via <mode>". Home + register pages show the fee on enquiry tiers that have a price.
   - **Clear Abandoned pending** — admin action on the Pending tab (`POST /api/admin/clear-pending`) marks pending checkouts older than N hours (default 24) as `failed`. Safe: pending only completes via a captured payment, so stale pending had none.

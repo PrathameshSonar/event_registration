@@ -26,6 +26,7 @@ import {
 } from "@mui/material";
 import { useLanguage } from "./LanguageProvider";
 import { BUILTIN_FIELDS, CORE_KEYS } from "@/lib/formFields";
+import { ageError, ageLimitLabel } from "@/lib/age";
 
 const TODAY_STR = new Date().toISOString().split("T")[0];
 const BUILTIN_DEFAULT_REQUIRED = Object.fromEntries(
@@ -265,6 +266,8 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
   // `showEnquireBtn` = also offer "Enquire Now" next to "Pay" on a payable tier.
   const isEnquiry = category.is_enquiry_only === true;
   const showEnquireBtn = isEnquiry || category.allow_enquiry === true;
+  const hasAgeLimit = (Number(category.min_age) || 0) > 0 || (Number(category.max_age) || 0) > 0;
+  const ageLabel = ageLimitLabel(category);
 
   // Offline payment (bank transfer / cheque / cash / DD) — only for payable tiers,
   // only when enabled in global settings, and only for the methods enabled there.
@@ -341,6 +344,15 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
     }
     if (isVisible("dob") && formData.dob && formData.dob > TODAY_STR) {
       errs.dob = "Date of birth cannot be a future date.";
+    }
+    // Per-tier age restriction. DOB becomes required when the tier limits age.
+    if (hasAgeLimit) {
+      if (!formData.dob) {
+        errs.dob = "Date of birth is required for this tier.";
+      } else {
+        const ae = ageError(category, formData.dob);
+        if (ae) errs.dob = ae;
+      }
     }
     if (isVisible("problem") && hasHtml(formData.problem)) {
       errs.problem = "Plain text only — HTML and scripts are not allowed.";
@@ -760,6 +772,13 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
         </div>
       )}
 
+      {hasAgeLimit && ageLabel && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-lg flex items-start gap-3 text-sm">
+          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <p>{t("form_age_restricted", ageLabel)}</p>
+        </div>
+      )}
+
       {/* Global errors only (payment / network). Field errors render below each field. */}
       {formError && (
         <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg flex items-start gap-3 text-sm">
@@ -848,13 +867,13 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
               <MenuItem value="Other">{t("form_gender_other")}</MenuItem>
             </TextField>
           )}
-          {isVisible("dob") && (
+          {(isVisible("dob") || hasAgeLimit) && (
             <TextField
               fullWidth
               label={t("form_dob")}
               name="dob"
               type="date"
-              required={isRequired("dob")}
+              required={isRequired("dob") || hasAgeLimit}
               value={formData.dob}
               onChange={handleChange}
               variant="outlined"

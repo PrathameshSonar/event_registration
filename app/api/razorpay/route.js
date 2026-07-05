@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { validateSubmission } from '@/lib/formFieldsServer';
 import { upsertProfile } from '@/lib/profiles';
+import { ageError } from '@/lib/age';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,13 +91,15 @@ export async function POST(request) {
         // 2. Authoritative category lookup (price comes from the DB, never the client)
         const { data: category, error: catError } = await supabaseAdmin
             .from('categories')
-            .select('id, title, price, is_enquiry_only, is_full, max_capacity, max_attendees_per_reg, allow_part_payment, advance_percent')
+            .select('id, title, price, is_enquiry_only, is_full, max_capacity, max_attendees_per_reg, allow_part_payment, advance_percent, min_age, max_age')
             .eq('id', categoryId)
             .single();
 
         if (catError || !category) return badRequest('Selected category does not exist.');
         if (category.is_enquiry_only) return badRequest('This category is enquiry-only and cannot be paid for.');
         if (category.is_full) return badRequest('Registrations for this category are full.');
+        const ageErr = ageError(category, attendee.dob);
+        if (ageErr) return badRequest(ageErr);
 
         // Clamp seats to the per-category limit set by admin (default 5, hard ceiling 20).
         const maxPerReg = Math.min(GLOBAL_MAX_ATTENDEES, category.max_attendees_per_reg || 5);

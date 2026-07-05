@@ -39,6 +39,12 @@ ALTER TABLE categories
 ALTER TABLE categories
     ADD COLUMN IF NOT EXISTS max_attendees_per_reg INTEGER DEFAULT 5;
 
+-- Per-category age restriction (computed from the attendee's date of birth).
+-- Both NULL = open to all ages. Set min_age (e.g. 14) and/or max_age to limit.
+ALTER TABLE categories
+    ADD COLUMN IF NOT EXISTS min_age INTEGER,
+    ADD COLUMN IF NOT EXISTS max_age INTEGER;
+
 
 -- 1b) ── Payment options: EMI badge + part payment (per category) ────────────
 ALTER TABLE categories

@@ -10,6 +10,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { validateSubmission } from '@/lib/formFieldsServer';
 import { upsertProfile } from '@/lib/profiles';
 import { notifyOfflineSubmitted } from '@/lib/notify';
+import { ageError } from '@/lib/age';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,12 +67,14 @@ export async function POST(request) {
 
         const { data: category, error: catError } = await supabaseAdmin
             .from('categories')
-            .select('id, title, price, is_enquiry_only, is_full, max_attendees_per_reg')
+            .select('id, title, price, is_enquiry_only, is_full, max_attendees_per_reg, min_age, max_age')
             .eq('id', categoryId)
             .single();
         if (catError || !category) return bad('Selected category does not exist.');
         if (category.is_enquiry_only) return bad('This category is enquiry-only.');
         if (category.is_full) return bad('Registrations for this category are full.');
+        const ageErr = ageError(category, attendee.dob);
+        if (ageErr) return bad(ageErr);
 
         const totalAmount = Number(category.price) + donationValue;
         if (!(totalAmount > 0)) return bad('This tier has no price set; offline payment is unavailable.');

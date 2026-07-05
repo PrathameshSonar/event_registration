@@ -14,9 +14,14 @@ function sanitize(input = {}) {
     const allowed = ['title', 'price', 'description', 'detailed_description', 'media_url',
         'is_full', 'is_enquiry_only', 'max_capacity', 'show_availability',
         'title_hi', 'description_hi', 'detailed_description_hi', 'max_attendees_per_reg',
-        'event_id', 'show_emi_badge', 'allow_part_payment', 'advance_percent', 'allow_enquiry'];
+        'event_id', 'show_emi_badge', 'allow_part_payment', 'advance_percent', 'allow_enquiry',
+        'min_age', 'max_age'];
     for (const key of allowed) {
         if (input[key] !== undefined) out[key] = input[key];
+    }
+    // Age limits: blank/0/invalid → null (open to all).
+    for (const k of ['min_age', 'max_age']) {
+        if (out[k] !== undefined) { const n = parseInt(out[k], 10); out[k] = Number.isFinite(n) && n > 0 ? n : null; }
     }
     if (out.price !== undefined) out.price = Number(out.price) || 0;
     if (out.max_capacity !== undefined) out.max_capacity = Number(out.max_capacity) || 0;

@@ -49,6 +49,8 @@ interface Category {
     allow_part_payment: boolean;
     advance_percent: number;
     allow_enquiry: boolean;
+    min_age: number | null;
+    max_age: number | null;
 }
 
 interface EventItem {
@@ -1382,6 +1384,8 @@ function CategoryRow({ category, onUpdate, onDelete }: { category: Category, onU
     const [allowPart, setAllowPart] = useState(category.allow_part_payment || false);
     const [allowEnquiry, setAllowEnquiry] = useState(category.allow_enquiry || false);
     const [advancePct, setAdvancePct] = useState(category.advance_percent || 25);
+    const [minAge, setMinAge] = useState<string>(category.min_age ? String(category.min_age) : '');
+    const [maxAge, setMaxAge] = useState<string>(category.max_age ? String(category.max_age) : '');
     const [isChanged, setIsChanged] = useState(false);
 
     const handleUpdateClick = () => {
@@ -1393,6 +1397,7 @@ function CategoryRow({ category, onUpdate, onDelete }: { category: Category, onU
             max_attendees_per_reg: maxPerReg,
             show_emi_badge: showEmi, allow_part_payment: allowPart, advance_percent: advancePct,
             allow_enquiry: allowEnquiry,
+            min_age: minAge ? Number(minAge) : null, max_age: maxAge ? Number(maxAge) : null,
         });
         setIsChanged(false);
     };
@@ -1447,6 +1452,22 @@ function CategoryRow({ category, onUpdate, onDelete }: { category: Category, onU
                     </div>
                 </div>
             )}
+
+            {/* Age restriction (all tiers). Blank = open to all ages. */}
+            <div className="mt-4 pt-4 border-t border-neutral-100">
+                <p className="text-xs font-bold text-neutral-700 uppercase tracking-wider mb-2">Age Restriction <span className="font-normal text-neutral-400 normal-case">(leave blank = open to all ages)</span></p>
+                <div className="flex flex-wrap items-end gap-4">
+                    <div>
+                        <label className="block text-xs font-semibold text-neutral-600 mb-1">Min age</label>
+                        <input type="number" min="0" placeholder="e.g. 14" value={minAge} onChange={(e) => { setMinAge(e.target.value); setIsChanged(true); }} className="w-28 px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-semibold text-neutral-600 mb-1">Max age</label>
+                        <input type="number" min="0" placeholder="none" value={maxAge} onChange={(e) => { setMaxAge(e.target.value); setIsChanged(true); }} className="w-28 px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" />
+                    </div>
+                    <span className="text-xs text-neutral-400 pb-2">Requires date of birth on the form.</span>
+                </div>
+            </div>
 
             <div className="mt-5 pt-4 border-t border-neutral-100 flex justify-end">
                 <button onClick={handleUpdateClick} disabled={!isChanged} className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all ${isChanged ? 'bg-orange-600 text-white shadow-md hover:bg-orange-700' : 'bg-neutral-100 text-neutral-400 cursor-not-allowed border border-neutral-200'}`}><Save className="w-4 h-4" />{isChanged ? "Commit Updates" : "Up to date"}</button>
