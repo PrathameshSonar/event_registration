@@ -10,6 +10,22 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Elegant serif for display headings (system stack — no external font, CSP-safe). */
+  --font-serif: Georgia, "Times New Roman", "Noto Serif", "Cambria", serif;
+
+  /* Warm ivory surface for the devotional homepage. */
+  --color-ivory: #fffbf5;
+
+  /* Gold accent scale (pairs with saffron/orange). */
+  --color-gold-50:  #fbf6e9;
+  --color-gold-100: #f5e9c8;
+  --color-gold-200: #ecd79a;
+  --color-gold-300: #e0bf63;
+  --color-gold-400: #d4a017;
+  --color-gold-500: #b8860b;
+  --color-gold-600: #96690a;
+  --color-gold-700: #7a5308;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -56,6 +72,40 @@ body {
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* Gold divider — a thin centred rule with a diamond node, used under section
+   titles to add a temple-toran touch without an image. */
+.gold-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0.75rem auto 0;
+  width: 5.5rem;
+}
+.gold-divider::before,
+.gold-divider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(to right, transparent, #d4a017);
+}
+.gold-divider::after {
+  background: linear-gradient(to left, transparent, #d4a017);
+}
+.gold-divider > span {
+  width: 6px;
+  height: 6px;
+  transform: rotate(45deg);
+  background: #d4a017;
+  border-radius: 1px;
+  flex: 0 0 auto;
+}
+
+/* Warmer, softer elevation for cards on the ivory homepage. */
+.shadow-warm {
+  box-shadow: 0 1px 2px rgba(122, 83, 8, 0.04), 0 8px 24px -12px rgba(154, 52, 18, 0.15);
 }
 
 /* Scroll-reveal: fade + slide sections into view */

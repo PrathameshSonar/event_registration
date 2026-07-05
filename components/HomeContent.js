@@ -78,15 +78,15 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
           }));
 
     return (
-        <main className="min-h-screen bg-neutral-50 text-neutral-900 font-sans selection:bg-orange-100 pb-20 md:pb-0">
+        <main className="min-h-screen bg-ivory text-neutral-900 font-sans selection:bg-gold-100 pb-20 md:pb-0">
 
             {/* HEADER */}
-            <header className="bg-white border-b border-neutral-200 sticky top-0 z-50 bg-white/90 backdrop-blur-md">
+            <header className="bg-white/90 border-b border-gold-200/70 sticky top-0 z-50 backdrop-blur-md">
                 <div className="max-w-5xl mx-auto px-4 md:px-8">
                     <div className="flex justify-between items-center py-4 md:py-6">
-                        <h1 className="text-xl font-bold tracking-tight text-neutral-900">{t('nav_brand')}</h1>
+                        <h1 className="font-serif text-xl font-bold tracking-tight text-neutral-900">{t('nav_brand')}</h1>
                         <nav className="flex items-center gap-4 md:gap-6 text-sm font-medium text-neutral-600">
-                            <Link href="/" className="text-orange-600 transition font-semibold hidden md:block">{t('nav_event_details')}</Link>
+                            <Link href="/" className="text-orange-600 transition font-semibold hidden md:block border-b-2 border-gold-400 pb-0.5">{t('nav_event_details')}</Link>
                             <Link href="/pitham" className="hover:text-orange-600 transition hidden md:block">{t('nav_pitham')}</Link>
                             <Link href="/previous-events" className="hover:text-orange-600 transition hidden md:block">{t('nav_past_events')}</Link>
                             <Link href="#categories" className="hover:text-orange-600 transition hidden md:block">{t('nav_register')}</Link>
@@ -119,7 +119,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                 <div className="pointer-events-none absolute -bottom-20 -right-10 w-72 h-72 rounded-full bg-orange-900/30 blur-3xl" />
 
                 <div className="relative max-w-4xl mx-auto px-4 py-12 md:py-16 text-center">
-                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-4 leading-tight tracking-tight drop-shadow-sm">
+                    <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl font-extrabold mb-4 leading-tight tracking-tight drop-shadow-sm">
                         {eventTitle}
                     </h2>
                     <p className="text-sm md:text-lg text-amber-50/90 max-w-2xl mx-auto mb-6 leading-relaxed">
@@ -152,7 +152,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                     {/* CTAs */}
                     <div className="flex flex-col sm:flex-row gap-3 justify-center flex-wrap">
                         {hasCategories && (
-                            <a href="#categories" className="inline-block bg-white text-orange-700 font-bold px-7 py-3 rounded-xl shadow-lg hover:bg-amber-50 hover:scale-[1.02] transition text-sm md:text-base">
+                            <a href="#categories" className="inline-block bg-white text-orange-700 font-bold px-7 py-3 rounded-xl shadow-lg ring-1 ring-gold-300 hover:bg-gold-50 hover:scale-[1.02] transition text-sm md:text-base">
                                 🪔 {t('hero_register_cta')}
                             </a>
                         )}
@@ -183,10 +183,11 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
             {/* ABOUT THE MAHOTSAV */}
             {aboutText && (
                 <Reveal>
-                <section className="bg-neutral-50 py-10 md:py-14 border-b border-neutral-200">
+                <section className="bg-gold-50/40 py-10 md:py-14 border-b border-gold-100/70">
                     <div className="max-w-3xl mx-auto px-4 text-center">
                         <span className="text-3xl">🙏</span>
-                        <h3 className="text-xl md:text-2xl font-bold mt-3 mb-4 tracking-tight text-neutral-900">{t('section_about_title')}</h3>
+                        <h3 className="font-serif text-xl md:text-2xl font-bold mt-3 mb-2 tracking-tight text-neutral-900">{t('section_about_title')}</h3>
+                        <div className="gold-divider mb-4"><span /></div>
                         <p className="text-neutral-600 leading-relaxed whitespace-pre-wrap text-sm md:text-base">{aboutText}</p>
                     </div>
                 </section>
@@ -195,11 +196,12 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
 
             {/* SACRED RITUALS & HIGHLIGHTS */}
             <Reveal>
-            <section className="bg-white py-10 md:py-14 border-b border-neutral-200">
+            <section className="bg-white py-10 md:py-14 border-b border-gold-100/70">
                 <div className="max-w-5xl mx-auto px-4">
                     <div className="text-center mb-8">
-                        <h3 className="text-xl md:text-2xl font-bold tracking-tight text-neutral-900">{t('section_highlights_title')}</h3>
-                        <p className="text-neutral-500 text-sm mt-2">{t('section_highlights_desc')}</p>
+                        <h3 className="font-serif text-xl md:text-2xl font-bold tracking-tight text-neutral-900">{t('section_highlights_title')}</h3>
+                        <div className="gold-divider"><span /></div>
+                        <p className="text-neutral-500 text-sm mt-3">{t('section_highlights_desc')}</p>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
                         {hl.map((h, i) => (
@@ -217,11 +219,12 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
             {/* GUEST / ARTIST LINEUP */}
             {guests.length > 0 && (
                 <Reveal>
-                <section className="bg-neutral-50 py-10 md:py-14 border-b border-neutral-200">
+                <section className="bg-gold-50/40 py-10 md:py-14 border-b border-gold-100/70">
                     <div className="max-w-5xl mx-auto px-4">
                         <div className="text-center mb-8">
-                            <h3 className="text-xl md:text-2xl font-bold tracking-tight text-neutral-900">{t('section_lineup_title')}</h3>
-                            <p className="text-neutral-500 text-sm mt-2">{t('section_lineup_desc')}</p>
+                            <h3 className="font-serif text-xl md:text-2xl font-bold tracking-tight text-neutral-900">{t('section_lineup_title')}</h3>
+                            <div className="gold-divider"><span /></div>
+                            <p className="text-neutral-500 text-sm mt-3">{t('section_lineup_desc')}</p>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
                             {guests.map((g) => {
@@ -251,11 +254,12 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
             {/* PROGRAMME SCHEDULE */}
             {schedule.length > 0 && (
                 <Reveal>
-                <section id="schedule" className="bg-gradient-to-b from-amber-50/40 to-white py-10 md:py-14 border-b border-neutral-200">
+                <section id="schedule" className="bg-gradient-to-b from-amber-50/40 to-white py-10 md:py-14 border-b border-gold-100/70">
                     <div className="max-w-3xl mx-auto px-4">
                         <div className="text-center mb-8">
-                            <h3 className="text-xl md:text-2xl font-bold tracking-tight text-neutral-900">{t('section_schedule_title')}</h3>
-                            <p className="text-neutral-500 text-sm mt-2">{t('section_schedule_desc')}</p>
+                            <h3 className="font-serif text-xl md:text-2xl font-bold tracking-tight text-neutral-900">{t('section_schedule_title')}</h3>
+                            <div className="gold-divider"><span /></div>
+                            <p className="text-neutral-500 text-sm mt-3">{t('section_schedule_desc')}</p>
                         </div>
                         <div className="space-y-3">
                             {(() => {
@@ -293,10 +297,11 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
             )}
 
             {/* REGISTRATION CATEGORIES */}
-            <section id="categories" className="bg-white py-12 md:py-16 border-t border-neutral-200">
+            <section id="categories" className="bg-white py-12 md:py-16 border-t border-gold-100/70">
                 <div className="max-w-5xl mx-auto px-4">
                     <div className="text-center mb-9">
-                        <h3 className="text-xl md:text-2xl font-bold mb-3 tracking-tight">{t('section_categories_title')}</h3>
+                        <h3 className="font-serif text-xl md:text-2xl font-bold mb-1 tracking-tight">{t('section_categories_title')}</h3>
+                        <div className="gold-divider mb-3"><span /></div>
                         <p className="text-neutral-500 text-sm">{t('section_categories_desc')}</p>
                     </div>
 
@@ -325,10 +330,10 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                             const isEffectivelyFull = category.is_full || (isCapacityEnforced && remaining === 0);
 
                             return (
-                                <div key={category.id} className="border border-neutral-200 rounded-2xl p-5 md:p-6 hover:shadow-lg hover:border-neutral-300 transition flex flex-col justify-between bg-white relative overflow-hidden">
+                                <div key={category.id} className="border border-gold-200/60 rounded-2xl p-5 md:p-6 shadow-warm hover:shadow-lg hover:border-gold-300 transition flex flex-col justify-between bg-white relative overflow-hidden">
 
                                     {isCapacityEnforced && category.show_availability && !isEffectivelyFull && (
-                                        <div className="absolute top-0 right-0 bg-orange-100 text-orange-800 text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-bl-xl border-b border-l border-orange-200 flex items-center gap-1">
+                                        <div className="absolute top-0 right-0 bg-gold-100 text-gold-700 text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-bl-xl border-b border-l border-gold-200 flex items-center gap-1">
                                             <AlertCircle className="w-3 h-3" /> {t('category_seats_left', remaining)}
                                         </div>
                                     )}
@@ -381,14 +386,14 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
 
             {/* MEDIA */}
             {mediaItems && mediaItems.length > 0 && (
-                <section className="bg-neutral-100 py-12 md:py-16 border-t border-neutral-200">
+                <section className="bg-gold-50/50 py-12 md:py-16 border-t border-gold-100/70">
                     <div className="max-w-5xl mx-auto px-4">
 
                         {youtubeVideos.length > 0 && (
                             <div className="mb-12">
                                 <div className="flex items-center gap-2 mb-6 justify-center md:justify-start">
                                     <Video className="w-5 h-5 text-orange-600" />
-                                    <h3 className="text-xl md:text-2xl font-bold tracking-tight">{t('section_videos')}</h3>
+                                    <h3 className="font-serif text-xl md:text-2xl font-bold tracking-tight">{t('section_videos')}</h3>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                                     {youtubeVideos.map((video) => (
@@ -407,7 +412,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                             <div>
                                 <div className="flex items-center gap-2 mb-6 justify-center md:justify-start">
                                     <ImageIcon className="w-5 h-5 text-orange-600" />
-                                    <h3 className="text-xl md:text-2xl font-bold tracking-tight">{t('section_gallery')}</h3>
+                                    <h3 className="font-serif text-xl md:text-2xl font-bold tracking-tight">{t('section_gallery')}</h3>
                                 </div>
                                 <div className="columns-1 sm:columns-2 md:columns-3 gap-4 space-y-4">
                                     {galleryImages.map((image) => (
@@ -428,10 +433,10 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
             {/* VENUE (compact) */}
             {displayVenue && (
                 <Reveal>
-                <section className="bg-white py-10 border-t border-neutral-200">
+                <section className="bg-white py-10 border-t border-gold-100/70">
                     <div className="max-w-4xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                         <div>
-                            <h3 className="text-lg font-bold text-neutral-900 flex items-center gap-2"><MapPin className="w-5 h-5 text-orange-600" /> {t('section_venue_title')}</h3>
+                            <h3 className="font-serif text-lg font-bold text-neutral-900 flex items-center gap-2"><MapPin className="w-5 h-5 text-orange-600" /> {t('section_venue_title')}</h3>
                             <p className="text-neutral-600 text-sm mt-2">{displayVenue}</p>
                             {mapUrl && (
                                 <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-2 bg-neutral-900 hover:bg-orange-600 text-white font-semibold px-4 py-2 rounded-lg text-sm transition">
