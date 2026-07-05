@@ -73,6 +73,9 @@ interface EventItem {
     start_at: string | null;
     contact_phone: string | null;
     hero_image_url: string | null;
+    instagram_url: string | null;
+    facebook_url: string | null;
+    youtube_url: string | null;
 }
 interface MediaItem { id: string; media_type: 'image' | 'youtube'; url: string; caption: string; event_id: string; events?: { title: string }; }
 
@@ -1674,6 +1677,9 @@ function EventRow({ event, onSetActive, onUpdate, onDelete }: {
     const [venue, setVenue] = useState(event.venue || '');
     const [venueHi, setVenueHi] = useState(event.venue_hi || '');
     const [mapUrl, setMapUrl] = useState(event.map_url || '');
+    const [instagramUrl, setInstagramUrl] = useState(event.instagram_url || '');
+    const [facebookUrl, setFacebookUrl] = useState(event.facebook_url || '');
+    const [youtubeUrl, setYoutubeUrl] = useState(event.youtube_url || '');
     const [isChanged, setIsChanged] = useState(false);
 
     const handleSave = () => {
@@ -1684,6 +1690,9 @@ function EventRow({ event, onSetActive, onUpdate, onDelete }: {
             date_time: dateTime || null, date_time_hi: dateTimeHi || null,
             venue: venue || null, venue_hi: venueHi || null,
             map_url: mapUrl || null,
+            instagram_url: instagramUrl || null,
+            facebook_url: facebookUrl || null,
+            youtube_url: youtubeUrl || null,
         });
         setIsChanged(false);
     };
@@ -1741,6 +1750,11 @@ function EventRow({ event, onSetActive, onUpdate, onDelete }: {
                         <div><label className="block text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1">स्थान (HI)</label><input value={venueHi} onChange={e => { setVenueHi(e.target.value); track(); }} className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg bg-blue-50/30 focus:outline-none focus:border-blue-500 focus:bg-white transition" /></div>
                     </div>
                     <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Google Maps Link</label><input type="url" value={mapUrl} onChange={e => { setMapUrl(e.target.value); track(); }} placeholder="https://maps.google.com/..." className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Instagram URL</label><input type="url" value={instagramUrl} onChange={e => { setInstagramUrl(e.target.value); track(); }} placeholder="https://instagram.com/..." className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
+                        <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Facebook URL</label><input type="url" value={facebookUrl} onChange={e => { setFacebookUrl(e.target.value); track(); }} placeholder="https://facebook.com/..." className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
+                        <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">YouTube URL</label><input type="url" value={youtubeUrl} onChange={e => { setYoutubeUrl(e.target.value); track(); }} placeholder="https://youtube.com/@..." className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
+                    </div>
                     <div className="flex justify-end pt-2 border-t border-neutral-100">
                         <button onClick={handleSave} disabled={!isChanged} className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all ${isChanged ? 'bg-orange-600 text-white shadow-md hover:bg-orange-700' : 'bg-neutral-100 text-neutral-400 cursor-not-allowed border border-neutral-200'}`}><Save className="w-4 h-4" />{isChanged ? 'Save Changes' : 'Up to date'}</button>
                     </div>

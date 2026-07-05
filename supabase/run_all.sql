@@ -338,7 +338,11 @@ GRANT ALL ON category_field_settings TO service_role;
 ALTER TABLE events
     ADD COLUMN IF NOT EXISTS start_at TIMESTAMPTZ,
     ADD COLUMN IF NOT EXISTS end_at   TIMESTAMPTZ,   -- event end (for a correct multi-day "Add to Calendar")
-    ADD COLUMN IF NOT EXISTS contact_phone TEXT;
+    ADD COLUMN IF NOT EXISTS contact_phone TEXT,
+    -- Social handles shown in the footer (each rendered only if set).
+    ADD COLUMN IF NOT EXISTS instagram_url TEXT,
+    ADD COLUMN IF NOT EXISTS facebook_url  TEXT,
+    ADD COLUMN IF NOT EXISTS youtube_url   TEXT;
 
 CREATE TABLE IF NOT EXISTS event_schedule (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
