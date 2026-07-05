@@ -21,6 +21,7 @@ import EditRegistrationModal from '@/components/EditRegistrationModal';
 import DashboardAnalytics from '@/components/DashboardAnalytics';
 import RegistrationActivity from '@/components/RegistrationActivity';
 import AddRegistrationModal from '@/components/AddRegistrationModal';
+import EventOpsPanel from '@/components/EventOpsPanel';
 import ImageUpload from '@/components/ImageUpload';
 import { toast, confirmDialog, promptDialog } from '@/lib/uiStore';
 
@@ -30,6 +31,7 @@ type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'enquired
 interface Registration {
     id: string; created_at: string;
     payment_status: PaymentStatus;
+    full_name: string | null;
     first_name: string; last_name: string; salutation: string; gender: string;
     date_of_birth: string; phone: string; email: string; pincode: string;
     taluka: string; state: string; problem_samasya: string; attendees_count: number;
@@ -215,6 +217,7 @@ export default function AdminDashboard() {
     };
 
     const [searchTerm, setSearchTerm] = useState('');
+    const [globalQuery, setGlobalQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [categoryFilter, setCategoryFilter] = useState('all');
     const [methodFilter, setMethodFilter] = useState('all');
@@ -869,6 +872,14 @@ export default function AdminDashboard() {
         );
     }
 
+    // Global search — matches ANY registration (every status/tab) by name, phone,
+    // or email. Uses the already-loaded list, so it's instant.
+    const gq = globalQuery.trim().toLowerCase();
+    const globalResults = gq.length >= 2 ? registrations.filter(r => {
+        const name = `${r.full_name || ''} ${r.first_name || ''} ${r.last_name || ''}`.toLowerCase();
+        return name.includes(gq) || String(r.phone || '').toLowerCase().includes(gq) || String(r.email || '').toLowerCase().includes(gq);
+    }).slice(0, 8) : [];
+
     // Which tab actually renders. Admin sees the active tab as-is; a volunteer is
     // redirected to their first permitted tab if the active one isn't allowed.
     const TAB_PERM: Record<string, string> = { dashboard: 'dashboard:view', registrations: 'registrations:view', enquiries: 'enquiries:manage', scanlog: 'scanlog:view', settings: 'settings:manage', audit: 'audit:view' };
@@ -920,6 +931,42 @@ export default function AdminDashboard() {
                     <button onClick={handleLogout} className="flex items-center gap-2 text-sm font-semibold text-neutral-600 hover:text-red-600 border border-neutral-200 px-3 py-1.5 rounded-lg hover:border-red-200 hover:bg-red-50 transition"><LogOut className="w-4 h-4" /> Logout</button>
                 </div>
             </div>
+
+            {/* Global search — find any person across every status/tab */}
+            {can('registrations:view') && (
+                <div className="max-w-7xl mx-auto mb-6 relative">
+                    <div className="relative">
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+                        <input
+                            type="text"
+                            value={globalQuery}
+                            onChange={(e) => setGlobalQuery(e.target.value)}
+                            placeholder="Search anyone by name, phone, or email…"
+                            className="w-full pl-11 pr-10 py-3 bg-white border border-neutral-200 rounded-xl text-sm shadow-sm focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition"
+                        />
+                        {globalQuery && <button onClick={() => setGlobalQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700"><X className="w-4 h-4" /></button>}
+                    </div>
+                    {gq.length >= 2 && (
+                        <div className="absolute z-40 mt-1.5 w-full bg-white border border-neutral-200 rounded-xl shadow-xl max-h-[26rem] overflow-y-auto">
+                            {globalResults.length === 0 ? (
+                                <div className="px-4 py-6 text-center text-sm text-neutral-400">No one matches “{globalQuery}”.</div>
+                            ) : globalResults.map((r) => (
+                                <button
+                                    key={r.id}
+                                    onClick={() => { setSelectedRegistration(r); setGlobalQuery(''); }}
+                                    className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-orange-50 border-b border-neutral-100 last:border-0 transition"
+                                >
+                                    <div className="min-w-0">
+                                        <p className="font-semibold text-neutral-900 truncate">{r.full_name || `${r.first_name} ${r.last_name}`}</p>
+                                        <p className="text-xs text-neutral-500 truncate">{r.phone}{r.email ? ` · ${r.email}` : ''}{r.categories?.title ? ` · ${r.categories.title}` : ''}</p>
+                                    </div>
+                                    <span className={`flex-shrink-0 inline-flex items-center py-0.5 px-2 rounded-full text-[11px] font-bold border ${statusClasses(r.payment_status)}`}>{STATUS_LABEL[r.payment_status] || r.payment_status}</span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {selectedRegistration && (
                 <div className="fixed inset-0 bg-neutral-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
@@ -1319,7 +1366,10 @@ export default function AdminDashboard() {
                 )}
 
                 {effectiveTab === 'scanlog' && (
-                    <ScanLogPanel checkpoints={checkpointsList} />
+                    <div className="space-y-6">
+                        <EventOpsPanel />
+                        <ScanLogPanel checkpoints={checkpointsList} />
+                    </div>
                 )}
 
                 {effectiveTab === 'audit' && can('audit:view') && (
