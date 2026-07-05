@@ -2,6 +2,7 @@
 // Client Component — receives server-fetched data, handles language switching.
 "use client";
 
+import { Fragment } from 'react';
 import { Calendar, MapPin, Image as ImageIcon, Video, AlertCircle, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useLanguage } from './LanguageProvider';
@@ -162,13 +163,6 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                         )}
                     </div>
 
-                    {/* Social proof */}
-                    {registeredCount > 0 && (
-                        <div className="mt-6 inline-flex items-center gap-2 bg-white/10 border border-white/25 backdrop-blur-sm text-amber-50 rounded-full px-4 py-2 text-sm font-semibold">
-                            🙏 {t('hero_registered_count', registeredCount.toLocaleString('en-IN'))}
-                        </div>
-                    )}
-
                     {/* Add to calendar + share — one row */}
                     <div className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-3">
                         <AddToCalendar title={eventTitle} startAt={pageData?.start_at} endAt={pageData?.end_at} location={displayVenue} details={eventDesc} />
@@ -254,36 +248,6 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                 </Reveal>
             )}
 
-            {/* VENUE MAP */}
-            {displayVenue && (
-                <Reveal>
-                <section className="bg-white py-14 md:py-20 border-b border-neutral-200">
-                    <div className="max-w-4xl mx-auto px-4">
-                        <div className="text-center mb-8">
-                            <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-neutral-900 flex items-center justify-center gap-2"><MapPin className="w-6 h-6 text-orange-600" /> {t('section_venue_title')}</h3>
-                            <p className="text-neutral-600 text-sm mt-2">{displayVenue}</p>
-                        </div>
-                        <div className="rounded-2xl overflow-hidden border border-neutral-200 shadow-sm">
-                            <iframe
-                                title="Venue map"
-                                src={`https://www.google.com/maps?q=${encodeURIComponent(displayVenue)}&output=embed`}
-                                className="w-full h-64 md:h-80 border-0"
-                                loading="lazy"
-                                referrerPolicy="no-referrer-when-downgrade"
-                            />
-                        </div>
-                        {mapUrl && (
-                            <div className="text-center mt-4">
-                                <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-neutral-900 hover:bg-orange-600 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition">
-                                    <MapPin className="w-4 h-4" /> {t('venue_directions')}
-                                </a>
-                            </div>
-                        )}
-                    </div>
-                </section>
-                </Reveal>
-            )}
-
             {/* PROGRAMME SCHEDULE */}
             {schedule.length > 0 && (
                 <Reveal>
@@ -294,22 +258,34 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                             <p className="text-neutral-500 text-sm mt-2">{t('section_schedule_desc')}</p>
                         </div>
                         <div className="space-y-3">
-                            {schedule.map((s) => {
-                                const sTitle = lang === 'hi' ? (s.title_hi || s.title) : s.title;
-                                const sDay = lang === 'hi' ? (s.day_label_hi || s.day_label) : s.day_label;
-                                return (
-                                    <div key={s.id} className="flex items-center gap-4 bg-white border border-neutral-200 rounded-xl p-4 hover:border-orange-200 hover:shadow-sm transition">
-                                        <div className="flex-shrink-0 flex flex-col items-center justify-center w-20 text-center">
-                                            <Clock className="w-4 h-4 text-orange-500 mb-1" />
-                                            <span className="text-xs font-bold text-orange-700">{s.time_label || '—'}</span>
-                                        </div>
-                                        <div className="flex-1 min-w-0 border-l border-neutral-100 pl-4">
-                                            <p className="font-semibold text-neutral-900">{sTitle}</p>
-                                            {sDay && <p className="text-xs text-neutral-400 mt-0.5">{sDay}</p>}
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                            {(() => {
+                                let lastDay = null;
+                                return schedule.map((s) => {
+                                    const sTitle = lang === 'hi' ? (s.title_hi || s.title) : s.title;
+                                    const sDay = lang === 'hi' ? (s.day_label_hi || s.day_label) : s.day_label;
+                                    const showDay = sDay && sDay !== lastDay;
+                                    lastDay = sDay;
+                                    return (
+                                        <Fragment key={s.id}>
+                                            {showDay && (
+                                                <div className="flex items-center gap-3 pt-4 first:pt-0">
+                                                    <span className="text-sm font-bold uppercase tracking-wider text-orange-700 whitespace-nowrap">{sDay}</span>
+                                                    <span className="flex-1 h-px bg-orange-200" />
+                                                </div>
+                                            )}
+                                            <div className="flex items-center gap-4 bg-white border border-neutral-200 rounded-xl p-4 hover:border-orange-200 hover:shadow-sm transition">
+                                                <div className="flex-shrink-0 flex flex-col items-center justify-center w-20 text-center">
+                                                    <Clock className="w-4 h-4 text-orange-500 mb-1" />
+                                                    <span className="text-xs font-bold text-orange-700">{s.time_label || '—'}</span>
+                                                </div>
+                                                <div className="flex-1 min-w-0 border-l border-neutral-100 pl-4">
+                                                    <p className="font-semibold text-neutral-900">{sTitle}</p>
+                                                </div>
+                                            </div>
+                                        </Fragment>
+                                    );
+                                });
+                            })()}
                         </div>
                     </div>
                 </section>
@@ -414,13 +390,13 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                                     <Video className="w-5 h-5 text-orange-600" />
                                     <h3 className="text-2xl font-bold tracking-tight">{t('section_videos')}</h3>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                                     {youtubeVideos.map((video) => (
-                                        <div key={video.id} className="bg-white border rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition">
+                                        <div key={video.id} className="bg-white border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition">
                                             <div className="aspect-video w-full">
                                                 <YouTubeEmbed url={video.url} title={video.caption || 'YouTube Video'} />
                                             </div>
-                                            {video.caption && <div className="p-4 bg-white border-t"><p className="text-sm font-semibold text-neutral-800">{video.caption}</p></div>}
+                                            {video.caption && <div className="p-3 bg-white border-t"><p className="text-xs font-semibold text-neutral-800">{video.caption}</p></div>}
                                         </div>
                                     ))}
                                 </div>
@@ -448,6 +424,35 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                     </div>
                 </section>
             )}
+
+            {/* VENUE (compact) */}
+            {displayVenue && (
+                <Reveal>
+                <section className="bg-white py-10 border-t border-neutral-200">
+                    <div className="max-w-4xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                        <div>
+                            <h3 className="text-lg font-bold text-neutral-900 flex items-center gap-2"><MapPin className="w-5 h-5 text-orange-600" /> {t('section_venue_title')}</h3>
+                            <p className="text-neutral-600 text-sm mt-2">{displayVenue}</p>
+                            {mapUrl && (
+                                <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-2 bg-neutral-900 hover:bg-orange-600 text-white font-semibold px-4 py-2 rounded-lg text-sm transition">
+                                    <MapPin className="w-4 h-4" /> {t('venue_directions')}
+                                </a>
+                            )}
+                        </div>
+                        <div className="rounded-xl overflow-hidden border border-neutral-200 shadow-sm">
+                            <iframe
+                                title="Venue map"
+                                src={`https://www.google.com/maps?q=${encodeURIComponent(displayVenue)}&output=embed`}
+                                className="w-full h-44 border-0"
+                                loading="lazy"
+                                referrerPolicy="no-referrer-when-downgrade"
+                            />
+                        </div>
+                    </div>
+                </section>
+                </Reveal>
+            )}
+
             <FloatingActions phone={pageData?.contact_phone} hasCategories={hasCategories} />
             <Footer />
         </main>

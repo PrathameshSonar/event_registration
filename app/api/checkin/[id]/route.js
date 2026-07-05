@@ -46,9 +46,11 @@ export async function POST(request, { params }) {
 
     const isFirst = !existingCount || existingCount === 0;
 
-    // Always insert — provides full audit trail per checkpoint.
-    await supabaseAdmin.from('checkins').insert({ registration_id: id, checkpoint_id: checkpointId });
-
-    if (isFirst) return NextResponse.json({ status: 'NEW', reg });
-    return NextResponse.json({ status: 'DUPLICATE', reg, count: (existingCount || 0) + 1 });
+    // One check-in row per registration + checkpoint. Re-scans at the same
+    // checkpoint are reported as DUPLICATE but do NOT add another row.
+    if (isFirst) {
+        await supabaseAdmin.from('checkins').insert({ registration_id: id, checkpoint_id: checkpointId });
+        return NextResponse.json({ status: 'NEW', reg });
+    }
+    return NextResponse.json({ status: 'DUPLICATE', reg, count: existingCount });
 }

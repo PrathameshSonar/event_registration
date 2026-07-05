@@ -14,8 +14,9 @@ export async function POST(request) {
     const { response, session } = await authorize({ requireAdmin: true });
     if (response) return response;
 
-    const { id, amount } = await request.json();
+    const { id, amount, note } = await request.json();
     if (!id) return NextResponse.json({ error: 'Missing id.' }, { status: 400 });
+    const reason = (note || '').toString().slice(0, 300).trim();
 
     const { data: reg, error } = await supabaseAdmin
         .from('registrations')
@@ -39,7 +40,11 @@ export async function POST(request) {
     const isFull = refundRupees >= total;
 
     try {
-        await getRazorpayClient().payments.refund(reg.razorpay_payment_id, { amount: Math.round(refundRupees * 100) });
+        await getRazorpayClient().payments.refund(reg.razorpay_payment_id, {
+            amount: Math.round(refundRupees * 100),
+            speed: 'normal',
+            notes: { reason: reason || 'Admin refund', registration_id: id, by: session?.role || 'admin' },
+        });
     } catch (e) {
         console.error('Refund failed:', e?.error?.description || e?.message);
         return NextResponse.json({ error: e?.error?.description || 'Razorpay refund failed.' }, { status: 502 });
@@ -52,8 +57,8 @@ export async function POST(request) {
     await logAudit({
         session, request,
         action: 'registration.refund', entity: 'registration', entityId: id,
-        summary: `Refunded ₹${refundRupees.toLocaleString('en-IN')}${isFull ? ' (full)' : ' (partial)'} to ${reg.first_name} ${reg.last_name}`,
-        metadata: { amount: refundRupees, full: isFull },
+        summary: `Refunded ₹${refundRupees.toLocaleString('en-IN')}${isFull ? ' (full)' : ' (partial)'} to ${reg.first_name} ${reg.last_name}${reason ? ` — ${reason}` : ''}`,
+        metadata: { amount: refundRupees, full: isFull, reason: reason || null },
     });
 
     return NextResponse.json({ ok: true, full: isFull });

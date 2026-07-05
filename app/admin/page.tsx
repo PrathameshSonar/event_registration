@@ -132,8 +132,8 @@ export default function AdminDashboard() {
     const [role, setRole] = useState<Role | null>(null);
     const isAdmin = role === 'admin';
 
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'enquiries' | 'settings' | 'audit'>('dashboard');
-    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'checkpoints' | 'scanlog' | 'formfields' | 'homecontent' | 'payment'>('events');
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'enquiries' | 'scanlog' | 'settings' | 'audit'>('dashboard');
+    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'checkpoints' | 'formfields' | 'homecontent' | 'payment'>('events');
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -210,7 +210,7 @@ export default function AdminDashboard() {
     const [endDate, setEndDate] = useState('');
     const [selectedRegistration, setSelectedRegistration] = useState<Registration | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
-    const PAGE_SIZE = 50;
+    const PAGE_SIZE = 25;
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [sendingQr, setSendingQr] = useState(false);
 
@@ -411,9 +411,11 @@ export default function AdminDashboard() {
     const handleRefund = async (reg: Registration) => {
         const amt = await promptDialog({ title: 'Refund', message: `Refund amount (₹). Leave the full amount for a full refund; the tier total is ₹${reg.total_amount}.`, defaultValue: String(reg.total_amount || ''), inputType: 'number', required: true, confirmLabel: 'Refund' });
         if (amt === null) return;
+        const reason = await promptDialog({ title: 'Reason for refund', message: 'Why is this being refunded? (recorded in the audit log & sent to Razorpay)', placeholder: 'e.g. Duplicate payment / customer cancelled', required: true, confirmLabel: 'Continue' });
+        if (reason === null) return;
         if (!(await confirmDialog({ title: 'Confirm refund', message: `Refund ₹${Number(amt).toLocaleString('en-IN')} via Razorpay? This cannot be undone.`, danger: true, confirmLabel: 'Refund' }))) return;
         setManagingId(reg.id);
-        const { ok, data } = await mutate('/api/admin/refund', 'POST', { id: reg.id, amount: Number(amt) });
+        const { ok, data } = await mutate('/api/admin/refund', 'POST', { id: reg.id, amount: Number(amt), note: reason });
         setManagingId(null);
         if (!ok) { toast.error(data.error || 'Refund failed.'); return; }
         toast.success(data.full ? 'Full refund issued — marked Refunded.' : 'Partial refund issued.');
@@ -450,7 +452,9 @@ export default function AdminDashboard() {
             if (!(await confirmDialog({ title: 'Cheque received', message: 'Mark the cheque as received (awaiting clearance)?' }))) return;
         } else if (action === 'cheque_bounced' || action === 'reverse') {
             if (!(await confirmDialog({ title: action === 'reverse' ? 'Reverse payment' : 'Cheque bounced', message: action === 'reverse' ? 'Reverse this payment? The seat will be released.' : 'Mark this cheque as bounced?', danger: true, confirmLabel: 'Confirm' }))) return;
-            body.note = (await promptDialog({ title: 'Note', message: 'Note (optional):' })) || '';
+            const reason = await promptDialog({ title: 'Reason', message: action === 'reverse' ? 'Why is this payment being reversed? (recorded in the audit log)' : 'Reason the cheque bounced (recorded in the audit log):', placeholder: 'e.g. Cash never received / cheque returned', required: true, confirmLabel: 'Confirm' });
+            if (reason === null) return;
+            body.note = reason;
         }
         setVerifyingId(reg.id);
         const { ok, data } = await mutate('/api/admin/verify-payment', 'POST', body);
@@ -1012,6 +1016,7 @@ export default function AdminDashboard() {
                         { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, show: true, badge: 0 },
                         { key: 'registrations', label: 'Registrations', icon: ListFilter, show: true, badge: globalToVerify },
                         { key: 'enquiries', label: 'Enquiries', icon: MessageSquare, show: true, badge: globalNewEnquiries },
+                        { key: 'scanlog', label: 'Scan Log', icon: QrCode, show: true, badge: 0 },
                         { key: 'settings', label: 'Settings', icon: Settings, show: isAdmin, badge: 0 },
                         { key: 'audit', label: 'Audit', icon: ScrollText, show: isAdmin, badge: 0 },
                     ] as const).filter(t => t.show).map(t => {
@@ -1261,6 +1266,10 @@ export default function AdminDashboard() {
                     <EnquiriesPanel registrations={registrations} isAdmin={isAdmin} onChanged={refreshRegistrations} />
                 )}
 
+                {effectiveTab === 'scanlog' && (
+                    <ScanLogPanel checkpoints={checkpointsList} />
+                )}
+
                 {effectiveTab === 'audit' && isAdmin && (
                     <AuditLogPanel />
                 )}
@@ -1272,7 +1281,6 @@ export default function AdminDashboard() {
                             <button onClick={() => setSettingsSubTab('tiers')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'tiers' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><Ticket className="w-4 h-4" /> Ticket Tiers</button>
                             <button onClick={() => setSettingsSubTab('media')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'media' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ImageIcon className="w-4 h-4" /> Media Gallery</button>
                             <button onClick={() => setSettingsSubTab('checkpoints')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'checkpoints' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><QrCode className="w-4 h-4" /> Entry Checkpoints</button>
-                            <button onClick={() => setSettingsSubTab('scanlog')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'scanlog' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ListFilter className="w-4 h-4" /> Scan Log</button>
                             <button onClick={() => setSettingsSubTab('formfields')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'formfields' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ListFilter className="w-4 h-4" /> Form Fields</button>
                             <button onClick={() => setSettingsSubTab('homecontent')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'homecontent' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><CalendarDays className="w-4 h-4" /> Home Page Content</button>
                             <button onClick={() => setSettingsSubTab('payment')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'payment' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><IndianRupee className="w-4 h-4" /> Payment Details</button>
@@ -1484,7 +1492,6 @@ export default function AdminDashboard() {
                                 </div>
                             )}
 
-                            {settingsSubTab === 'scanlog' && <ScanLogPanel checkpoints={checkpointsList} />}
                             {settingsSubTab === 'formfields' && <FormFieldsManager categories={categoriesList} />}
 
                             {settingsSubTab === 'homecontent' && <HomeContentManager events={eventsList} />}

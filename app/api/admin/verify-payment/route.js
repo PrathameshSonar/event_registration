@@ -33,7 +33,10 @@ export async function POST(request) {
 
     const now = new Date().toISOString();
     const stamp = { verified_by: session?.role || 'admin', verified_at: now };
-    const audit = (summary, metadata) => logAudit({ session, request, action: `payment.${action}`, entity: 'registration', entityId: id, summary, metadata });
+    // Name the person in every audit summary so the log reads "…— Ramesh Iyer (98765…)".
+    const who = `${reg.first_name || ''} ${reg.last_name || ''}`.trim() || 'registrant';
+    const tail = `${reg.phone ? ` (${reg.phone})` : ''}`;
+    const audit = (summary, metadata) => logAudit({ session, request, action: `payment.${action}`, entity: 'registration', entityId: id, summary: `${summary} — ${who}${tail}`, metadata });
 
     // ── COMPLETE (approve / cheque_cleared / record) ─────────────────────────
     const completeStatuses = { approve: 1, cheque_cleared: 1, record: 1 };

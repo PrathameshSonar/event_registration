@@ -55,10 +55,12 @@ export async function PATCH(request) {
 
         const { error } = await supabaseAdmin.from('registrations').update(clean).eq('id', id);
         if (error) return NextResponse.json({ error: 'Update failed.' }, { status: 500 });
+        const { data: whoRow } = await supabaseAdmin.from('registrations').select('first_name, last_name, phone').eq('id', id).single();
+        const whoE = `${whoRow?.first_name || ''} ${whoRow?.last_name || ''}`.trim() || 'registrant';
         await logAudit({
             session, request,
             action: 'registration.edit', entity: 'registration', entityId: id,
-            summary: 'Edited registrant details',
+            summary: `Edited registrant details — ${whoE}${whoRow?.phone ? ` (${whoRow.phone})` : ''}`,
             metadata: { fields: Object.keys(clean) },
         });
         return NextResponse.json({ ok: true });
@@ -70,7 +72,7 @@ export async function PATCH(request) {
 
     const { data: current, error: fetchError } = await supabaseAdmin
         .from('registrations')
-        .select('payment_status')
+        .select('payment_status, first_name, last_name, phone')
         .eq('id', id)
         .single();
 
@@ -90,7 +92,7 @@ export async function PATCH(request) {
         session, request,
         action: 'registration.status_change',
         entity: 'registration', entityId: id,
-        summary: `Status ${current.payment_status} → ${status}`,
+        summary: `Status ${current.payment_status} → ${status} — ${`${current.first_name || ''} ${current.last_name || ''}`.trim() || 'registrant'}${current.phone ? ` (${current.phone})` : ''}`,
         metadata: { from: current.payment_status, to: status },
     });
 

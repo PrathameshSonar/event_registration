@@ -26,6 +26,8 @@ export default function ScanLogPanel({ checkpoints = [] }) {
     const [rows, setRows] = useState([]);
     const [stats, setStats] = useState({ totalScans: 0, uniqueAttendees: 0 });
     const [loading, setLoading] = useState(true);
+    const [page, setPage] = useState(1);
+    const PAGE_SIZE = 25;
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -47,6 +49,9 @@ export default function ScanLogPanel({ checkpoints = [] }) {
     const filtered = term
         ? rows.filter((c) => `${nameOf(c.registrations)} ${c.registrations?.phone || ""}`.toLowerCase().includes(term))
         : rows;
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const safePage = Math.min(page, totalPages);
+    const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
     return (
         <div className="space-y-4">
@@ -66,9 +71,9 @@ export default function ScanLogPanel({ checkpoints = [] }) {
             <div className="bg-white p-3 rounded-xl border border-neutral-200 shadow-sm flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                    <input type="text" placeholder="Search name or phone…" value={q} onChange={(e) => setQ(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600" />
+                    <input type="text" placeholder="Search name or phone…" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} className="w-full pl-10 pr-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600" />
                 </div>
-                <select value={checkpointId} onChange={(e) => setCheckpointId(e.target.value)} className="px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600">
+                <select value={checkpointId} onChange={(e) => { setCheckpointId(e.target.value); setPage(1); }} className="px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600">
                     <option value="all">All Checkpoints</option>
                     {checkpoints.map((cp) => <option key={cp.id} value={cp.id}>{cp.name}</option>)}
                 </select>
@@ -89,7 +94,7 @@ export default function ScanLogPanel({ checkpoints = [] }) {
                                 <tr><td colSpan={5} className="px-5 py-8 text-center text-neutral-400">Loading scans…</td></tr>
                             ) : filtered.length === 0 ? (
                                 <tr><td colSpan={5} className="px-5 py-8 text-center text-neutral-400">No scans yet.</td></tr>
-                            ) : filtered.map((c) => (
+                            ) : paged.map((c) => (
                                 <tr key={c.id} className="hover:bg-neutral-50 transition">
                                     <td className="px-5 py-3 font-medium text-neutral-900">{nameOf(c.registrations)}<div className="text-xs font-normal text-neutral-400">{c.registrations?.phone}</div></td>
                                     <td className="px-5 py-3 text-neutral-600">{c.registrations?.categories?.title || "—"}</td>
@@ -105,8 +110,17 @@ export default function ScanLogPanel({ checkpoints = [] }) {
                         </tbody>
                     </table>
                 </div>
+                {totalPages > 1 && (
+                    <div className="flex items-center justify-between px-5 py-4 border-t border-neutral-200 bg-neutral-50">
+                        <span className="text-sm text-neutral-500">Showing {((safePage - 1) * PAGE_SIZE) + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length}</span>
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage === 1} className="px-3 py-1.5 text-sm font-medium border border-neutral-200 rounded-lg bg-white hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition">← Prev</button>
+                            <span className="text-sm text-neutral-500">Page {safePage} / {totalPages}</span>
+                            <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={safePage === totalPages} className="px-3 py-1.5 text-sm font-medium border border-neutral-200 rounded-lg bg-white hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition">Next →</button>
+                        </div>
+                    </div>
+                )}
             </div>
-            {!loading && filtered.length > 0 && <p className="text-xs text-neutral-400 text-center">Showing the {filtered.length} most recent scan(s).</p>}
         </div>
     );
 }
