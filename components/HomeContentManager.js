@@ -7,6 +7,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Trash2, Save, Clock, Sparkles, Phone, CalendarClock, Image as ImageIcon, HelpCircle, BellRing, Star } from "lucide-react";
 import { toast } from "@/lib/uiStore";
+import ImageUpload from "@/components/ImageUpload";
 
 export default function HomeContentManager(props) {
   const events = props.events || [];
@@ -304,7 +305,10 @@ export default function HomeContentManager(props) {
         <form onSubmit={addGuest} className="bg-neutral-50 border border-neutral-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
           <input type="text" placeholder="Name" value={gName} onChange={(e) => setGName(e.target.value)} className={inputCls} required />
           <input type="text" placeholder="Role / title (e.g. Kathavachak, Singer)" value={gRole} onChange={(e) => setGRole(e.target.value)} className={inputCls} />
-          <input type="url" placeholder="Photo URL (Supabase Storage / any image link)" value={gPhoto} onChange={(e) => setGPhoto(e.target.value)} className={`${inputCls} md:col-span-2`} />
+          <div className="md:col-span-2 flex gap-2">
+            <input type="url" placeholder="Photo URL — paste a link or upload →" value={gPhoto} onChange={(e) => setGPhoto(e.target.value)} className={`${inputCls} flex-1`} />
+            <ImageUpload onUploaded={(url) => setGPhoto(url)} />
+          </div>
           <input type="text" placeholder="Short bio (optional)" value={gBio} onChange={(e) => setGBio(e.target.value)} className={`${inputCls} md:col-span-2`} />
           <button type="submit" disabled={busy || !gName.trim()} className="md:col-span-2 flex items-center justify-center gap-2 bg-neutral-900 hover:bg-orange-600 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-lg text-sm transition"><Plus className="w-4 h-4" /> Add Guest</button>
         </form>

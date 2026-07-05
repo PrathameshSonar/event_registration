@@ -21,6 +21,7 @@ import EditRegistrationModal from '@/components/EditRegistrationModal';
 import DashboardAnalytics from '@/components/DashboardAnalytics';
 import RegistrationActivity from '@/components/RegistrationActivity';
 import AddRegistrationModal from '@/components/AddRegistrationModal';
+import ImageUpload from '@/components/ImageUpload';
 import { toast, confirmDialog, promptDialog } from '@/lib/uiStore';
 
 type Role = 'admin' | 'viewer';
@@ -1453,7 +1454,12 @@ export default function AdminDashboard() {
                                 <div className="max-w-4xl">
                                     <h2 className="text-2xl font-bold mb-6 border-b border-neutral-200 pb-4 text-neutral-900">Gallery & Video Injector</h2>
                                     <form onSubmit={handleAddMedia} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 bg-neutral-50 p-6 border border-neutral-200 rounded-xl mb-8">
-                                        <div className="md:col-span-2"><label className="block text-xs font-bold text-neutral-600 uppercase tracking-wider mb-1">Asset URL</label><input type="url" placeholder="https://..." value={mediaUrl} onChange={(e) => setMediaUrl(e.target.value)} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600" required /></div>
+                                        <div className="md:col-span-2"><label className="block text-xs font-bold text-neutral-600 uppercase tracking-wider mb-1">Asset URL</label>
+                                            <div className="flex gap-2">
+                                                <input type="url" placeholder="https://... or upload →" value={mediaUrl} onChange={(e) => setMediaUrl(e.target.value)} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600" required />
+                                                {mediaType === 'image' && <ImageUpload onUploaded={(url) => setMediaUrl(url)} label="Upload" />}
+                                            </div>
+                                        </div>
                                         <div className="md:col-span-1"><label className="block text-xs font-bold text-neutral-600 uppercase tracking-wider mb-1">Type</label><select value={mediaType} onChange={(e) => setMediaType(e.target.value as 'image' | 'youtube')} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-white focus:outline-none focus:border-orange-600 cursor-pointer"><option value="image">Image</option><option value="youtube">YouTube</option></select></div>
                                         <div className="md:col-span-1"><label className="block text-xs font-bold text-neutral-600 uppercase tracking-wider mb-1">Link Event</label><select value={mediaEventId} onChange={(e) => setMediaEventId(e.target.value)} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-white focus:outline-none focus:border-orange-600 cursor-pointer"><option value="" disabled>Select Event</option>{eventsList.map(ev => <option key={ev.id} value={ev.id}>{ev.title}</option>)}</select></div>
                                         <div className="md:col-span-3"><label className="block text-xs font-bold text-neutral-600 uppercase tracking-wider mb-1">Caption</label><input type="text" placeholder="e.g., Opening Ceremony Highlights" value={mediaCaption} onChange={(e) => setMediaCaption(e.target.value)} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600" /></div>
@@ -1604,7 +1610,12 @@ function CategoryRow({ category, onUpdate, onDelete }: { category: Category, onU
                 <div className="md:col-span-1"><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1"><Users className="w-3 h-3 inline" /> Max per Registration</label><input type="number" min="1" max="20" value={maxPerReg} onChange={(e) => { setMaxPerReg(Math.max(1, Number(e.target.value))); setIsChanged(true); }} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
                 <div className="md:col-span-1 pt-5"><label className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-neutral-700"><input type="checkbox" checked={showAvail} onChange={(e) => { setShowAvail(e.target.checked); setIsChanged(true); }} className="w-4 h-4 text-orange-600 rounded border-neutral-300 focus:ring-orange-600" />Show Availability</label></div>
 
-                <div className="md:col-span-2"><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Media URL</label><input type="text" value={mediaUrl} onChange={(e) => { setMediaUrl(e.target.value); setIsChanged(true); }} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
+                <div className="md:col-span-2"><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Media URL</label>
+                    <div className="flex gap-2">
+                        <input type="text" value={mediaUrl} onChange={(e) => { setMediaUrl(e.target.value); setIsChanged(true); }} placeholder="https://... or upload →" className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" />
+                        <ImageUpload onUploaded={(url) => { setMediaUrl(url); setIsChanged(true); }} />
+                    </div>
+                </div>
                 <div className="md:col-span-2"><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Short Summary (EN)</label><input type="text" value={desc} onChange={(e) => { setDesc(e.target.value); setIsChanged(true); }} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
                 <div className="md:col-span-2"><label className="block text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1">संक्षिप्त विवरण (HI)</label><input type="text" value={descHi} onChange={(e) => { setDescHi(e.target.value); setIsChanged(true); }} className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg bg-blue-50/30 focus:outline-none focus:border-blue-500 focus:bg-white transition" /></div>
                 <div className="md:col-span-2"><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Detailed Perks (EN)</label><textarea value={detailedDesc} onChange={(e) => { setDetailedDesc(e.target.value); setIsChanged(true); }} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition h-16 resize-none" /></div>
@@ -1680,6 +1691,7 @@ function EventRow({ event, onSetActive, onUpdate, onDelete }: {
     const [instagramUrl, setInstagramUrl] = useState(event.instagram_url || '');
     const [facebookUrl, setFacebookUrl] = useState(event.facebook_url || '');
     const [youtubeUrl, setYoutubeUrl] = useState(event.youtube_url || '');
+    const [heroImageUrl, setHeroImageUrl] = useState(event.hero_image_url || '');
     const [isChanged, setIsChanged] = useState(false);
 
     const handleSave = () => {
@@ -1693,6 +1705,7 @@ function EventRow({ event, onSetActive, onUpdate, onDelete }: {
             instagram_url: instagramUrl || null,
             facebook_url: facebookUrl || null,
             youtube_url: youtubeUrl || null,
+            hero_image_url: heroImageUrl || null,
         });
         setIsChanged(false);
     };
@@ -1754,6 +1767,19 @@ function EventRow({ event, onSetActive, onUpdate, onDelete }: {
                         <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Instagram URL</label><input type="url" value={instagramUrl} onChange={e => { setInstagramUrl(e.target.value); track(); }} placeholder="https://instagram.com/..." className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
                         <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Facebook URL</label><input type="url" value={facebookUrl} onChange={e => { setFacebookUrl(e.target.value); track(); }} placeholder="https://facebook.com/..." className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
                         <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">YouTube URL</label><input type="url" value={youtubeUrl} onChange={e => { setYoutubeUrl(e.target.value); track(); }} placeholder="https://youtube.com/@..." className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Hero Background Image</label>
+                        <p className="text-xs text-neutral-400 mb-1.5">Shown behind the homepage hero title (a dark overlay is applied automatically). Optional — leave blank for the plain saffron gradient.</p>
+                        <div className="flex gap-2 items-start">
+                            {heroImageUrl && (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={heroImageUrl} alt="Hero preview" className="w-24 h-14 object-cover rounded-lg border border-neutral-200 flex-shrink-0" />
+                            )}
+                            <input type="url" value={heroImageUrl} onChange={e => { setHeroImageUrl(e.target.value); track(); }} placeholder="https://... or upload →" className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" />
+                            <ImageUpload onUploaded={(url) => { setHeroImageUrl(url); track(); }} />
+                            {heroImageUrl && <button type="button" onClick={() => { setHeroImageUrl(''); track(); }} className="px-3 py-2 text-sm font-semibold rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 transition">Clear</button>}
+                        </div>
                     </div>
                     <div className="flex justify-end pt-2 border-t border-neutral-100">
                         <button onClick={handleSave} disabled={!isChanged} className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all ${isChanged ? 'bg-orange-600 text-white shadow-md hover:bg-orange-700' : 'bg-neutral-100 text-neutral-400 cursor-not-allowed border border-neutral-200'}`}><Save className="w-4 h-4" />{isChanged ? 'Save Changes' : 'Up to date'}</button>

@@ -66,6 +66,7 @@ export async function PATCH(request) {
             'title_hi', 'short_description_hi', 'long_description_hi',
             'date_time', 'date_time_hi', 'venue', 'venue_hi', 'map_url',
             'start_at', 'end_at', 'contact_phone', 'hero_image_url',
+            'instagram_url', 'facebook_url', 'youtube_url',
         ];
         const sanitized = {};
         for (const key of allowed) {
