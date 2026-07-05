@@ -16,9 +16,9 @@ function Bars({ series, max, color, fmt }) {
     return (
         <div className="flex items-end gap-1 h-28">
             {series.map((d) => (
-                <div key={d.k} className="flex-1 flex flex-col items-center gap-1 group">
-                    <div className="w-full flex items-end justify-center h-full">
-                        <div className={`w-full rounded-t ${color} transition-all group-hover:opacity-80`} style={{ height: `${(d.v / max) * 100}%`, minHeight: d.v > 0 ? "3px" : "0" }} title={`${shortDay(d.k)}: ${fmt(d.v)}`} />
+                <div key={d.k} className="flex-1 h-full flex flex-col items-center gap-1 group">
+                    <div className="w-full flex-1 flex items-end justify-center">
+                        <div className={`w-full rounded-t ${color} transition-all group-hover:opacity-80`} style={{ height: `${(d.v / max) * 100}%`, minHeight: d.v > 0 ? "4px" : "0" }} title={`${shortDay(d.k)}: ${fmt(d.v)}`} />
                     </div>
                     <span className="text-[9px] text-neutral-400">{shortDay(d.k).split("/")[0]}</span>
                 </div>
