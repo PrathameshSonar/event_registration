@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Save, Banknote } from "lucide-react";
+import { toast } from "@/lib/uiStore";
 
 const METHODS = [
     { key: "bank_transfer", label: "Bank Transfer (NEFT/RTGS/UPI)" },
@@ -42,7 +43,8 @@ export default function PaymentSettingsManager() {
             body: JSON.stringify({ bank_details: s }),
         });
         setSaving(false);
-        if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || "Save failed."); return; }
+        if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d.error || "Save failed."); return; }
+        toast.success("Payment details saved.");
         setSavedMsg("Saved!"); setTimeout(() => setSavedMsg(""), 2000);
     };
 

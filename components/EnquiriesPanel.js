@@ -8,6 +8,7 @@
 
 import { useState, useCallback } from "react";
 import { RefreshCw, IndianRupee, MessageSquarePlus, X, Copy, Check, Ban, Undo2 } from "lucide-react";
+import { toast, confirmDialog, promptDialog } from "@/lib/uiStore";
 
 const SECTIONS = [
     { key: "enquired", label: "🆕 New" },
@@ -72,7 +73,7 @@ export default function EnquiriesPanel({ registrations = [], isAdmin = false, on
             body: JSON.stringify({ registrationId: openReg.id, note: noteText.trim() }),
         });
         setBusyId(null);
-        if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || "Could not save note."); return; }
+        if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d.error || "Could not save note."); return; }
         setNoteText("");
         await loadNotes(openReg.id);
         // First note on a brand-new enquiry advances it to Contacted.
@@ -87,7 +88,7 @@ export default function EnquiriesPanel({ registrations = [], isAdmin = false, on
     };
 
     const requestPayment = async (reg) => {
-        if (!confirm(`Send a payment link for “${reg.categories?.title || "this tier"}” to ${reg.first_name} ${reg.last_name}?`)) return;
+        if (!(await confirmDialog({ title: "Request payment", message: `Send a payment link for “${reg.categories?.title || "this tier"}” to ${reg.first_name} ${reg.last_name}?`, confirmLabel: "Send" }))) return;
         setBusyId(reg.id);
         const res = await fetch("/api/admin/request-enquiry-payment", {
             method: "POST", headers: { "Content-Type": "application/json" },
@@ -95,8 +96,8 @@ export default function EnquiriesPanel({ registrations = [], isAdmin = false, on
         });
         const data = await res.json().catch(() => ({}));
         setBusyId(null);
-        if (!res.ok) { alert(data.error || "Could not request payment."); return; }
-        alert("✅ Payment link sent by email & WhatsApp.");
+        if (!res.ok) { toast.error(data.error || "Could not request payment."); return; }
+        toast.success("✅ Payment link sent by email & WhatsApp.");
         onChanged?.();
     };
 
@@ -108,13 +109,14 @@ export default function EnquiriesPanel({ registrations = [], isAdmin = false, on
         });
         const data = await res.json().catch(() => ({}));
         setBusyId(null);
-        if (!res.ok) { alert(data.error || "Sync failed."); return; }
-        alert(data.completed ? "✅ Verified on Razorpay — marked Paid." : (data.message || "Not paid yet."));
+        if (!res.ok) { toast.error(data.error || "Sync failed."); return; }
+        if (data.completed) toast.success("✅ Verified on Razorpay — marked Paid.");
+        else toast.info(data.message || "Not paid yet.");
         onChanged?.();
     };
 
     const closeLead = async (reg) => {
-        const reason = prompt("Reason for closing this lead (saved as a note):", "Not interested");
+        const reason = await promptDialog({ title: "Close lead", message: "Reason for closing this lead (saved as a note):", defaultValue: "Not interested", confirmLabel: "Close" });
         if (reason === null) return;
         setBusyId(reg.id);
         if (reason.trim()) {
@@ -128,7 +130,8 @@ export default function EnquiriesPanel({ registrations = [], isAdmin = false, on
             body: JSON.stringify({ id: reg.id, status: "closed" }),
         });
         setBusyId(null);
-        if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || "Could not close."); return; }
+        if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d.error || "Could not close."); return; }
+        toast.success("Lead closed.");
         onChanged?.();
     };
 
@@ -139,7 +142,8 @@ export default function EnquiriesPanel({ registrations = [], isAdmin = false, on
             body: JSON.stringify({ id: reg.id, status: "contacted" }),
         });
         setBusyId(null);
-        if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || "Could not reopen."); return; }
+        if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d.error || "Could not reopen."); return; }
+        toast.success("Lead reopened.");
         onChanged?.();
     };
 

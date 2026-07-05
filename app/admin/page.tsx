@@ -6,7 +6,7 @@ import {
     Lock, Download, Users, IndianRupee, Activity, Eye, X, Settings, ListFilter,
     Save, Trash2, Plus, Image as ImageIcon, Video, CalendarDays,
     Ticket, Calendar as CalendarIcon, Search, LogOut, QrCode, Copy, Check,
-    LayoutDashboard, ScrollText, RefreshCw, MessageSquare
+    LayoutDashboard, ScrollText, RefreshCw, MessageSquare, Pencil, Mail, Undo2
 } from 'lucide-react';
 import { youtubeThumbnail } from '@/lib/youtube';
 import FormFieldsManager from '@/components/FormFieldsManager';
@@ -15,6 +15,9 @@ import AuditLogPanel from '@/components/AuditLogPanel';
 import EnquiriesPanel from '@/components/EnquiriesPanel';
 import PaymentSettingsManager from '@/components/PaymentSettingsManager';
 import ScanLogPanel from '@/components/ScanLogPanel';
+import Toaster from '@/components/Toaster';
+import EditRegistrationModal from '@/components/EditRegistrationModal';
+import { toast, confirmDialog, promptDialog } from '@/lib/uiStore';
 
 type Role = 'admin' | 'viewer';
 type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'enquired' | 'contacted' | 'amount_mismatch' | 'advance_paid' | 'awaiting_payment' | 'closed' | 'payment_review' | 'cheque_received' | 'payment_rejected';
@@ -183,7 +186,7 @@ export default function AdminDashboard() {
     const handleCreateCheckpoint = async (e: React.FormEvent) => {
         e.preventDefault(); if (!newCpName.trim()) return; setSaving(true);
         const res = await fetch('/api/admin/checkpoints', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newCpName.trim(), sort_order: checkpointsList.length }) });
-        if (res.ok) { setNewCpName(''); await fetchCheckpoints(); } else alert('Failed to create checkpoint');
+        if (res.ok) { setNewCpName(''); await fetchCheckpoints(); } else toast.error('Failed to create checkpoint');
         setSaving(false);
     };
     const handleToggleCheckpoint = async (id: string, is_active: boolean) => {
@@ -192,7 +195,7 @@ export default function AdminDashboard() {
         await fetchCheckpoints(); setSaving(false);
     };
     const handleDeleteCheckpoint = async (id: string, name: string) => {
-        if (!confirm(`Delete checkpoint "${name}"? All scan records for this checkpoint will also be deleted.`)) return;
+        if (!(await confirmDialog({ title: 'Delete checkpoint', message: `Delete checkpoint "${name}"? All scan records for this checkpoint will also be deleted.`, danger: true, confirmLabel: 'Delete' }))) return;
         setSaving(true);
         await fetch('/api/admin/checkpoints', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
         await fetchCheckpoints(); setSaving(false);
@@ -297,18 +300,18 @@ export default function AdminDashboard() {
     };
 
     // Prompt for the admin password to authorize a destructive action.
-    const confirmWithPassword = (message: string): string | null => {
-        if (!confirm(message)) return null;
-        const pwd = prompt('Re-enter the admin password to authorize this deletion:');
+    const confirmWithPassword = async (message: string): Promise<string | null> => {
+        if (!(await confirmDialog({ title: 'Confirm', message, danger: true, confirmLabel: 'Continue' }))) return null;
+        const pwd = await promptDialog({ title: 'Admin password', message: 'Re-enter the admin password to authorize this deletion:', inputType: 'password', required: true, confirmLabel: 'Authorize' });
         return pwd && pwd.length ? pwd : null;
     };
 
     // ----- Registrations -----
     const handleUpdateStatus = async (id: string, newStatus: string) => {
-        if (!confirm(`Change this registration's status to ${newStatus.toUpperCase()}?`)) return;
+        if (!(await confirmDialog({ title: 'Change status', message: `Change this registration's status to ${newStatus.toUpperCase()}?` }))) return;
         setSaving(true);
         const { ok, data } = await mutate('/api/admin/registrations', 'PATCH', { id, status: newStatus });
-        if (!ok) alert(data.error || 'Failed to update status.'); else await fetchAllData();
+        if (!ok) toast.error(data.error || 'Failed to update status.'); else { toast.success('Status updated.'); await fetchAllData(); }
         setSaving(false);
     };
 
@@ -323,7 +326,7 @@ export default function AdminDashboard() {
             map_url: newEventMapUrl || null,
             makeActive: eventsList.length === 0,
         });
-        if (!ok) alert(data.error || 'Failed to create event.');
+        if (!ok) toast.error(data.error || 'Failed to create event.');
         else {
             setNewEventTitle(''); setNewEventShort(''); setNewEventLong('');
             setNewEventTitleHi(''); setNewEventShortHi(''); setNewEventLongHi('');
@@ -335,22 +338,22 @@ export default function AdminDashboard() {
         setSaving(false);
     };
     const handleSetEventActive = async (id: string) => {
-        if (!confirm('Set this as the main Home Page event?')) return; setSaving(true);
+        if (!(await confirmDialog({ title: 'Set live event', message: 'Set this as the main Home Page event?' }))) return; setSaving(true);
         const { ok, data } = await mutate('/api/admin/events', 'PATCH', { id, setActive: true });
-        if (!ok) alert(data.error || 'Failed.'); else await fetchAllData();
+        if (!ok) toast.error(data.error || 'Failed.'); else await fetchAllData();
         setSaving(false);
     };
     const handleUpdateEvent = async (id: string, updates: Partial<EventItem>) => {
         setSaving(true);
         const { ok, data } = await mutate('/api/admin/events', 'PATCH', { id, updates });
-        if (!ok) alert(data.error || 'Update failed.'); else await fetchAllData();
+        if (!ok) toast.error(data.error || 'Update failed.'); else await fetchAllData();
         setSaving(false);
     };
     const handleDeleteEvent = async (id: string, title: string) => {
-        const pwd = confirmWithPassword(`Delete "${title}"? This cannot be undone.`);
+        const pwd = await confirmWithPassword(`Delete "${title}"? This cannot be undone.`);
         if (!pwd) return; setSaving(true);
         const { ok, data } = await mutate('/api/admin/events', 'DELETE', { id, password: pwd });
-        if (!ok) alert(data.error || 'Delete failed.'); else await fetchAllData();
+        if (!ok) toast.error(data.error || 'Delete failed.'); else await fetchAllData();
         setSaving(false);
     };
 
@@ -366,10 +369,10 @@ export default function AdminDashboard() {
         const alreadySent = paid.length - paid.filter(r => !r.qr_sent_at).length;
 
         if (targets.length === 0) {
-            alert(
+            toast.error(
                 paid.length === 0
                     ? 'None of the selected registrations are fully Paid. QR passes are only sent to Paid registrations.'
-                    : `All ${paid.length} Paid registration(s) selected have already received a QR. Tick "Resend to already-sent" to send again.`
+                    : `All ${paid.length} Paid registration(s) selected already received a QR. Tick "Resend to already-sent" to send again.`
             );
             return;
         }
@@ -378,27 +381,50 @@ export default function AdminDashboard() {
         if (notPaid > 0) lines.push(`• ${notPaid} not Paid — will be skipped.`);
         if (!resendQr && alreadySent > 0) lines.push(`• ${alreadySent} already received a QR — will be skipped.`);
         if (resendQr && alreadySent > 0) lines.push(`• ${alreadySent} will be RE-SENT a QR.`);
-        if (!confirm(lines.join('\n'))) return;
+        if (!(await confirmDialog({ title: 'Send QR passes', message: lines.join('\n'), confirmLabel: 'Send' }))) return;
 
         setSendingQr(true);
         const { ok, data } = await mutate('/api/admin/send-qr', 'POST', { registrationIds: targets.map(r => r.id) });
         setSendingQr(false);
-        if (!ok) { alert(data.error || 'Failed to send QR codes.'); return; }
-        alert(`QR codes sent!\n✉️ Email: ${data.emailSent} sent, ${data.emailFailed} failed\n📱 WhatsApp: ${data.waSent} sent, ${data.waFailed} failed`);
+        if (!ok) { toast.error(data.error || 'Failed to send QR codes.'); return; }
+        toast.success(`QR codes sent — ✉️ ${data.emailSent} email, 📱 ${data.waSent} WhatsApp${data.emailFailed || data.waFailed ? ` (${data.emailFailed + data.waFailed} failed)` : ''}.`);
         setSelectedIds(new Set());
         setResendQr(false);
         await fetchAllData();
     };
 
     const handleClearPending = async () => {
-        const hours = prompt('Mark pending checkouts older than how many hours as Failed (abandoned)?', '24');
+        const hours = await promptDialog({ title: 'Clear abandoned pending', message: 'Mark pending checkouts older than how many hours as Failed?', defaultValue: '24', inputType: 'number', required: true });
         if (hours === null) return;
         const h = Math.max(1, Number(hours) || 24);
-        if (!confirm(`Mark all pending registrations older than ${h}h as Failed?\nThey move to the Failed tab (records are kept, not deleted).`)) return;
+        if (!(await confirmDialog({ title: 'Clear abandoned pending', message: `Mark all pending registrations older than ${h}h as Failed?\nThey move to the Failed tab (records are kept, not deleted).`, confirmLabel: 'Clear' }))) return;
         const { ok, data } = await mutate('/api/admin/clear-pending', 'POST', { olderThanHours: h });
-        if (!ok) { alert(data.error || 'Cleanup failed.'); return; }
-        alert(`${data.count} abandoned pending checkout(s) marked as Failed.`);
+        if (!ok) { toast.error(data.error || 'Cleanup failed.'); return; }
+        toast.success(`${data.count} abandoned pending checkout(s) marked as Failed.`);
         await fetchAllData();
+    };
+
+    // ----- Manage a registration (edit / refund / resend confirmation) -----
+    const [editingReg, setEditingReg] = useState<Registration | null>(null);
+    const [managingId, setManagingId] = useState<string | null>(null);
+    const handleRefund = async (reg: Registration) => {
+        const amt = await promptDialog({ title: 'Refund', message: `Refund amount (₹). Leave the full amount for a full refund; the tier total is ₹${reg.total_amount}.`, defaultValue: String(reg.total_amount || ''), inputType: 'number', required: true, confirmLabel: 'Refund' });
+        if (amt === null) return;
+        if (!(await confirmDialog({ title: 'Confirm refund', message: `Refund ₹${Number(amt).toLocaleString('en-IN')} via Razorpay? This cannot be undone.`, danger: true, confirmLabel: 'Refund' }))) return;
+        setManagingId(reg.id);
+        const { ok, data } = await mutate('/api/admin/refund', 'POST', { id: reg.id, amount: Number(amt) });
+        setManagingId(null);
+        if (!ok) { toast.error(data.error || 'Refund failed.'); return; }
+        toast.success(data.full ? 'Full refund issued — marked Refunded.' : 'Partial refund issued.');
+        setSelectedRegistration(null);
+        await fetchAllData();
+    };
+    const handleResendConfirmation = async (reg: Registration) => {
+        setManagingId(reg.id);
+        const { ok, data } = await mutate('/api/admin/resend-confirmation', 'POST', { id: reg.id });
+        setManagingId(null);
+        if (!ok) { toast.error(data.error || 'Failed to resend.'); return; }
+        toast.success(`Confirmation re-sent to ${reg.email}.`);
     };
 
     // ----- Offline payment verification -----
@@ -406,43 +432,46 @@ export default function AdminDashboard() {
     const viewProof = async (id: string) => {
         const res = await fetch(`/api/admin/payment-proof/${id}`);
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) { alert(data.error || 'No proof on file.'); return; }
+        if (!res.ok) { toast.error(data.error || 'No proof on file.'); return; }
         window.open(data.url, '_blank', 'noopener');
     };
     const handleVerifyPayment = async (reg: Registration, action: string) => {
         const body: Record<string, unknown> = { id: reg.id, action };
         if (action === 'approve' || action === 'cheque_cleared') {
-            const amt = prompt('Amount received (₹):', String(reg.total_amount || ''));
+            const amt = await promptDialog({ title: 'Confirm payment', message: 'Amount received (₹):', defaultValue: String(reg.total_amount || ''), inputType: 'number', required: true, confirmLabel: 'Approve' });
             if (amt === null) return;
             body.amount = Number(amt);
         } else if (action === 'reject') {
-            const reason = prompt('Reason for rejection (sent to the customer):', '');
+            const reason = await promptDialog({ title: 'Reject payment', message: 'Reason for rejection (sent to the customer):', placeholder: 'e.g. UTR not found', confirmLabel: 'Reject' });
             if (reason === null) return;
             body.note = reason;
         } else if (action === 'cheque_received') {
-            if (!confirm('Mark the cheque as received (awaiting clearance)?')) return;
+            if (!(await confirmDialog({ title: 'Cheque received', message: 'Mark the cheque as received (awaiting clearance)?' }))) return;
         } else if (action === 'cheque_bounced' || action === 'reverse') {
-            if (!confirm(action === 'reverse' ? 'Reverse this payment? The seat will be released.' : 'Mark this cheque as bounced?')) return;
-            body.note = prompt('Note (optional):', '') || '';
+            if (!(await confirmDialog({ title: action === 'reverse' ? 'Reverse payment' : 'Cheque bounced', message: action === 'reverse' ? 'Reverse this payment? The seat will be released.' : 'Mark this cheque as bounced?', danger: true, confirmLabel: 'Confirm' }))) return;
+            body.note = (await promptDialog({ title: 'Note', message: 'Note (optional):' })) || '';
         }
         setVerifyingId(reg.id);
         const { ok, data } = await mutate('/api/admin/verify-payment', 'POST', body);
         setVerifyingId(null);
-        if (!ok) { alert(data.error || 'Action failed.'); return; }
-        if (data.status === 'amount_mismatch') alert('⚠️ Recorded amount is short of the tier price — flagged as Amount Mismatch (not marked Paid).');
+        if (!ok) { toast.error(data.error || 'Action failed.'); return; }
+        if (data.status === 'amount_mismatch') toast.error('⚠️ Recorded amount is short of the tier price — flagged as Amount Mismatch (not marked Paid).');
+        else toast.success('Done.');
         await fetchAllData();
     };
     const handleRecordOffline = async (reg: Registration) => {
-        const method = prompt('Payment method — bank_transfer / cheque / cash / dd:', 'cash');
-        if (!method || !['bank_transfer', 'cheque', 'cash', 'dd'].includes(method)) { if (method !== null) alert('Invalid method.'); return; }
-        const amt = prompt('Amount received (₹):', String(reg.total_amount || ''));
+        const method = await promptDialog({ title: 'Record offline payment', message: 'Payment method — bank_transfer / cheque / cash / dd:', defaultValue: 'cash', required: true });
+        if (!method) return;
+        if (!['bank_transfer', 'cheque', 'cash', 'dd'].includes(method)) { toast.error('Invalid method.'); return; }
+        const amt = await promptDialog({ title: 'Record offline payment', message: 'Amount received (₹):', defaultValue: String(reg.total_amount || ''), inputType: 'number', required: true });
         if (amt === null) return;
-        const reference = prompt('Reference (UTR / cheque no / receipt no) — optional:', '') || '';
+        const reference = (await promptDialog({ title: 'Record offline payment', message: 'Reference (UTR / cheque no / receipt no) — optional:' })) || '';
         setVerifyingId(reg.id);
         const { ok, data } = await mutate('/api/admin/verify-payment', 'POST', { id: reg.id, action: 'record', method, amount: Number(amt), reference });
         setVerifyingId(null);
-        if (!ok) { alert(data.error || 'Failed.'); return; }
-        if (data.status === 'amount_mismatch') alert('⚠️ Amount is short of the tier price — flagged as Amount Mismatch.');
+        if (!ok) { toast.error(data.error || 'Failed.'); return; }
+        if (data.status === 'amount_mismatch') toast.error('⚠️ Amount is short of the tier price — flagged as Amount Mismatch.');
+        else toast.success('Payment recorded — marked Paid.');
         await fetchAllData();
     };
 
@@ -463,12 +492,12 @@ export default function AdminDashboard() {
         setTimeout(() => setCopiedLink(false), 2000);
     };
     const handleResendBalance = async (id: string) => {
-        if (!confirm('Re-send the balance payment link by email & WhatsApp?')) return;
+        if (!(await confirmDialog({ title: 'Re-send balance link', message: 'Re-send the balance payment link by email & WhatsApp?', confirmLabel: 'Send' }))) return;
         setResendingId(id);
         const { ok, data } = await mutate('/api/admin/resend-balance', 'POST', { id });
         setResendingId(null);
-        if (!ok) { alert(data.error || 'Failed to send balance link.'); return; }
-        alert(`Balance link sent.\n✉️ Email: ${data.emailed ? 'yes' : 'no'}  📱 WhatsApp: ${data.waSent ? 'yes' : 'no'}`);
+        if (!ok) { toast.error(data.error || 'Failed to send balance link.'); return; }
+        toast.success(`Balance link sent — ✉️ ${data.emailed ? 'email' : 'no email'}, 📱 ${data.waSent ? 'WhatsApp' : 'no WhatsApp'}.`);
     };
 
     // Re-check a balance payment against Razorpay; completes the registration if
@@ -478,18 +507,18 @@ export default function AdminDashboard() {
         setSyncingId(id);
         const { ok, data } = await mutate('/api/admin/reconcile-balance', 'POST', { id });
         setSyncingId(null);
-        if (!ok) { alert(data.error || 'Failed to sync with Razorpay.'); return; }
+        if (!ok) { toast.error(data.error || 'Failed to sync with Razorpay.'); return; }
         if (data.completed) {
-            alert(data.alreadyCompleted ? 'Already marked as paid.' : '✅ Payment verified on Razorpay — registration marked as Paid.');
+            toast.success(data.alreadyCompleted ? 'Already marked as paid.' : '✅ Payment verified on Razorpay — marked as Paid.');
             await fetchAllData();
         } else if (data.status === 'advance_recorded') {
-            alert('✅ Verified on Razorpay — advance recorded. Balance payment link re-sent.');
+            toast.success('✅ Verified — advance recorded. Balance link re-sent.');
             await fetchAllData();
         } else if (data.status === 'amount_mismatch') {
-            alert(`⚠️ ${data.message}`);
+            toast.error(`⚠️ ${data.message}`);
             await fetchAllData();
         } else {
-            alert(data.message || 'Balance is not paid on Razorpay yet.');
+            toast.info(data.message || 'Balance is not paid on Razorpay yet.');
         }
     };
 
@@ -502,7 +531,7 @@ export default function AdminDashboard() {
             max_capacity: Number(newCatCapacity), show_availability: newCatShowAvail,
             event_id: newCatEventId || null,
         });
-        if (!ok) alert(data.error || 'Failed to create tier.');
+        if (!ok) toast.error(data.error || 'Failed to create tier.');
         else {
             setNewCatTitle(''); setNewCatPrice(''); setNewCatDesc('');
             setNewCatIsEnquiry(false); setNewCatAllowEnquiry(false); setNewCatCapacity('0'); setNewCatShowAvail(false);
@@ -513,26 +542,28 @@ export default function AdminDashboard() {
     const handleUpdateCategory = async (id: string, updates: Partial<Category>) => {
         setSaving(true);
         const { ok, data } = await mutate('/api/admin/categories', 'PATCH', { id, updates });
-        if (!ok) alert(data.error || 'Update failed.'); else { await fetchAllData(); alert('Tier parameters updated successfully.'); }
+        if (!ok) toast.error(data.error || 'Update failed.'); else { await fetchAllData(); toast.success('Tier updated.'); }
         setSaving(false);
     };
     const handleDeleteCategory = async (id: string, title: string) => {
-        const password = prompt(`Enter admin password to delete "${title}":`);
+        const password = await promptDialog({ title: 'Delete tier', message: `Enter admin password to delete "${title}":`, inputType: 'password', required: true, confirmLabel: 'Delete' });
         if (!password) return;
         setSaving(true);
         // First attempt (no force — server checks for paid registrations)
         const { ok, data, status } = await mutate('/api/admin/categories', 'DELETE', { id, password });
         if (!ok && status === 409 && data.hasPaid) {
-            const confirmed = confirm(
-                `⚠️ "${title}" has ${data.count} paid registration(s).\n\nDeleting will orphan those records (they stay in the DB but show "Deleted Tier").\n\nProceed anyway?`
-            );
+            const confirmed = await confirmDialog({
+                title: 'Tier has paid registrations',
+                message: `⚠️ "${title}" has ${data.count} paid registration(s).\n\nDeleting will orphan those records (they stay in the DB but show "Deleted Tier").\n\nProceed anyway?`,
+                danger: true, confirmLabel: 'Delete anyway',
+            });
             if (confirmed) {
                 const forced = await mutate('/api/admin/categories', 'DELETE', { id, password, force: true });
-                if (!forced.ok) alert(forced.data.error || 'Delete failed.');
-                else await fetchAllData();
+                if (!forced.ok) toast.error(forced.data.error || 'Delete failed.');
+                else { toast.success('Tier deleted.'); await fetchAllData(); }
             }
         } else if (!ok) {
-            alert(data.error || 'Delete failed.');
+            toast.error(data.error || 'Delete failed.');
         } else {
             await fetchAllData();
         }
@@ -542,20 +573,20 @@ export default function AdminDashboard() {
     // ----- Media -----
     const handleAddMedia = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!mediaUrl || !mediaEventId) return alert('Select an event to link this media to.');
+        if (!mediaUrl || !mediaEventId) { toast.error('Select an event to link this media to.'); return; }
         setSaving(true);
         const { ok, data } = await mutate('/api/admin/media', 'POST', {
             media_type: mediaType, url: mediaUrl, caption: mediaCaption, event_id: mediaEventId,
         });
-        if (!ok) alert(data.error || 'Failed to add media.');
+        if (!ok) toast.error(data.error || 'Failed to add media.');
         else { setMediaUrl(''); setMediaCaption(''); await fetchAllData(); }
         setSaving(false);
     };
     const handleDeleteMedia = async (id: string) => {
-        const pwd = confirmWithPassword('Delete this media asset?');
+        const pwd = await confirmWithPassword('Delete this media asset?');
         if (!pwd) return; setSaving(true);
         const { ok, data } = await mutate('/api/admin/media', 'DELETE', { id, password: pwd });
-        if (!ok) alert(data.error || 'Delete failed.'); else await fetchAllData();
+        if (!ok) toast.error(data.error || 'Delete failed.'); else await fetchAllData();
         setSaving(false);
     };
 
@@ -630,8 +661,22 @@ export default function AdminDashboard() {
             new Date(reg.created_at).toLocaleDateString(), reg.payment_status.toUpperCase(), reg.salutation || '', reg.first_name || '', reg.last_name || '', reg.gotra || '', reg.gender || '', reg.date_of_birth || '', reg.phone || '', reg.email || '', reg.pincode || '', reg.taluka || '', reg.state || '', reg.categories?.title || 'Deleted Tier', reg.attendees_count || 1, reg.donation_amount || 0, reg.total_amount || 0, `"${(reg.problem_samasya || '').replace(/"/g, '""')}"`, reg.razorpay_payment_id || 'N/A'
         ]);
         const csvContent = [headers.join(","), ...csvData.map(row => row.join(","))].join("\n");
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `BaglaBhairav_Registrations_${new Date().toISOString().split('T')[0]}.csv`; link.click();
+    };
+
+    // Excel export — a real .xls (Excel-native HTML table) with the same filtered
+    // rows, no extra dependency. Includes payment mode + reference.
+    const downloadExcel = () => {
+        const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const headers = ["Date", "Status", "Title", "First Name", "Last Name", "Gotra", "Gender", "DOB", "Phone", "Email", "Pincode", "Taluka", "State", "Category", "Attendees", "Donation", "Total", "Payment Mode", "Reference", "Issue/Samasya", "Razorpay ID"];
+        const rows = filteredRegistrations.map(reg => [
+            new Date(reg.created_at).toLocaleString('en-IN'), STATUS_LABEL[reg.payment_status], reg.salutation || '', reg.first_name || '', reg.last_name || '', reg.gotra || '', reg.gender || '', reg.date_of_birth || '', reg.phone || '', reg.email || '', reg.pincode || '', reg.taluka || '', reg.state || '', reg.categories?.title || 'Deleted Tier', reg.attendees_count || 1, reg.donation_amount || 0, reg.total_amount || 0, PAYMENT_MODE_LABEL[reg.payment_method || 'razorpay'] || 'Online', reg.offline_reference || '', reg.problem_samasya || '', reg.razorpay_payment_id || '',
+        ]);
+        const table = `<table border="1"><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+        const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body>${table}</body></html>`;
+        const blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel' });
+        const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `BaglaBhairav_Registrations_${new Date().toISOString().split('T')[0]}.xls`; link.click();
     };
 
     // Shared between the desktop table row and the mobile card so both stay in sync.
@@ -735,6 +780,7 @@ export default function AdminDashboard() {
 
     return (
         <div className="min-h-screen bg-neutral-50 p-4 md:p-8 font-sans text-neutral-900 [color-scheme:light]">
+            <Toaster />
 
             <div className="max-w-7xl mx-auto mb-6 flex flex-wrap items-center justify-between gap-3">
                 {activeEvent ? (
@@ -875,8 +921,23 @@ export default function AdminDashboard() {
                                 )}
                             </div>
                         </div>
+                        {isAdmin && (
+                            <div className="px-6 py-4 border-t border-neutral-200 bg-neutral-50 flex flex-wrap gap-2 justify-end">
+                                <button onClick={() => setEditingReg(selectedRegistration)} className="inline-flex items-center gap-1.5 px-3 py-2 border border-neutral-300 rounded-lg text-sm font-semibold text-neutral-700 hover:bg-neutral-100 transition"><Pencil className="w-4 h-4" /> Edit details</button>
+                                {selectedRegistration.payment_status === 'completed' && (
+                                    <>
+                                        <button onClick={() => handleResendConfirmation(selectedRegistration)} disabled={managingId === selectedRegistration.id} className="inline-flex items-center gap-1.5 px-3 py-2 border border-neutral-300 rounded-lg text-sm font-semibold text-neutral-700 hover:bg-neutral-100 transition disabled:opacity-50"><Mail className="w-4 h-4" /> Resend confirmation</button>
+                                        <button onClick={() => handleRefund(selectedRegistration)} disabled={managingId === selectedRegistration.id} className="inline-flex items-center gap-1.5 px-3 py-2 border border-rose-200 rounded-lg text-sm font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 transition disabled:opacity-50"><Undo2 className="w-4 h-4" /> Refund</button>
+                                    </>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
+            )}
+
+            {editingReg && (
+                <EditRegistrationModal reg={editingReg} onClose={() => setEditingReg(null)} onSaved={async () => { setSelectedRegistration(null); await fetchAllData(); }} />
             )}
 
             <div className="max-w-7xl mx-auto mb-8 border-b border-neutral-200 pb-6 flex flex-col gap-4">
@@ -977,7 +1038,8 @@ export default function AdminDashboard() {
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                                     <input type="text" placeholder="Search name, gotra, or phone..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="w-full pl-10 pr-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600" />
                                 </div>
-                                <button onClick={downloadCSV} className="bg-neutral-900 hover:bg-orange-600 text-white px-5 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><Download className="w-4 h-4" /> Export CSV</button>
+                                <button onClick={downloadCSV} className="bg-neutral-900 hover:bg-orange-600 text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><Download className="w-4 h-4" /> CSV</button>
+                                <button onClick={downloadExcel} className="bg-neutral-900 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><Download className="w-4 h-4" /> Excel</button>
                             </div>
                             <div className="flex flex-wrap gap-3 items-center">
                                 <div className="flex items-center gap-2 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus-within:border-orange-600 transition flex-wrap"><CalendarIcon className="w-4 h-4 text-neutral-400 flex-shrink-0" /><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-transparent focus:outline-none text-neutral-600 min-w-0" /><span className="text-neutral-400">–</span><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="bg-transparent focus:outline-none text-neutral-600 min-w-0" /></div>

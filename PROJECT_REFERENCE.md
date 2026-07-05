@@ -382,7 +382,9 @@ A second, human-verified completion path alongside online Razorpay.
 **Admin (session required; most `requireAdmin: true`):**
 - `POST /api/admin/login`, `POST /api/admin/logout`.
 - `GET /api/admin/data` — dashboard data (any role).
-- `PATCH /api/admin/registrations` — change status (rejects terminal/locked).
+- `PATCH /api/admin/registrations` — change status (`{id,status}`, rejects terminal/locked) OR edit personal/contact/custom fields (`{id,updates}`, allowed on any row).
+- `POST /api/admin/refund` — Razorpay refund (full/partial); full → `refunded`.
+- `POST /api/admin/resend-confirmation` — re-send the confirmation email/WhatsApp for a completed reg.
 - `POST|PATCH|DELETE /api/admin/categories` — tiers (DELETE needs password).
 - `POST|PATCH|DELETE /api/admin/events` — events (+ setActive; DELETE needs password).
 - `POST|DELETE /api/admin/media`, `…/highlights`, `…/faqs`, `…/schedule` — event content (GET on some).
@@ -489,6 +491,9 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
 Keep newest first. Add an entry for every meaningful change.
 
 - **2026-06-28**
+  - **Manage a registration** — detail modal now has **Edit details** (all personal/contact/custom fields via [EditRegistrationModal.js](components/EditRegistrationModal.js) → `PATCH /api/admin/registrations` with `{updates}`, editable even on completed rows), **Resend confirmation** (`/api/admin/resend-confirmation`), and **Refund** (`/api/admin/refund`, full/partial via Razorpay; full → `refunded`).
+  - **Toasts + modal dialogs** — [lib/uiStore.js](lib/uiStore.js) + [components/Toaster.js](components/Toaster.js) replace every browser `alert/confirm/prompt` across admin (page, Enquiries, Payment Settings, Form Fields) with in-page toasts and modals. `toast.success/error/info`, `await confirmDialog()`, `await promptDialog()`.
+  - **Excel export** — Registrations tab now has CSV **and** Excel (.xls) export of the filtered set (incl. payment mode + reference).
   - **Scan Log** — admin Settings → Scan Log ([components/ScanLogPanel.js](components/ScanLogPanel.js), `GET /api/admin/checkins`): every entry scan with name/category/checkpoint/time/status, filter by checkpoint + search, total-scans & unique-attendees counts.
   - **Multi-day calendar** — `events.end_at` + Event end field in Home Content; "Add to Calendar" now spans the real event days (all-day multi-day .ics/Google when start/end differ).
   - **Form validation tightening** — first/last name + gotra letters-only (any script); pincode always shown + required (6-digit, client + all submit routes); donation numeric-only; gotra hint "if unknown, use Kashyap".

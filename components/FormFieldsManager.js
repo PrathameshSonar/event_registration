@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Eye, EyeOff, Trash2, Plus, Lock, ArrowUp, ArrowDown, Save } from "lucide-react";
+import { toast, confirmDialog } from "@/lib/uiStore";
 
 const TYPE_LABELS = {
   text: "Text",
@@ -86,7 +87,7 @@ export default function FormFieldsManager({ categories = [] }) {
       setSavedMsg("Saved ✓");
       setTimeout(() => setSavedMsg(""), 2500);
     } else {
-      alert("Save failed.");
+      toast.error("Save failed.");
     }
     setBusy(false);
   };
@@ -117,13 +118,13 @@ export default function FormFieldsManager({ categories = [] }) {
       await load(categoryId);
     } else {
       const d = await res.json().catch(() => ({}));
-      alert(d.error || "Failed to create field.");
+      toast.error(d.error || "Failed to create field.");
     }
     setBusy(false);
   };
 
   const remove = async (id, lbl) => {
-    if (!confirm(`Delete custom field "${lbl}" everywhere? Existing answers stay in the database but the field stops appearing on all categories.`)) return;
+    if (!(await confirmDialog({ title: "Delete field", message: `Delete custom field "${lbl}" everywhere? Existing answers stay in the database but the field stops appearing on all categories.`, danger: true, confirmLabel: "Delete" }))) return;
     setBusy(true);
     const res = await fetch("/api/admin/form-fields", {
       method: "DELETE",
@@ -132,7 +133,7 @@ export default function FormFieldsManager({ categories = [] }) {
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      alert(d.error || "Delete failed.");
+      toast.error(d.error || "Delete failed.");
     }
     await load(categoryId);
     setBusy(false);
