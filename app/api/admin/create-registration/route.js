@@ -36,14 +36,17 @@ export async function POST(request) {
     if (!CREATE_STATUSES.includes(status)) return bad('Invalid status.');
 
     // Core identity validation (mirrors the public form).
+    const lettersOnly = /^[\p{L}\s.'-]+$/u;
     const firstName = String(attendee.firstName || '').trim();
     const lastName = String(attendee.lastName || '').trim();
     const email = String(attendee.email || '').toLowerCase().trim();
     if (!firstName || !lastName) return bad('First and last name are required.');
+    if (!lettersOnly.test(firstName) || !lettersOnly.test(lastName)) return bad('Names may contain letters only.');
+    if (attendee.gotra && !lettersOnly.test(String(attendee.gotra).trim())) return bad('Gotra may contain letters only.');
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) return bad('Enter a valid email address.');
     const cleanPhone = String(attendee.phone || '').replace(/\s+/g, '').replace(/^(\+91|0091|91|0)/, '');
     if (!/^[6-9]\d{9}$/.test(cleanPhone)) return bad('Enter a valid 10-digit Indian mobile number.');
-    if (attendee.pincode && !/^\d{6}$/.test(String(attendee.pincode).trim())) return bad('Pincode must be 6 digits.');
+    if (!/^\d{6}$/.test(String(attendee.pincode || '').trim())) return bad('A valid 6-digit pincode is required.');
     if (attendee.dob) {
         const dob = new Date(String(attendee.dob));
         const today = new Date(); today.setHours(0, 0, 0, 0);
