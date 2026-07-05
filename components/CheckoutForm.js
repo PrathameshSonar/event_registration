@@ -1178,13 +1178,13 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
           <label className="block text-sm font-bold text-neutral-800">
             {t("form_payment_method")}
           </label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className="flex flex-wrap gap-2">
             {[{ k: "razorpay", label: t("form_pay_online") }, ...offlineMethods.map((m) => ({ k: m, label: t(`form_method_${m}`) }))].map((opt) => (
               <button
                 key={opt.k}
                 type="button"
                 onClick={() => setPaymentMethod(opt.k)}
-                className={`px-3 py-2.5 rounded-lg text-sm font-semibold border transition ${paymentMethod === opt.k ? "bg-neutral-900 text-white border-neutral-900" : "bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400"}`}
+                className={`flex-1 min-w-[130px] px-3 py-2.5 rounded-lg text-sm font-semibold border transition text-center ${paymentMethod === opt.k ? "bg-neutral-900 text-white border-neutral-900" : "bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400"}`}
               >
                 {opt.label}
               </button>

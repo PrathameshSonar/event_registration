@@ -5,6 +5,7 @@ import Razorpay from 'razorpay';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAudit } from '@/lib/auditLog';
+import { escapeHtml } from '@/lib/escape';
 import { Resend } from 'resend';
 
 export const dynamic = 'force-dynamic';
@@ -71,8 +72,8 @@ export async function POST(request) {
                 to: [reg.email],
                 subject: '⏳ Reminder: pay your balance — BaglaBhairav',
                 html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">
-                    <p>Namaste <strong>${reg.first_name} ${reg.last_name}</strong>,</p>
-                    <p>This is a reminder to clear your remaining balance of <strong>₹${dueRupees.toLocaleString('en-IN')}</strong> for <strong>${categoryTitle}</strong>.</p>
+                    <p>Namaste <strong>${escapeHtml(reg.first_name)} ${escapeHtml(reg.last_name)}</strong>,</p>
+                    <p>This is a reminder to clear your remaining balance of <strong>₹${dueRupees.toLocaleString('en-IN')}</strong> for <strong>${escapeHtml(categoryTitle)}</strong>.</p>
                     <p><a href="${shortUrl}" style="display:inline-block;background:#ea580c;color:#fff;font-weight:700;padding:12px 24px;border-radius:8px;text-decoration:none;">Pay Balance Now</a></p>
                     <p style="font-size:12px;color:#9ca3af;">Your entry pass is issued only after full payment. No-refund policy applies.</p>
                 </div>`,

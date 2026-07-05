@@ -76,6 +76,12 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
     payment_review: '🔎 To Verify', cheque_received: '🧾 Cheque Pending', payment_rejected: '⛔ Rejected',
 };
 
+// Short labels for the payment mode shown on each row (online rows have no
+// payment_method stored, so null/'razorpay' → Online).
+const PAYMENT_MODE_LABEL: Record<string, string> = {
+    razorpay: 'Online', bank_transfer: 'Bank Transfer', cheque: 'Cheque', cash: 'Cash', dd: 'Demand Draft',
+};
+
 // Section tabs for the registrations ledger. Each tab is a saved view over a
 // single payment status (plus a "Master List" showing everything). Keeping the
 // key === statusFilter value means these map cleanly onto future RBAC, where a
@@ -192,6 +198,7 @@ export default function AdminDashboard() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [categoryFilter, setCategoryFilter] = useState('all');
+    const [methodFilter, setMethodFilter] = useState('all');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [selectedRegistration, setSelectedRegistration] = useState<Registration | null>(null);
@@ -380,6 +387,17 @@ export default function AdminDashboard() {
         await fetchAllData();
     };
 
+    const handleClearPending = async () => {
+        const hours = prompt('Mark pending checkouts older than how many hours as Failed (abandoned)?', '24');
+        if (hours === null) return;
+        const h = Math.max(1, Number(hours) || 24);
+        if (!confirm(`Mark all pending registrations older than ${h}h as Failed?\nThey move to the Failed tab (records are kept, not deleted).`)) return;
+        const { ok, data } = await mutate('/api/admin/clear-pending', 'POST', { olderThanHours: h });
+        if (!ok) { alert(data.error || 'Cleanup failed.'); return; }
+        alert(`${data.count} abandoned pending checkout(s) marked as Failed.`);
+        await fetchAllData();
+    };
+
     // ----- Offline payment verification -----
     const [verifyingId, setVerifyingId] = useState<string | null>(null);
     const viewProof = async (id: string) => {
@@ -553,10 +571,13 @@ export default function AdminDashboard() {
         const catTitle = reg.categories?.title || 'Deleted Tier';
         const catMatch = categoryFilter === 'all' || (categoryFilter === 'Deleted' && !reg.categories) || catTitle === categoryFilter;
         const eventMatch = eventFilter === 'all' || (reg.category_id != null && catIdsByEvent[eventFilter]?.has(reg.category_id));
+        // Online rows created via Razorpay have payment_method null/'razorpay'.
+        const methodMatch = methodFilter === 'all'
+            || (methodFilter === 'razorpay' ? (!reg.payment_method || reg.payment_method === 'razorpay') : reg.payment_method === methodFilter);
         let dateMatch = true;
         if (startDate) { dateMatch = dateMatch && new Date(reg.created_at) >= new Date(startDate); }
         if (endDate) { const end = new Date(endDate); end.setDate(end.getDate() + 1); dateMatch = dateMatch && new Date(reg.created_at) < end; }
-        return searchMatch && catMatch && eventMatch && dateMatch;
+        return searchMatch && catMatch && eventMatch && methodMatch && dateMatch;
     });
 
     const sectionCounts = baseFilteredRegistrations.reduce((acc, reg) => {
@@ -670,6 +691,7 @@ export default function AdminDashboard() {
     const renderAmountCell = (reg: Registration) => (
         <>
             ₹{reg.total_amount}
+            <div className="text-[11px] font-normal text-neutral-400 mt-0.5">via {PAYMENT_MODE_LABEL[reg.payment_method || 'razorpay'] || 'Online'}</div>
             {reg.payment_status === 'advance_paid' && (
                 <div className="text-[11px] font-semibold text-amber-700 mt-0.5">Paid ₹{reg.amount_paid} · Due ₹{reg.amount_due}</div>
             )}
@@ -958,6 +980,7 @@ export default function AdminDashboard() {
                                 <div className="flex items-center gap-2 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus-within:border-orange-600 transition flex-wrap"><CalendarIcon className="w-4 h-4 text-neutral-400 flex-shrink-0" /><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-transparent focus:outline-none text-neutral-600 min-w-0" /><span className="text-neutral-400">–</span><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="bg-transparent focus:outline-none text-neutral-600 min-w-0" /></div>
                                 <select value={eventFilter} onChange={(e) => { setEventFilter(e.target.value); setCurrentPage(1); }} className="flex-1 min-w-[140px] px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600"><option value="all">All Events</option>{eventsList.map(ev => <option key={ev.id} value={ev.id}>{ev.title}{ev.is_active ? ' ✓' : ''}</option>)}</select>
                                 <select value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value); setCurrentPage(1); }} className="flex-1 min-w-[140px] px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600"><option value="all">All Categories</option>{uniqueCategories.map((cat, idx) => <option key={idx} value={cat as string}>{cat}</option>)}<option value="Deleted"> [Deleted Tiers]</option></select>
+                                <select value={methodFilter} onChange={(e) => { setMethodFilter(e.target.value); setCurrentPage(1); }} className="flex-1 min-w-[140px] px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600"><option value="all">All Payment Modes</option><option value="razorpay">💳 Online (Razorpay)</option><option value="bank_transfer">🏦 Bank Transfer</option><option value="cheque">🧾 Cheque</option><option value="cash">💵 Cash</option><option value="dd">📄 Demand Draft</option></select>
                             </div>
                         </div>
 
@@ -979,6 +1002,14 @@ export default function AdminDashboard() {
                                 );
                             })}
                         </div>
+
+                        {/* Abandoned-pending cleanup (Pending tab, admin only) */}
+                        {isAdmin && statusFilter === 'pending' && (sectionCounts['pending'] || 0) > 0 && (
+                            <div className="flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-xl px-5 py-3 gap-3 flex-wrap">
+                                <span className="text-sm text-yellow-900">Pending are online checkouts that were never paid. Clear old, abandoned ones to keep this view tidy.</span>
+                                <button onClick={handleClearPending} className="flex items-center gap-2 bg-yellow-600 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-yellow-700 transition whitespace-nowrap"><Trash2 className="w-4 h-4" /> Clear Abandoned</button>
+                            </div>
+                        )}
 
                         {selectedIds.size > 0 && (() => {
                             const selSel = registrations.filter(r => selectedIds.has(r.id));

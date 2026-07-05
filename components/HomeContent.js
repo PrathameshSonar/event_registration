@@ -287,7 +287,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                                     <div>
                                         <h4 className="text-xl font-bold mb-2 text-neutral-900 mt-2">{getCatTitle(category)}</h4>
                                         <div className="text-3xl font-black mb-4 text-orange-600">
-                                            {category.is_enquiry_only ? t('category_enquire_price') : `₹${category.price.toLocaleString('en-IN')}`}
+                                            {category.price > 0 ? `₹${category.price.toLocaleString('en-IN')}` : t('category_enquire_price')}
                                         </div>
                                         <p className="text-neutral-600 mb-4 text-sm leading-relaxed whitespace-pre-wrap">
                                             {getCatDesc(category)}

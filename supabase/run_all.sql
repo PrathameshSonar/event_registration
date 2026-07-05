@@ -125,6 +125,16 @@ CREATE TABLE IF NOT EXISTS registration_notes (
 CREATE INDEX IF NOT EXISTS registration_notes_reg_idx ON registration_notes(registration_id);
 GRANT ALL ON registration_notes TO service_role;
 
+-- Admin login throttle (brute-force protection). One row per client IP: too many
+-- consecutive failures locks that IP out for a cooldown window. Cleared on success.
+CREATE TABLE IF NOT EXISTS admin_login_attempts (
+    ip           TEXT PRIMARY KEY,
+    fail_count   INTEGER DEFAULT 0,
+    locked_until TIMESTAMPTZ,
+    updated_at   TIMESTAMPTZ DEFAULT now()
+);
+GRANT ALL ON admin_login_attempts TO service_role;
+
 -- registrations.payment_status uses a new value 'advance_paid'. If a CHECK
 -- constraint limits the allowed values, this rebuilds it to include the full
 -- set. (No-op safe: drops the named constraint only if it exists, then adds it.)

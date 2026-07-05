@@ -5,6 +5,7 @@ import QRCode from 'qrcode';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAudit } from '@/lib/auditLog';
+import { escapeHtml } from '@/lib/escape';
 import { Resend } from 'resend';
 
 export const dynamic = 'force-dynamic';
@@ -57,6 +58,7 @@ export async function POST(request) {
         const fullName = `${salutation}${reg.first_name} ${reg.last_name}`;
         const categoryTitle = reg.categories?.title || 'General Admission';
         const shortId = reg.id.split('-')[0].toUpperCase();
+        const eFullName = escapeHtml(fullName), eCat = escapeHtml(categoryTitle); // for the email HTML
 
         // Generate QR as PNG buffer (used for email + storage upload)
         let qrBuffer;
@@ -103,15 +105,15 @@ export async function POST(request) {
     <h1 style="color:#fff;margin:8px 0 0;font-size:26px;font-weight:800;">BaglaBhairav Mahotsav</h1>
   </div>
   <div style="padding:32px;background:#fff;text-align:center;">
-    <p style="font-size:16px;color:#404040;margin-top:0;">Namaste <strong>${fullName}</strong>,</p>
+    <p style="font-size:16px;color:#404040;margin-top:0;">Namaste <strong>${eFullName}</strong>,</p>
     <p style="font-size:14px;color:#6b7280;line-height:1.6;">Please show this QR code at the event entrance. Our team will scan it to verify your registration.</p>
     <div style="background:#f9fafb;border:2px dashed #e5e7eb;border-radius:16px;padding:24px;display:inline-block;margin:16px auto;">
       <img src="${qrDataUrl}" alt="Entry QR Code" width="220" height="220" style="display:block;border-radius:8px;" />
     </div>
     <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin:24px 0;text-align:left;">
       <table style="width:100%;border-collapse:collapse;font-size:14px;">
-        <tr><td style="padding:6px 0;color:#6b7280;width:40%;">Name:</td><td style="padding:6px 0;font-weight:bold;color:#111827;">${fullName}</td></tr>
-        <tr><td style="padding:6px 0;color:#6b7280;">Category:</td><td style="padding:6px 0;font-weight:bold;color:#111827;">${categoryTitle}</td></tr>
+        <tr><td style="padding:6px 0;color:#6b7280;width:40%;">Name:</td><td style="padding:6px 0;font-weight:bold;color:#111827;">${eFullName}</td></tr>
+        <tr><td style="padding:6px 0;color:#6b7280;">Category:</td><td style="padding:6px 0;font-weight:bold;color:#111827;">${eCat}</td></tr>
         <tr><td style="padding:6px 0;color:#6b7280;">Attendees:</td><td style="padding:6px 0;font-weight:bold;color:#111827;">${reg.attendees_count} Person(s)</td></tr>
         <tr style="border-top:1px solid #e5e7eb;">
           <td style="padding:10px 0 0;color:#6b7280;">Amount Paid:</td>
