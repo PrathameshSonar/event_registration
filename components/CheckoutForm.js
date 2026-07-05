@@ -200,11 +200,14 @@ function downloadReceipt(data) {
   link.click();
 }
 
-export default function CheckoutForm({ category }) {
+export default function CheckoutForm({ category, paymentSettings = null }) {
   const { t, lang } = useLanguage();
 
   const [loading, setLoading] = useState(false);
-  const [submitAction, setSubmitAction] = useState("pay"); // 'pay' | 'enquire' — which button is in flight
+  const [submitAction, setSubmitAction] = useState("pay"); // 'pay' | 'enquire' | 'offline'
+  const [paymentMethod, setPaymentMethod] = useState("razorpay"); // 'razorpay' | 'bank_transfer' | 'cheque' | 'cash' | 'dd'
+  const [offlineReference, setOfflineReference] = useState("");
+  const [proofFile, setProofFile] = useState(null);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [formError, setFormError] = useState(""); // global (payment/network/terms)
   const [termsError, setTermsError] = useState("");
@@ -262,6 +265,13 @@ export default function CheckoutForm({ category }) {
   // `showEnquireBtn` = also offer "Enquire Now" next to "Pay" on a payable tier.
   const isEnquiry = category.is_enquiry_only === true;
   const showEnquireBtn = isEnquiry || category.allow_enquiry === true;
+
+  // Offline payment (bank transfer / cheque / cash / DD) — only for payable tiers,
+  // only when enabled in global settings, and only for the methods enabled there.
+  const offlineMethods = Array.isArray(paymentSettings?.methods) ? paymentSettings.methods : [];
+  const offlineEnabled = !isEnquiry && paymentSettings?.offline_enabled === true && category.price > 0 && offlineMethods.length > 0;
+  const isOffline = paymentMethod !== "razorpay";
+  const needsProof = paymentMethod === "bank_transfer" || paymentMethod === "cheque";
   const donationValue = isEnquiry
     ? 0
     : Math.max(0, parseFloat(formData.donation) || 0);
@@ -402,7 +412,12 @@ export default function CheckoutForm({ category }) {
     setFieldErrors({});
     // Enquiry-only tiers always enquire; on a dual tier the clicked button decides.
     const asEnquiry = isEnquiry || intent === "enquire";
-    setSubmitAction(asEnquiry ? "enquire" : "pay");
+    const asOffline = !asEnquiry && isOffline;
+    if (asOffline && needsProof && !proofFile) {
+      setFormError(paymentMethod === "cheque" ? "Please attach a photo of the cheque." : "Please attach a payment screenshot.");
+      return;
+    }
+    setSubmitAction(asEnquiry ? "enquire" : asOffline ? "offline" : "pay");
     setLoading(true);
 
     const attendeePayload = {
@@ -451,6 +466,44 @@ export default function CheckoutForm({ category }) {
           email: formData.email,
           phone: formData.phone,
           gotra: formData.gotra,
+        });
+      } catch {
+        setFormError("Network error. Please try again.");
+      }
+      setLoading(false);
+      return;
+    }
+
+    // ── OFFLINE PAYMENT (bank transfer / cheque / cash / DD) ──────────
+    if (asOffline) {
+      try {
+        const fd = new FormData();
+        fd.append("categoryId", category.id);
+        fd.append("paymentMethod", paymentMethod);
+        fd.append("offlineReference", offlineReference);
+        fd.append("agreedToTerms", "true");
+        fd.append("attendee", JSON.stringify(attendeePayload));
+        fd.append("customFields", JSON.stringify(customValues));
+        fd.append("donation", String(formData.donation || 0));
+        fd.append("attendeesCount", String(formData.attendeesCount));
+        if (proofFile) fd.append("proof", proofFile);
+
+        const res = await fetch("/api/offline-payment", { method: "POST", body: fd });
+        const data = await res.json();
+        if (!res.ok) {
+          setFormError(data.error || "Submission failed. Please try again.");
+          setLoading(false);
+          return;
+        }
+        setSuccessData({
+          offlineReview: true,
+          method: paymentMethod,
+          reference: offlineReference,
+          name: fullName,
+          email: formData.email,
+          category: category.title,
+          amount: totalAmount,
+          attendees: formData.attendeesCount,
         });
       } catch {
         setFormError("Network error. Please try again.");
@@ -543,22 +596,26 @@ export default function CheckoutForm({ category }) {
   if (successData) {
     return (
       <div className="text-center py-8 px-4">
-        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
-          <CheckCircle className="w-10 h-10 text-green-600" />
+        <div className={`w-20 h-20 ${successData.offlineReview ? "bg-amber-100" : "bg-green-100"} rounded-full flex items-center justify-center mx-auto mb-5`}>
+          <CheckCircle className={`w-10 h-10 ${successData.offlineReview ? "text-amber-600" : "text-green-600"}`} />
         </div>
         <h2 className="text-2xl font-black text-neutral-900 mb-1">
-          {successData.isEnquiry
-            ? "Enquiry Received!"
-            : successData.partial
-              ? "Advance Received!"
-              : "Payment Successful!"}
+          {successData.offlineReview
+            ? "Payment Submitted!"
+            : successData.isEnquiry
+              ? "Enquiry Received!"
+              : successData.partial
+                ? "Advance Received!"
+                : "Payment Successful!"}
         </h2>
         <p className="text-neutral-500 text-sm mb-6">
-          {successData.isEnquiry
-            ? "Our team will contact you shortly."
-            : successData.partial
-              ? "Pay the balance to confirm your registration."
-              : "Your registration is confirmed."}
+          {successData.offlineReview
+            ? "Your payment is under verification. We'll confirm your registration shortly."
+            : successData.isEnquiry
+              ? "Our team will contact you shortly."
+              : successData.partial
+                ? "Pay the balance to confirm your registration."
+                : "Your registration is confirmed."}
         </p>
 
         <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-5 text-left space-y-3 max-w-sm mx-auto mb-6">
@@ -590,8 +647,8 @@ export default function CheckoutForm({ category }) {
               </div>
               <div className="flex justify-between text-sm border-t border-neutral-200 pt-3 mt-1">
                 <span className="text-neutral-500">Payment Status</span>
-                <span className={`font-bold ${successData.partial ? "text-amber-600" : "text-green-600"}`}>
-                  {successData.partial ? "◐ Advance Paid" : "✓ Paid"}
+                <span className={`font-bold ${successData.offlineReview || successData.partial ? "text-amber-600" : "text-green-600"}`}>
+                  {successData.offlineReview ? "⌛ Under Verification" : successData.partial ? "◐ Advance Paid" : "✓ Paid"}
                 </span>
               </div>
               {successData.partial ? (
@@ -625,6 +682,20 @@ export default function CheckoutForm({ category }) {
                   </span>
                 </div>
               )}
+              {successData.offlineReview && (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-neutral-500">Method</span>
+                    <span className="font-semibold text-neutral-900">{t(`form_method_${successData.method}`)}</span>
+                  </div>
+                  {successData.reference && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-neutral-500">Reference</span>
+                      <span className="font-mono text-xs text-neutral-600 break-all">{successData.reference}</span>
+                    </div>
+                  )}
+                </>
+              )}
             </>
           )}
         </div>
@@ -632,23 +703,28 @@ export default function CheckoutForm({ category }) {
         <div className="flex items-center justify-center gap-2 text-xs text-neutral-400 mb-6 px-4">
           <Mail className="w-4 h-4 flex-shrink-0" />
           <span>
-            {successData.partial
-              ? `Balance payment link sent to ${successData.email} & your WhatsApp. Your QR entry pass is sent before the event, after full payment.`
-              : successData.isEnquiry
-                ? `Confirmation sent to ${successData.email}`
-                : `Confirmation email sent to ${successData.email}. Your QR entry pass will be sent a few days before the event.`}
+            {successData.offlineReview
+              ? `We'll verify your payment and email ${successData.email} once your registration is confirmed.`
+              : successData.partial
+                ? `Balance payment link sent to ${successData.email} & your WhatsApp. Your QR entry pass is sent before the event, after full payment.`
+                : successData.isEnquiry
+                  ? `Confirmation sent to ${successData.email}`
+                  : `Confirmation email sent to ${successData.email}. Your QR entry pass will be sent a few days before the event.`}
           </span>
         </div>
 
         <div className="flex flex-col items-center gap-4">
-          <button
-            type="button"
-            onClick={() => downloadReceipt(successData)}
-            className="inline-flex items-center gap-2 bg-neutral-900 hover:bg-neutral-800 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            Download Receipt
-          </button>
+          {/* Receipt is only meaningful for a confirmed payment — not enquiry / pending verification. */}
+          {!successData.isEnquiry && !successData.offlineReview && (
+            <button
+              type="button"
+              onClick={() => downloadReceipt(successData)}
+              className="inline-flex items-center gap-2 bg-neutral-900 hover:bg-neutral-800 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Download Receipt
+            </button>
+          )}
 
           <button
             onClick={() => window.location.reload()}
@@ -1096,6 +1172,80 @@ export default function CheckoutForm({ category }) {
         )}
       </div>
 
+      {/* --- PAYMENT METHOD (only when offline is enabled for payable tiers) --- */}
+      {offlineEnabled && (
+        <div className="space-y-3">
+          <label className="block text-sm font-bold text-neutral-800">
+            {t("form_payment_method")}
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {[{ k: "razorpay", label: t("form_pay_online") }, ...offlineMethods.map((m) => ({ k: m, label: t(`form_method_${m}`) }))].map((opt) => (
+              <button
+                key={opt.k}
+                type="button"
+                onClick={() => setPaymentMethod(opt.k)}
+                className={`px-3 py-2.5 rounded-lg text-sm font-semibold border transition ${paymentMethod === opt.k ? "bg-neutral-900 text-white border-neutral-900" : "bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400"}`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          {isOffline && (
+            <div className="border border-neutral-200 rounded-xl p-4 bg-neutral-50 space-y-3 text-sm">
+              {/* Where to pay */}
+              {(paymentMethod === "bank_transfer" || paymentMethod === "cheque") && (
+                <div className="space-y-1 text-neutral-700">
+                  <p className="font-bold text-neutral-900">{t("form_offline_pay_to")}</p>
+                  {paymentSettings?.account_name && <p>A/C Name: <strong>{paymentSettings.account_name}</strong></p>}
+                  {paymentMethod === "bank_transfer" && paymentSettings?.account_number && <p>A/C No: <strong>{paymentSettings.account_number}</strong></p>}
+                  {paymentMethod === "bank_transfer" && paymentSettings?.ifsc && <p>IFSC: <strong>{paymentSettings.ifsc}</strong></p>}
+                  {paymentMethod === "bank_transfer" && paymentSettings?.bank && <p>Bank: <strong>{paymentSettings.bank}</strong></p>}
+                  {paymentMethod === "bank_transfer" && paymentSettings?.upi_id && <p>UPI: <strong>{paymentSettings.upi_id}</strong></p>}
+                  {paymentMethod === "cheque" && paymentSettings?.cheque_payee && <p>Payee: <strong>{paymentSettings.cheque_payee}</strong></p>}
+                </div>
+              )}
+              {paymentSettings?.instructions && (
+                <p className="text-neutral-500 whitespace-pre-wrap">{paymentSettings.instructions}</p>
+              )}
+              {paymentMethod === "cash" && !paymentSettings?.instructions && (
+                <p className="text-neutral-500">{t("form_offline_cash_note")}</p>
+              )}
+
+              {/* Reference */}
+              <div>
+                <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
+                  {paymentMethod === "cheque" ? t("form_offline_cheque_no") : paymentMethod === "cash" ? t("form_offline_receipt_no") : paymentMethod === "dd" ? t("form_offline_dd_no") : t("form_offline_utr")}
+                </label>
+                <input
+                  type="text"
+                  value={offlineReference}
+                  onChange={(e) => setOfflineReference(e.target.value)}
+                  placeholder={paymentMethod === "cheque" ? "e.g. 000123" : paymentMethod === "cash" ? t("form_optional") : "e.g. UTR / txn id"}
+                  className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600 text-sm"
+                />
+              </div>
+
+              {/* Proof upload */}
+              <div>
+                <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
+                  {t("form_offline_proof")}{needsProof ? " *" : ` (${t("form_optional")})`}
+                </label>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={(e) => setProofFile(e.target.files?.[0] || null)}
+                  className="w-full text-sm text-neutral-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-neutral-900 file:text-white hover:file:bg-orange-600"
+                />
+                {proofFile && <p className="text-xs text-green-700 mt-1">✓ {proofFile.name}</p>}
+              </div>
+
+              <p className="text-xs text-neutral-400">{t("form_offline_verify_note")}</p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* --- SUBMISSION --- */}
       <div>
         {/* Pay button — hidden on enquiry-only tiers */}
@@ -1115,11 +1265,13 @@ export default function CheckoutForm({ category }) {
               fontWeight: 600,
             }}
           >
-            {loading && submitAction === "pay" ? (
+            {loading && (submitAction === "pay" || submitAction === "offline") ? (
               <span className="flex items-center justify-center gap-2">
                 <Loader2 className="w-5 h-5 animate-spin" />
                 {t("form_processing")}
               </span>
+            ) : isOffline ? (
+              t("form_offline_submit")
             ) : usePartial ? (
               `Pay ₹${payNow.toLocaleString("en-IN")} Advance Securely`
             ) : (

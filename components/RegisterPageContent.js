@@ -9,7 +9,7 @@ import { useLanguage } from './LanguageProvider';
 import LangToggle from './LangToggle';
 import Footer from './Footer';
 
-export default function RegisterPageContent({ category }) {
+export default function RegisterPageContent({ category, paymentSettings = null }) {
     const { t, lang } = useLanguage();
 
     const catTitle = lang === 'hi' ? (category.title_hi || category.title) : category.title;
@@ -48,7 +48,7 @@ export default function RegisterPageContent({ category }) {
                     <h3 className="text-lg font-bold mb-6 border-b border-neutral-100 pb-4">
                         {t('register_attendee_info')}
                     </h3>
-                    <CheckoutForm category={category} />
+                    <CheckoutForm category={category} paymentSettings={paymentSettings} />
                 </div>
             </div>
             <Footer />

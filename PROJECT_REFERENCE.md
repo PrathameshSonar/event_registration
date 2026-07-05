@@ -177,6 +177,9 @@ Homepage content per event (programme, ritual cards, FAQ accordion, reminder opt
 ### `registration_notes`
 Contact-history log for the enquiry pipeline: `id, registration_id→registrations (cascade), note, actor_role, created_at`. One row per note. Needs `GRANT ALL ... TO service_role`.
 
+### `app_settings`
+Global key/value config: `key (PK), value jsonb, updated_at`. Currently the `bank_details` row (offline payment account/UPI/payee/instructions + enabled methods). Needs `GRANT ALL ... TO service_role`. Registrations also gained offline columns: `payment_method, offline_reference, offline_proof_path, offline_meta, verified_by, verified_at`. Proof files live in the private **`payment-proofs`** storage bucket.
+
 ### `admin_audit_logs`
 `id BIGSERIAL, created_at, actor_role, actor_id (RBAC-reserved), actor_label (RBAC-reserved), action, entity, entity_id, summary, metadata jsonb, ip`. See §12. **Needs `GRANT ALL ... TO service_role` + sequence grant** (in run_all.sql).
 
@@ -293,6 +296,15 @@ Global overview: 3 stat cards (Confirmed Attendees, Total Revenue (Paid), Total 
 ### Settings (admin only) — sidebar sub-tabs
 Event Setup, Ticket Tiers, Media Gallery, Entry Checkpoints, Form Fields ([components/FormFieldsManager.js](components/FormFieldsManager.js)), Home Page Content ([components/HomeContentManager.js](components/HomeContentManager.js) — schedule/highlights/faqs/hero/contact). Destructive deletes (events/tiers/media) require **re-entering the admin password**.
 
+### Offline payments (bank transfer / cheque / cash / DD)
+A second, human-verified completion path alongside online Razorpay.
+- **Public:** on a payable tier, [components/CheckoutForm.js](components/CheckoutForm.js) shows a **payment-method chooser** (Online + the offline methods enabled in settings) when `bank_details.offline_enabled` is on. Picking offline shows the bank/UPI/payee instructions, a **reference** field (UTR / cheque no / receipt no) and a **proof upload** (image/PDF; required for transfer/cheque). Submits to `POST /api/offline-payment` (multipart) → status **`payment_review`**, proof stored in the private **`payment-proofs`** bucket, user emailed "under verification". **No Razorpay order, no seat held.**
+- **Admin verify** (Registrations tab, section tabs **To Verify** / **Cheque Pending** / **Rejected**): **View proof** (signed URL via `/api/admin/payment-proof/[id]`), **Approve** (confirm amount; short amount → `amount_mismatch`), **Reject** (reason → `payment_rejected`, user notified to resubmit). **Cheque** is two-step: **Cheque in hand** (→ `cheque_received`) → **Cleared** (→ `completed`) / **Bounced** (→ `failed`). Approved → `completed` + ticket + QR-eligible. Completed offline rows can be **Reversed** (→ refunded/failed, seat released) from the detail modal. All via `POST /api/admin/verify-payment`.
+- **Walk-in / cash-at-desk:** admin **Record ₹** on a `pending`/`rejected` row (or an enquiry) → method + amount + reference → `completed` in one step.
+- **Global settings:** Settings → **Payment Details** ([components/PaymentSettingsManager.js](components/PaymentSettingsManager.js)) edits the `bank_details` config (account/IFSC/UPI/payee/instructions + which methods are enabled) via `GET|PATCH /api/admin/app-settings`.
+- **Reconciliation:** offline statuses are excluded from the Razorpay cron/Sync (no order to check) — never add them to those filters.
+- Dashboard shows a **Payments to Verify** stat.
+
 ### Enquiries (everyone; actions admin-only) — the leads pipeline
 [components/EnquiriesPanel.js](components/EnquiriesPanel.js). Kept **separate** from the Registrations ledger. Shows rows with status ∈ `{enquired, contacted, awaiting_payment, closed}` under section tabs: **New**, **Contacted**, **Payment Link Sent**, **Closed/Lost**, **All Open**.
 - **Enquiry sources:** a tier can be **Enquiry Only** (`is_enquiry_only`) or **Paid + Enquire** (`allow_enquiry` → shows both "Pay" and "Enquire Now" on the form). "Enquire Now" posts to `/api/enquiry` → `enquired` (holds no seat).
@@ -355,7 +367,8 @@ Event Setup, Ticket Tiers, Media Gallery, Entry Checkpoints, Form Fields ([compo
 
 **Public:**
 - `POST /api/razorpay` — create order + pending registration.
-- `POST /api/enquiry` — enquiry-only registration.
+- `POST /api/enquiry` — enquiry registration (enquiry-only or dual tiers).
+- `POST /api/offline-payment` — offline payment submission (multipart: fields + proof) → `payment_review`.
 - `GET /api/form-fields?categoryId=` — active fields for a category.
 - `POST /api/reminders` — reminder opt-in.
 - `GET /api/checkpoints` — active checkpoints.
@@ -382,6 +395,9 @@ Event Setup, Ticket Tiers, Media Gallery, Entry Checkpoints, Form Fields ([compo
 - `POST /api/admin/reconcile-balance` — "Sync payment" against Razorpay (advance/pending/mismatch/awaiting_payment).
 - `POST /api/admin/request-enquiry-payment` — convert an enquiry: set the tier price + send a payment link.
 - `GET|POST /api/admin/registration-notes` — enquiry contact-notes history (GET any role; POST admin).
+- `POST /api/admin/verify-payment` — offline verification (approve/reject/cheque steps/reverse/record).
+- `GET /api/admin/payment-proof/[id]` — signed URL to an offline proof file.
+- `GET|PATCH /api/admin/app-settings` — global config (`bank_details`; GET any role, PATCH admin).
 - `GET /api/admin/audit-logs` — read audit trail.
 
 Every admin route uses `authorize()` from [lib/adminGuard.js](lib/adminGuard.js); destructive ones also call `verifyAdminPassword()`.
@@ -430,9 +446,16 @@ pending ──fail──────────► failed
 completed ──refund───────► refunded
 ```
 
-- **Terminal/locked (not editable from the status dropdown):** `completed, failed, refunded, amount_mismatch, advance_paid, awaiting_payment`.
+Offline pipeline (verified by admins, in the Registrations tab):
+```
+form → offline method → payment_review ──approve(bank/cash/dd)──► completed
+                             ├─ cheque: cheque_received → completed / failed(bounced)
+                             └─ reject → payment_rejected (resubmit) ; completed → reverse → refunded
+```
+
+- **Terminal/locked (not editable from the status dropdown):** `completed, failed, refunded, amount_mismatch, advance_paid, awaiting_payment, payment_review, cheque_received`.
 - **QR eligibility:** `completed` only.
-- **Capacity held by:** `completed` + `advance_paid` only (Paid + Partial Paid). Open enquiries (`enquired/contacted/awaiting_payment`) and `closed` do NOT reserve seats.
+- **Capacity held by:** `completed` + `advance_paid` only (Paid + Partial Paid). Open enquiries and offline-pending (`payment_review/cheque_received/payment_rejected`) do NOT reserve seats.
 - `amount_paid + amount_due` always equals `total_amount` (advance recorded; balance/enquiry link clears `amount_due` to 0).
 
 ---
@@ -466,6 +489,7 @@ completed ──refund───────► refunded
 Keep newest first. Add an entry for every meaningful change.
 
 - **2026-06-28**
+  - **Offline payments** — bank transfer / cheque / cash / DD with proof upload + admin verification. Public method chooser in checkout; new statuses `payment_review`/`cheque_received`/`payment_rejected`; verification queue (To Verify / Cheque Pending / Rejected) with approve/reject/cheque-clear/reverse + walk-in "Record ₹"; global **Payment Details** settings (`app_settings.bank_details`); private **`payment-proofs`** bucket. New routes: `offline-payment`, `admin/verify-payment`, `admin/payment-proof/[id]`, `admin/app-settings`. New: [lib/notify.js](lib/notify.js), [components/PaymentSettingsManager.js](components/PaymentSettingsManager.js). Offline holds no seat until approved; excluded from Razorpay reconciliation. **Run `run_all.sql` + create the `payment-proofs` bucket.**
   - **Enquiries leads pipeline** — new admin **Enquiries** tab (separate from the ledger): New/Contacted/Payment Link Sent/Closed stages, running **contact-notes history** (`registration_notes` table), **Request Payment** to convert a lead at the tier's fixed price (reuses the payment-link engine → same record completes), Close/Reopen. New category flag **`allow_enquiry`** (Paid + Enquire Now); enquiry tiers can carry a price/fee. New statuses `awaiting_payment` + `closed`. **Capacity now counts only Paid + Partial Paid** (open enquiries don't hold a seat). New routes: `request-enquiry-payment`, `registration-notes`; `sendBalanceLink` generalised to `sendPaymentLink(reg, kind)`.
   - **Admin auto-refresh** — registrations list polls every 30s (Dashboard/Registrations/Enquiries tabs) + manual Refresh button, "Updated" timestamp, and Auto ON/OFF toggle in the header. No more manual page reloads.
   - **Receipt download** on the registration success screen (canvas PNG; name/email/mobile/gotra/category/amounts/refs/date).

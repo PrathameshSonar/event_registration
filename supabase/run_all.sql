@@ -67,6 +67,27 @@ ALTER TABLE registrations
 ALTER TABLE registrations
     ADD COLUMN IF NOT EXISTS qr_sent_at       TIMESTAMPTZ;
 
+-- Offline payments (bank transfer / cheque / cash). The user submits proof, an
+-- admin verifies, and on approval the row becomes 'completed' like an online pay.
+ALTER TABLE registrations
+    ADD COLUMN IF NOT EXISTS payment_method     TEXT,   -- 'razorpay'|'bank_transfer'|'cheque'|'cash'|'dd'
+    ADD COLUMN IF NOT EXISTS offline_reference  TEXT,   -- UTR / cheque no / receipt no
+    ADD COLUMN IF NOT EXISTS offline_proof_path TEXT,   -- path in the private payment-proofs bucket
+    ADD COLUMN IF NOT EXISTS offline_meta       JSONB,  -- bank name, cheque date, etc.
+    ADD COLUMN IF NOT EXISTS verified_by        TEXT,
+    ADD COLUMN IF NOT EXISTS verified_at        TIMESTAMPTZ;
+
+-- Global key/value app config (e.g. the bank/UPI/cheque details shown to users
+-- for offline payments). Read server-side via the service role.
+CREATE TABLE IF NOT EXISTS app_settings (
+    key        VARCHAR PRIMARY KEY,
+    value      JSONB,
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+GRANT ALL ON app_settings TO service_role;
+-- Offline payment PROOFS are uploaded to a PRIVATE Supabase Storage bucket named
+-- "payment-proofs" — create it once: Dashboard → Storage → New Bucket (private).
+
 -- Audit trail of mutating admin actions (status edits, sends, create/update/
 -- delete of events/tiers/media/etc). actor_id/actor_label are reserved for when
 -- RBAC introduces real per-user identities; today only actor_role is populated.
@@ -118,7 +139,9 @@ BEGIN
             'pending', 'completed', 'failed', 'refunded',
             'enquired', 'contacted', 'amount_mismatch', 'advance_paid',
             -- Enquiry pipeline: link sent & awaiting payment, and closed/lost lead.
-            'awaiting_payment', 'closed'
+            'awaiting_payment', 'closed',
+            -- Offline payments: proof submitted / cheque in hand / proof rejected.
+            'payment_review', 'cheque_received', 'payment_rejected'
         ));
 EXCEPTION
     -- If existing rows hold a status outside this set, skip rather than fail

@@ -9,7 +9,7 @@ export default async function EntryPage({ params }: { params: Promise<{ id: stri
     const { id } = await params;
     const { data: reg } = await supabaseAdmin
         .from('registrations')
-        .select('id, first_name, last_name, salutation, attendees_count, total_amount, payment_status, phone, gotra, razorpay_payment_id, categories(title)')
+        .select('id, first_name, last_name, salutation, attendees_count, total_amount, payment_status, phone, gotra, razorpay_payment_id, payment_method, offline_reference, categories(title)')
         .eq('id', id)
         .single();
 
@@ -53,12 +53,17 @@ export default async function EntryPage({ params }: { params: Promise<{ id: stri
                             <p className="font-semibold text-neutral-900">{reg.phone}</p>
                         </div>
                     </div>
-                    {reg.razorpay_payment_id && (
+                    {reg.razorpay_payment_id ? (
                         <div className="pt-3 border-t border-neutral-100">
                             <p className="text-xs text-neutral-400 uppercase font-bold mb-0.5">Payment Ref</p>
                             <p className="text-xs font-mono text-neutral-500 break-all">{reg.razorpay_payment_id}</p>
                         </div>
-                    )}
+                    ) : reg.payment_method && reg.payment_method !== 'razorpay' ? (
+                        <div className="pt-3 border-t border-neutral-100">
+                            <p className="text-xs text-neutral-400 uppercase font-bold mb-0.5">Payment</p>
+                            <p className="text-xs text-neutral-600 capitalize">{reg.payment_method.replace('_', ' ')}{reg.offline_reference ? ` · ${reg.offline_reference}` : ''}</p>
+                        </div>
+                    ) : null}
                 </div>
 
                 <div className="bg-neutral-50 border-t border-neutral-200 px-6 py-3 text-center">

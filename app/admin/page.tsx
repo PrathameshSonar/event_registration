@@ -13,9 +13,10 @@ import FormFieldsManager from '@/components/FormFieldsManager';
 import HomeContentManager from '@/components/HomeContentManager';
 import AuditLogPanel from '@/components/AuditLogPanel';
 import EnquiriesPanel from '@/components/EnquiriesPanel';
+import PaymentSettingsManager from '@/components/PaymentSettingsManager';
 
 type Role = 'admin' | 'viewer';
-type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'enquired' | 'contacted' | 'amount_mismatch' | 'advance_paid' | 'awaiting_payment' | 'closed';
+type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'enquired' | 'contacted' | 'amount_mismatch' | 'advance_paid' | 'awaiting_payment' | 'closed' | 'payment_review' | 'cheque_received' | 'payment_rejected';
 
 interface Registration {
     id: string; created_at: string;
@@ -30,6 +31,8 @@ interface Registration {
     amount_paid: number; amount_due: number;
     payment_plan: string | null; balance_link_url: string | null;
     qr_sent_at: string | null;
+    payment_method: string | null; offline_reference: string | null; offline_proof_path: string | null;
+    verified_by: string | null; verified_at: string | null;
 }
 
 interface Category {
@@ -64,12 +67,13 @@ interface EventItem {
 interface MediaItem { id: string; media_type: 'image' | 'youtube'; url: string; caption: string; event_id: string; events?: { title: string }; }
 
 // Money-terminal states are locked: they cannot be edited from the dashboard.
-const TERMINAL_STATUSES: PaymentStatus[] = ['completed', 'failed', 'refunded', 'amount_mismatch', 'advance_paid', 'awaiting_payment'];
+const TERMINAL_STATUSES: PaymentStatus[] = ['completed', 'failed', 'refunded', 'amount_mismatch', 'advance_paid', 'awaiting_payment', 'payment_review', 'cheque_received'];
 
 const STATUS_LABEL: Record<PaymentStatus, string> = {
     completed: '✔ Paid', enquired: '💬 Enquired', contacted: '📞 Contacted',
     pending: '⏳ Pending', failed: '✖ Failed', refunded: '⏪ Refunded', amount_mismatch: '⚠ Amount Mismatch',
     advance_paid: '◐ Advance Paid', awaiting_payment: '⌛ Payment Link Sent', closed: '⊘ Closed/Lost',
+    payment_review: '🔎 To Verify', cheque_received: '🧾 Cheque Pending', payment_rejected: '⛔ Rejected',
 };
 
 // Section tabs for the registrations ledger. Each tab is a saved view over a
@@ -81,10 +85,13 @@ const ENQUIRY_STATUSES = ['enquired', 'contacted', 'awaiting_payment', 'closed']
 
 const REGISTRATION_SECTIONS: { key: string; label: string }[] = [
     { key: 'all', label: 'Master List' },
+    { key: 'payment_review', label: '🔎 To Verify' },
+    { key: 'cheque_received', label: '🧾 Cheque Pending' },
     { key: 'advance_paid', label: '◐ Advance Paid' },
     { key: 'completed', label: '✔ Paid' },
     { key: 'pending', label: '⏳ Pending' },
     { key: 'amount_mismatch', label: '⚠ Amount Mismatch' },
+    { key: 'payment_rejected', label: '⛔ Rejected' },
     { key: 'failed', label: '✖ Failed' },
     { key: 'refunded', label: '⏪ Refunded' },
 ];
@@ -100,6 +107,9 @@ function statusClasses(status: PaymentStatus) {
         case 'advance_paid': return 'bg-amber-100 text-amber-800 border-amber-300';
         case 'awaiting_payment': return 'bg-sky-100 text-sky-700 border-sky-200';
         case 'closed': return 'bg-neutral-200 text-neutral-500 border-neutral-300';
+        case 'payment_review': return 'bg-indigo-100 text-indigo-700 border-indigo-200';
+        case 'cheque_received': return 'bg-cyan-100 text-cyan-700 border-cyan-200';
+        case 'payment_rejected': return 'bg-rose-100 text-rose-700 border-rose-200';
         default: return 'bg-neutral-200 text-neutral-700 border-neutral-300';
     }
 }
@@ -110,7 +120,7 @@ export default function AdminDashboard() {
     const isAdmin = role === 'admin';
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'enquiries' | 'settings' | 'audit'>('dashboard');
-    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'checkpoints' | 'formfields' | 'homecontent'>('events');
+    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'checkpoints' | 'formfields' | 'homecontent' | 'payment'>('events');
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -370,6 +380,51 @@ export default function AdminDashboard() {
         await fetchAllData();
     };
 
+    // ----- Offline payment verification -----
+    const [verifyingId, setVerifyingId] = useState<string | null>(null);
+    const viewProof = async (id: string) => {
+        const res = await fetch(`/api/admin/payment-proof/${id}`);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { alert(data.error || 'No proof on file.'); return; }
+        window.open(data.url, '_blank', 'noopener');
+    };
+    const handleVerifyPayment = async (reg: Registration, action: string) => {
+        const body: Record<string, unknown> = { id: reg.id, action };
+        if (action === 'approve' || action === 'cheque_cleared') {
+            const amt = prompt('Amount received (₹):', String(reg.total_amount || ''));
+            if (amt === null) return;
+            body.amount = Number(amt);
+        } else if (action === 'reject') {
+            const reason = prompt('Reason for rejection (sent to the customer):', '');
+            if (reason === null) return;
+            body.note = reason;
+        } else if (action === 'cheque_received') {
+            if (!confirm('Mark the cheque as received (awaiting clearance)?')) return;
+        } else if (action === 'cheque_bounced' || action === 'reverse') {
+            if (!confirm(action === 'reverse' ? 'Reverse this payment? The seat will be released.' : 'Mark this cheque as bounced?')) return;
+            body.note = prompt('Note (optional):', '') || '';
+        }
+        setVerifyingId(reg.id);
+        const { ok, data } = await mutate('/api/admin/verify-payment', 'POST', body);
+        setVerifyingId(null);
+        if (!ok) { alert(data.error || 'Action failed.'); return; }
+        if (data.status === 'amount_mismatch') alert('⚠️ Recorded amount is short of the tier price — flagged as Amount Mismatch (not marked Paid).');
+        await fetchAllData();
+    };
+    const handleRecordOffline = async (reg: Registration) => {
+        const method = prompt('Payment method — bank_transfer / cheque / cash / dd:', 'cash');
+        if (!method || !['bank_transfer', 'cheque', 'cash', 'dd'].includes(method)) { if (method !== null) alert('Invalid method.'); return; }
+        const amt = prompt('Amount received (₹):', String(reg.total_amount || ''));
+        if (amt === null) return;
+        const reference = prompt('Reference (UTR / cheque no / receipt no) — optional:', '') || '';
+        setVerifyingId(reg.id);
+        const { ok, data } = await mutate('/api/admin/verify-payment', 'POST', { id: reg.id, action: 'record', method, amount: Number(amt), reference });
+        setVerifyingId(null);
+        if (!ok) { alert(data.error || 'Failed.'); return; }
+        if (data.status === 'amount_mismatch') alert('⚠️ Amount is short of the tier price — flagged as Amount Mismatch.');
+        await fetchAllData();
+    };
+
     const [resendingId, setResendingId] = useState<string | null>(null);
     const [copiedLink, setCopiedLink] = useState(false);
     const handleCopyLink = async (url: string) => {
@@ -536,6 +591,7 @@ export default function AdminDashboard() {
     const globalCompleted = registrations.filter(r => r.payment_status === 'completed').length;
     const globalRevenue = registrations.filter(r => r.payment_status === 'completed').reduce((s, r) => s + Number(r.total_amount || 0), 0);
     const globalTotal = registrations.length;
+    const globalToVerify = registrations.filter(r => r.payment_status === 'payment_review' || r.payment_status === 'cheque_received').length;
     const globalCategoryMetrics = registrations.reduce((acc, reg) => {
         if (reg.payment_status === 'completed' || reg.payment_status === 'enquired' || reg.payment_status === 'contacted') {
             const catTitle = reg.categories?.title || 'Deleted Tier';
@@ -585,6 +641,28 @@ export default function AdminDashboard() {
             )}
             {reg.payment_status === 'advance_paid' && (
                 <button onClick={() => handleResendBalance(reg.id)} disabled={resendingId === reg.id} className="p-2 border border-amber-200 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition shadow-sm disabled:opacity-50" title="Re-send balance payment link"><IndianRupee className="w-4 h-4" /></button>
+            )}
+
+            {/* Offline payment verification */}
+            {reg.offline_proof_path && (reg.payment_status === 'payment_review' || reg.payment_status === 'cheque_received' || reg.payment_status === 'payment_rejected') && (
+                <button onClick={() => viewProof(reg.id)} className="p-2 border border-neutral-200 rounded-lg bg-white hover:bg-neutral-100 transition shadow-sm" title="View payment proof"><ImageIcon className="w-4 h-4" /></button>
+            )}
+            {isAdmin && reg.payment_status === 'payment_review' && (
+                <>
+                    {reg.payment_method === 'cheque'
+                        ? <button onClick={() => handleVerifyPayment(reg, 'cheque_received')} disabled={verifyingId === reg.id} className="px-2.5 py-1.5 border border-cyan-200 rounded-lg bg-cyan-50 text-cyan-700 hover:bg-cyan-100 transition shadow-sm text-xs font-semibold disabled:opacity-50">Cheque in hand</button>
+                        : <button onClick={() => handleVerifyPayment(reg, 'approve')} disabled={verifyingId === reg.id} className="px-2.5 py-1.5 border border-green-200 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition shadow-sm text-xs font-semibold disabled:opacity-50">Approve</button>}
+                    <button onClick={() => handleVerifyPayment(reg, 'reject')} disabled={verifyingId === reg.id} className="px-2.5 py-1.5 border border-rose-200 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 transition shadow-sm text-xs font-semibold disabled:opacity-50">Reject</button>
+                </>
+            )}
+            {isAdmin && reg.payment_status === 'cheque_received' && (
+                <>
+                    <button onClick={() => handleVerifyPayment(reg, 'cheque_cleared')} disabled={verifyingId === reg.id} className="px-2.5 py-1.5 border border-green-200 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition shadow-sm text-xs font-semibold disabled:opacity-50">Cleared</button>
+                    <button onClick={() => handleVerifyPayment(reg, 'cheque_bounced')} disabled={verifyingId === reg.id} className="px-2.5 py-1.5 border border-rose-200 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 transition shadow-sm text-xs font-semibold disabled:opacity-50">Bounced</button>
+                </>
+            )}
+            {isAdmin && (reg.payment_status === 'pending' || reg.payment_status === 'payment_rejected') && (
+                <button onClick={() => handleRecordOffline(reg)} disabled={verifyingId === reg.id} className="px-2.5 py-1.5 border border-neutral-300 rounded-lg bg-white text-neutral-700 hover:bg-neutral-100 transition shadow-sm text-xs font-semibold disabled:opacity-50" title="Record an offline payment (cash/cheque/transfer)">Record ₹</button>
             )}
         </div>
     );
@@ -711,6 +789,20 @@ export default function AdminDashboard() {
                                     {selectedRegistration.razorpay_payment_id && (
                                         <p className="mt-3"><span className="text-neutral-500 block text-xs">Payment Ref</span><span className="font-mono text-xs text-neutral-600 break-all">{selectedRegistration.razorpay_payment_id}</span></p>
                                     )}
+                                    {selectedRegistration.payment_method && selectedRegistration.payment_method !== 'razorpay' && (
+                                        <div className="mt-3 space-y-1">
+                                            <p><span className="text-neutral-500 block text-xs">Payment Method</span><span className="font-semibold capitalize">{selectedRegistration.payment_method.replace('_', ' ')}</span></p>
+                                            {selectedRegistration.offline_reference && <p><span className="text-neutral-500 block text-xs">Reference</span><span className="font-mono text-xs text-neutral-600 break-all">{selectedRegistration.offline_reference}</span></p>}
+                                            <div className="flex flex-wrap gap-2 mt-2">
+                                                {selectedRegistration.offline_proof_path && (
+                                                    <button type="button" onClick={() => viewProof(selectedRegistration.id)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs font-semibold text-neutral-700 hover:bg-neutral-100 transition"><ImageIcon className="w-3.5 h-3.5" /> View proof</button>
+                                                )}
+                                                {isAdmin && selectedRegistration.payment_status === 'completed' && (
+                                                    <button type="button" onClick={() => handleVerifyPayment(selectedRegistration, 'reverse')} disabled={verifyingId === selectedRegistration.id} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-rose-200 rounded-lg text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 transition disabled:opacity-50"><X className="w-3.5 h-3.5" /> Reverse payment</button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
                                     {selectedRegistration.payment_status === 'advance_paid' && (
                                         <div className="mt-2">
                                             {selectedRegistration.balance_link_url && (
@@ -791,10 +883,11 @@ export default function AdminDashboard() {
             <div className="max-w-7xl mx-auto">
                 {effectiveTab === 'dashboard' && (
                     <div className="space-y-6">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                             <div className="bg-white border border-neutral-200 p-5 md:p-6 rounded-xl flex items-center gap-4 shadow-sm"><div className="p-4 bg-orange-100 text-orange-600 rounded-lg"><Users className="w-6 h-6" /></div><div><p className="text-sm font-medium text-neutral-500">Confirmed Attendees</p><p className="text-2xl font-bold">{globalCompleted}</p></div></div>
                             <div className="bg-white border border-neutral-200 p-5 md:p-6 rounded-xl flex items-center gap-4 shadow-sm"><div className="p-4 bg-green-100 text-green-600 rounded-lg"><IndianRupee className="w-6 h-6" /></div><div><p className="text-sm font-medium text-neutral-500">Total Revenue (Paid)</p><p className="text-2xl font-bold">₹{globalRevenue.toLocaleString('en-IN')}</p></div></div>
                             <div className="bg-white border border-neutral-200 p-5 md:p-6 rounded-xl flex items-center gap-4 shadow-sm"><div className="p-4 bg-blue-100 text-blue-600 rounded-lg"><Activity className="w-6 h-6" /></div><div><p className="text-sm font-medium text-neutral-500">Total Registrations</p><p className="text-2xl font-bold">{globalTotal}</p></div></div>
+                            <button onClick={() => { setActiveTab('registrations'); setStatusFilter('payment_review'); }} className={`bg-white border p-5 md:p-6 rounded-xl flex items-center gap-4 shadow-sm text-left transition ${globalToVerify > 0 ? 'border-indigo-300 hover:bg-indigo-50' : 'border-neutral-200'}`}><div className="p-4 bg-indigo-100 text-indigo-600 rounded-lg"><IndianRupee className="w-6 h-6" /></div><div><p className="text-sm font-medium text-neutral-500">Payments to Verify</p><p className="text-2xl font-bold">{globalToVerify}</p></div></button>
                         </div>
 
                         {/* Sales per category */}
@@ -1017,6 +1110,7 @@ export default function AdminDashboard() {
                             <button onClick={() => setSettingsSubTab('checkpoints')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'checkpoints' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><QrCode className="w-4 h-4" /> Entry Checkpoints</button>
                             <button onClick={() => setSettingsSubTab('formfields')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'formfields' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ListFilter className="w-4 h-4" /> Form Fields</button>
                             <button onClick={() => setSettingsSubTab('homecontent')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'homecontent' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><CalendarDays className="w-4 h-4" /> Home Page Content</button>
+                            <button onClick={() => setSettingsSubTab('payment')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'payment' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><IndianRupee className="w-4 h-4" /> Payment Details</button>
                         </div>
 
                         <div className="flex-1 p-6 lg:p-8 bg-white overflow-y-auto">
@@ -1228,6 +1322,7 @@ export default function AdminDashboard() {
                             {settingsSubTab === 'formfields' && <FormFieldsManager categories={categoriesList} />}
 
                             {settingsSubTab === 'homecontent' && <HomeContentManager events={eventsList} />}
+                            {settingsSubTab === 'payment' && <PaymentSettingsManager />}
                         </div>
                     </div>
                 )}
