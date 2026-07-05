@@ -491,6 +491,8 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
 Keep newest first. Add an entry for every meaningful change.
 
 - **2026-06-28**
+  - **Bulk receipts + financial statement** — Registrations tab: **Receipts PDF** (print-friendly combined receipts for PAID rows in the current date/filter → save as one PDF) and **Financial** (paid-only .xls statement with receipt numbers + total). Client-side, instant, respects the date-range filter. No GST (simple receipts); a server-side emailed-PDF job can be added later if needed.
+  - **Dashboard analytics** — [components/DashboardAnalytics.js](components/DashboardAnalytics.js): daily registrations + revenue (14-day bars), payment conversion %, enquiry pipeline, per-tier fill %. Nav **work badges** (to-verify count on Registrations, new-enquiry count on Enquiries). All computed client-side from loaded data; no chart dependency.
   - **Manage a registration** — detail modal now has **Edit details** (all personal/contact/custom fields via [EditRegistrationModal.js](components/EditRegistrationModal.js) → `PATCH /api/admin/registrations` with `{updates}`, editable even on completed rows), **Resend confirmation** (`/api/admin/resend-confirmation`), and **Refund** (`/api/admin/refund`, full/partial via Razorpay; full → `refunded`).
   - **Toasts + modal dialogs** — [lib/uiStore.js](lib/uiStore.js) + [components/Toaster.js](components/Toaster.js) replace every browser `alert/confirm/prompt` across admin (page, Enquiries, Payment Settings, Form Fields) with in-page toasts and modals. `toast.success/error/info`, `await confirmDialog()`, `await promptDialog()`.
   - **Excel export** — Registrations tab now has CSV **and** Excel (.xls) export of the filtered set (incl. payment mode + reference).

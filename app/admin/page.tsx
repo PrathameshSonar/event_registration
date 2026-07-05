@@ -17,6 +17,7 @@ import PaymentSettingsManager from '@/components/PaymentSettingsManager';
 import ScanLogPanel from '@/components/ScanLogPanel';
 import Toaster from '@/components/Toaster';
 import EditRegistrationModal from '@/components/EditRegistrationModal';
+import DashboardAnalytics from '@/components/DashboardAnalytics';
 import { toast, confirmDialog, promptDialog } from '@/lib/uiStore';
 
 type Role = 'admin' | 'viewer';
@@ -647,6 +648,7 @@ export default function AdminDashboard() {
     const globalRevenue = registrations.filter(r => r.payment_status === 'completed').reduce((s, r) => s + Number(r.total_amount || 0), 0);
     const globalTotal = registrations.length;
     const globalToVerify = registrations.filter(r => r.payment_status === 'payment_review' || r.payment_status === 'cheque_received').length;
+    const globalNewEnquiries = registrations.filter(r => r.payment_status === 'enquired').length;
     const globalCategoryMetrics = registrations.reduce((acc, reg) => {
         if (reg.payment_status === 'completed' || reg.payment_status === 'enquired' || reg.payment_status === 'contacted') {
             const catTitle = reg.categories?.title || 'Deleted Tier';
@@ -677,6 +679,67 @@ export default function AdminDashboard() {
         const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body>${table}</body></html>`;
         const blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel' });
         const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `BaglaBhairav_Registrations_${new Date().toISOString().split('T')[0]}.xls`; link.click();
+    };
+
+    // Stable receipt number from the created date + short id.
+    const invoiceNo = (reg: Registration) => `RCPT-${new Date(reg.created_at).toISOString().slice(0, 10).replace(/-/g, '')}-${reg.id.split('-')[0].toUpperCase()}`;
+
+    // Combined receipts (PDF) — opens a print-friendly window of all PAID rows in
+    // the current filter (one per page); the admin saves it as a single PDF.
+    const printReceipts = () => {
+        const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const paid = filteredRegistrations.filter(r => r.payment_status === 'completed');
+        if (paid.length === 0) { toast.error('No paid registrations in the current filter.'); return; }
+        const eventName = activeEvent?.title || '';
+        const row = (l: string, v: string) => `<tr><td style="padding:6px 0;color:#6b7280;">${l}</td><td style="padding:6px 0;font-weight:700;color:#111827;text-align:right;">${v}</td></tr>`;
+        const receipts = paid.map(reg => {
+            const mode = PAYMENT_MODE_LABEL[reg.payment_method || 'razorpay'] || 'Online';
+            const ref = reg.razorpay_payment_id || reg.offline_reference || '';
+            return `<div class="rcpt">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #171717;padding-bottom:12px;margin-bottom:16px;">
+                    <div><div style="font-size:22px;font-weight:800;">BaglaBhairav</div><div style="font-size:12px;color:#6b7280;">${esc(eventName)}</div></div>
+                    <div style="text-align:right;"><div style="font-size:11px;letter-spacing:.08em;color:#6b7280;text-transform:uppercase;">Payment Receipt</div><div style="font-size:13px;font-weight:700;color:#ea580c;">${invoiceNo(reg)}</div><div style="font-size:11px;color:#9ca3af;">${new Date(reg.created_at).toLocaleDateString('en-IN')}</div></div>
+                </div>
+                <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                    ${row('Name', esc([reg.salutation, reg.first_name, reg.last_name].filter(Boolean).join(' ')))}
+                    ${row('Phone', esc(reg.phone))}
+                    ${row('Email', esc(reg.email))}
+                    ${reg.gotra ? row('Gotra', esc(reg.gotra)) : ''}
+                    ${row('Category', esc(reg.categories?.title || '—'))}
+                    ${row('Attendees', `${reg.attendees_count || 1}`)}
+                    ${row('Payment Mode', esc(mode))}
+                    ${ref ? row('Reference', esc(ref)) : ''}
+                    <tr><td style="padding:12px 0 0;border-top:1px solid #e5e7eb;font-weight:700;">Amount Paid</td><td style="padding:12px 0 0;border-top:1px solid #e5e7eb;text-align:right;font-weight:800;color:#16a34a;font-size:18px;">₹${Number(reg.total_amount || 0).toLocaleString('en-IN')}</td></tr>
+                </table>
+                <div style="margin-top:14px;font-size:11px;color:#9ca3af;">This is a computer-generated payment receipt. No-refund registration.</div>
+            </div>`;
+        }).join('');
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Receipts</title><style>
+            @page{margin:16mm} body{font-family:Arial,sans-serif;color:#111827;margin:0;}
+            .rcpt{page-break-after:always;padding:8px;} .rcpt:last-child{page-break-after:auto;}
+        </style></head><body>${receipts}</body></html>`;
+        const w = window.open('', '_blank');
+        if (!w) { toast.error('Allow pop-ups to generate the receipts PDF.'); return; }
+        w.document.write(html); w.document.close(); w.focus();
+        setTimeout(() => w.print(), 400);
+    };
+
+    // Financial statement (Excel) — PAID rows only, financial columns + totals.
+    const downloadFinancialExcel = () => {
+        const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const paid = filteredRegistrations.filter(r => r.payment_status === 'completed');
+        if (paid.length === 0) { toast.error('No paid registrations in the current filter.'); return; }
+        const headers = ['Receipt No', 'Date', 'Name', 'Phone', 'Email', 'Category', 'Attendees', 'Donation', 'Amount', 'Payment Mode', 'Reference'];
+        const rows = paid.map(reg => [
+            invoiceNo(reg), new Date(reg.created_at).toLocaleDateString('en-IN'), `${reg.salutation || ''} ${reg.first_name} ${reg.last_name}`.trim(), reg.phone || '', reg.email || '', reg.categories?.title || 'Deleted Tier', reg.attendees_count || 1, reg.donation_amount || 0, reg.total_amount || 0, PAYMENT_MODE_LABEL[reg.payment_method || 'razorpay'] || 'Online', reg.razorpay_payment_id || reg.offline_reference || '',
+        ]);
+        const total = paid.reduce((s, r) => s + Number(r.total_amount || 0), 0);
+        const body = rows.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('');
+        const totalRow = `<tr><td colspan="8" style="font-weight:bold;text-align:right;">Total</td><td style="font-weight:bold;">${total}</td><td></td><td></td></tr>`;
+        const table = `<table border="1"><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${body}${totalRow}</tbody></table>`;
+        const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><h3>BaglaBhairav — Financial Statement</h3>${table}</body></html>`;
+        const blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel' });
+        const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `BaglaBhairav_Financial_${new Date().toISOString().split('T')[0]}.xls`; link.click();
     };
 
     // Shared between the desktop table row and the mobile card so both stay in sync.
@@ -946,11 +1009,11 @@ export default function AdminDashboard() {
                     instead of overflowing/wrapping. */}
                 <div className="flex gap-1 bg-neutral-200 p-1 rounded-xl overflow-x-auto no-scrollbar">
                     {([
-                        { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, show: true },
-                        { key: 'registrations', label: 'Registrations', icon: ListFilter, show: true },
-                        { key: 'enquiries', label: 'Enquiries', icon: MessageSquare, show: true },
-                        { key: 'settings', label: 'Settings', icon: Settings, show: isAdmin },
-                        { key: 'audit', label: 'Audit', icon: ScrollText, show: isAdmin },
+                        { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, show: true, badge: 0 },
+                        { key: 'registrations', label: 'Registrations', icon: ListFilter, show: true, badge: globalToVerify },
+                        { key: 'enquiries', label: 'Enquiries', icon: MessageSquare, show: true, badge: globalNewEnquiries },
+                        { key: 'settings', label: 'Settings', icon: Settings, show: isAdmin, badge: 0 },
+                        { key: 'audit', label: 'Audit', icon: ScrollText, show: isAdmin, badge: 0 },
                     ] as const).filter(t => t.show).map(t => {
                         const Icon = t.icon;
                         return (
@@ -960,6 +1023,7 @@ export default function AdminDashboard() {
                                 className={`flex-shrink-0 flex-1 md:flex-none px-4 sm:px-5 py-2.5 text-sm font-semibold rounded-lg transition flex justify-center items-center gap-2 whitespace-nowrap ${effectiveTab === t.key ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600 hover:bg-neutral-300/50'}`}
                             >
                                 <Icon className="w-4 h-4 flex-shrink-0" /> {t.label}
+                                {t.badge > 0 && <span className="ml-0.5 bg-orange-600 text-white text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full inline-flex items-center justify-center">{t.badge}</span>}
                             </button>
                         );
                     })}
@@ -975,6 +1039,8 @@ export default function AdminDashboard() {
                             <div className="bg-white border border-neutral-200 p-5 md:p-6 rounded-xl flex items-center gap-4 shadow-sm"><div className="p-4 bg-blue-100 text-blue-600 rounded-lg"><Activity className="w-6 h-6" /></div><div><p className="text-sm font-medium text-neutral-500">Total Registrations</p><p className="text-2xl font-bold">{globalTotal}</p></div></div>
                             <button onClick={() => { setActiveTab('registrations'); setStatusFilter('payment_review'); }} className={`bg-white border p-5 md:p-6 rounded-xl flex items-center gap-4 shadow-sm text-left transition ${globalToVerify > 0 ? 'border-indigo-300 hover:bg-indigo-50' : 'border-neutral-200'}`}><div className="p-4 bg-indigo-100 text-indigo-600 rounded-lg"><IndianRupee className="w-6 h-6" /></div><div><p className="text-sm font-medium text-neutral-500">Payments to Verify</p><p className="text-2xl font-bold">{globalToVerify}</p></div></button>
                         </div>
+
+                        <DashboardAnalytics registrations={registrations} categories={categoriesList} />
 
                         {/* Sales per category */}
                         {categorySales.length > 0 && (
@@ -1040,6 +1106,8 @@ export default function AdminDashboard() {
                                 </div>
                                 <button onClick={downloadCSV} className="bg-neutral-900 hover:bg-orange-600 text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><Download className="w-4 h-4" /> CSV</button>
                                 <button onClick={downloadExcel} className="bg-neutral-900 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><Download className="w-4 h-4" /> Excel</button>
+                                <button onClick={printReceipts} title="Combined receipts for paid registrations in the current filter → save as PDF" className="border border-neutral-300 text-neutral-700 hover:bg-neutral-100 px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><Download className="w-4 h-4" /> Receipts PDF</button>
+                                <button onClick={downloadFinancialExcel} title="Financial statement (paid only) for the current filter" className="border border-neutral-300 text-neutral-700 hover:bg-neutral-100 px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><Download className="w-4 h-4" /> Financial</button>
                             </div>
                             <div className="flex flex-wrap gap-3 items-center">
                                 <div className="flex items-center gap-2 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus-within:border-orange-600 transition flex-wrap"><CalendarIcon className="w-4 h-4 text-neutral-400 flex-shrink-0" /><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-transparent focus:outline-none text-neutral-600 min-w-0" /><span className="text-neutral-400">–</span><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="bg-transparent focus:outline-none text-neutral-600 min-w-0" /></div>
