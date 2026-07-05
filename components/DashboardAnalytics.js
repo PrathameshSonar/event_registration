@@ -83,11 +83,13 @@ export default function DashboardAnalytics({ registrations = [], categories = []
             {/* Trends */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
-                    <div className="flex items-center gap-2 mb-4"><TrendingUp className="w-4 h-4 text-orange-600" /><h3 className="text-sm font-bold uppercase tracking-wider text-neutral-500">Registrations · last {DAYS} days</h3></div>
+                    <div className="flex items-center gap-2 mb-1"><TrendingUp className="w-4 h-4 text-orange-600" /><h3 className="text-sm font-bold uppercase tracking-wider text-neutral-500">Registrations · last {DAYS} days</h3></div>
+                    <p className="text-xs text-neutral-400 mb-4">Sign-ups created each day (all statuses — paid, pending & partial). Hover a bar for the count.</p>
                     <Bars series={a.regSeries} max={maxReg} color="bg-orange-500" fmt={(v) => `${v} reg`} />
                 </div>
                 <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
-                    <div className="flex items-center gap-2 mb-4"><IndianRupee className="w-4 h-4 text-green-600" /><h3 className="text-sm font-bold uppercase tracking-wider text-neutral-500">Revenue (Paid) · last {DAYS} days</h3></div>
+                    <div className="flex items-center gap-2 mb-1"><IndianRupee className="w-4 h-4 text-green-600" /><h3 className="text-sm font-bold uppercase tracking-wider text-neutral-500">Revenue (Paid) · last {DAYS} days</h3></div>
+                    <p className="text-xs text-neutral-400 mb-4">Money actually collected each day (only fully-paid registrations). Hover a bar for the amount.</p>
                     <Bars series={a.revSeries} max={maxRev} color="bg-green-500" fmt={(v) => `₹${v.toLocaleString("en-IN")}`} />
                 </div>
             </div>
@@ -95,7 +97,8 @@ export default function DashboardAnalytics({ registrations = [], categories = []
             {/* Conversion + enquiry pipeline */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
-                    <div className="flex items-center gap-2 mb-4"><Percent className="w-4 h-4 text-neutral-500" /><h3 className="text-sm font-bold uppercase tracking-wider text-neutral-500">Payment Conversion</h3></div>
+                    <div className="flex items-center gap-2 mb-1"><Percent className="w-4 h-4 text-neutral-500" /><h3 className="text-sm font-bold uppercase tracking-wider text-neutral-500">Payment Conversion</h3></div>
+                    <p className="text-xs text-neutral-400 mb-4">Share of payment attempts that ended in a full payment (paid ÷ all paid+pending+failed+partial).</p>
                     <div className="flex items-end gap-4">
                         <div className="text-4xl font-black text-neutral-900">{a.conversion}%</div>
                         <div className="text-sm text-neutral-500 pb-1">{a.paid} paid of {a.attempts} attempts</div>
@@ -103,7 +106,8 @@ export default function DashboardAnalytics({ registrations = [], categories = []
                     <div className="mt-3 h-2.5 bg-neutral-100 rounded-full overflow-hidden"><div className="h-full bg-green-500 rounded-full" style={{ width: `${a.conversion}%` }} /></div>
                 </div>
                 <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
-                    <div className="flex items-center gap-2 mb-4"><Users className="w-4 h-4 text-neutral-500" /><h3 className="text-sm font-bold uppercase tracking-wider text-neutral-500">Enquiry Pipeline</h3></div>
+                    <div className="flex items-center gap-2 mb-1"><Users className="w-4 h-4 text-neutral-500" /><h3 className="text-sm font-bold uppercase tracking-wider text-neutral-500">Enquiry Pipeline</h3></div>
+                    <p className="text-xs text-neutral-400 mb-4">Where enquiry leads sit in the funnel — from first enquiry to closed.</p>
                     {a.enquiryTotal === 0 ? <p className="text-sm text-neutral-400">No enquiries yet.</p> : (
                         <div className="space-y-2">
                             {a.funnel.map((f) => (
@@ -121,7 +125,8 @@ export default function DashboardAnalytics({ registrations = [], categories = []
             {/* Tier fill */}
             {a.tierFill.length > 0 && (
                 <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-500 mb-4">Tier Fill (capacity used)</h3>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-500 mb-1">Tier Fill (capacity used)</h3>
+                    <p className="text-xs text-neutral-400 mb-4">Seats taken vs. capacity per tier (counts paid + partial-paid holds). Red = nearly full.</p>
                     <div className="space-y-3">
                         {a.tierFill.map((t) => (
                             <div key={t.title}>
