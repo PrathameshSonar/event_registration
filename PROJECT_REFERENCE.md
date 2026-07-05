@@ -491,6 +491,7 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
 Keep newest first. Add an entry for every meaningful change.
 
 - **2026-06-28**
+  - **Homepage: tighter.** Reduced section padding, heading sizes, hero, and card sizes across the board for a more compact feel. (A mantra strip + hero 🕉️ were briefly added then removed per request — no mantra/Om is shown.)
   - **Admin batch: 4 operability features.**
     - **Manual Add Registration** — admin can create a registration from scratch for a walk-in (never used the public form). New `POST /api/admin/create-registration` (admin only): price is looked up from the tier (server-authoritative), admin picks identity + outcome (`completed` → ticket dispatched, `advance_paid` → balance recorded, `pending` → record only) + offline method/reference. New `components/AddRegistrationModal.js` + an **Add Registration** button on the Registrations tab. New `registrations.created_by_admin` boolean column.
     - **Per-person activity timeline** — the registration detail modal now shows a merged, newest-first timeline of every audit event + contact note for that person. New `GET /api/admin/registration-activity?registrationId=` + `components/RegistrationActivity.js`.

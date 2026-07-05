@@ -118,16 +118,16 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                 <div className="pointer-events-none absolute -top-16 -left-16 w-64 h-64 rounded-full bg-amber-400/20 blur-3xl" />
                 <div className="pointer-events-none absolute -bottom-20 -right-10 w-72 h-72 rounded-full bg-orange-900/30 blur-3xl" />
 
-                <div className="relative max-w-4xl mx-auto px-4 py-16 md:py-24 text-center">
-                    <h2 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-6 leading-tight tracking-tight drop-shadow-sm">
+                <div className="relative max-w-4xl mx-auto px-4 py-12 md:py-16 text-center">
+                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-4 leading-tight tracking-tight drop-shadow-sm">
                         {eventTitle}
                     </h2>
-                    <p className="text-base md:text-xl text-amber-50/90 max-w-2xl mx-auto mb-8 leading-relaxed">
+                    <p className="text-sm md:text-lg text-amber-50/90 max-w-2xl mx-auto mb-6 leading-relaxed">
                         {eventDesc}
                     </p>
 
                     {/* Date + venue */}
-                    <div className="flex flex-col md:flex-row justify-center gap-4 md:gap-10 text-amber-50 mb-10 font-medium text-sm">
+                    <div className="flex flex-col md:flex-row justify-center gap-3 md:gap-10 text-amber-50 mb-7 font-medium text-sm">
                         <div className="flex items-center justify-center gap-2">
                             <Calendar className="w-5 h-5 text-amber-200" />
                             <span>{displayDate}</span>
@@ -144,7 +144,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
 
                     {/* Countdown */}
                     {pageData?.start_at && (
-                        <div className="mb-10">
+                        <div className="mb-7">
                             <Countdown startAt={pageData.start_at} />
                         </div>
                     )}
@@ -152,24 +152,24 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                     {/* CTAs */}
                     <div className="flex flex-col sm:flex-row gap-3 justify-center flex-wrap">
                         {hasCategories && (
-                            <a href="#categories" className="inline-block bg-white text-orange-700 font-bold px-8 py-3.5 rounded-xl shadow-lg hover:bg-amber-50 hover:scale-[1.02] transition text-sm md:text-base">
+                            <a href="#categories" className="inline-block bg-white text-orange-700 font-bold px-7 py-3 rounded-xl shadow-lg hover:bg-amber-50 hover:scale-[1.02] transition text-sm md:text-base">
                                 🪔 {t('hero_register_cta')}
                             </a>
                         )}
                         {schedule.length > 0 && (
-                            <a href="#schedule" className="inline-block bg-white/10 border border-white/30 backdrop-blur-sm text-white font-bold px-8 py-3.5 rounded-xl hover:bg-white/20 transition text-sm md:text-base">
+                            <a href="#schedule" className="inline-block bg-white/10 border border-white/30 backdrop-blur-sm text-white font-bold px-7 py-3 rounded-xl hover:bg-white/20 transition text-sm md:text-base">
                                 {t('hero_view_schedule')}
                             </a>
                         )}
                     </div>
 
                     {/* Add to calendar + share — one row */}
-                    <div className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-3">
+                    <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-3">
                         <AddToCalendar title={eventTitle} startAt={pageData?.start_at} endAt={pageData?.end_at} location={displayVenue} details={eventDesc} />
                         <ShareButtons title={eventTitle} />
                     </div>
 
-                    <p className="text-amber-100/70 text-xs md:text-sm mt-8 italic">{t('hero_blessing')}</p>
+                    <p className="text-amber-100/70 text-xs md:text-sm mt-6 italic">{t('hero_blessing')}</p>
                 </div>
 
                 {/* Wave divider */}
@@ -183,10 +183,10 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
             {/* ABOUT THE MAHOTSAV */}
             {aboutText && (
                 <Reveal>
-                <section className="bg-neutral-50 py-14 md:py-20 border-b border-neutral-200">
+                <section className="bg-neutral-50 py-10 md:py-14 border-b border-neutral-200">
                     <div className="max-w-3xl mx-auto px-4 text-center">
                         <span className="text-3xl">🙏</span>
-                        <h3 className="text-2xl md:text-3xl font-bold mt-3 mb-5 tracking-tight text-neutral-900">{t('section_about_title')}</h3>
+                        <h3 className="text-xl md:text-2xl font-bold mt-3 mb-4 tracking-tight text-neutral-900">{t('section_about_title')}</h3>
                         <p className="text-neutral-600 leading-relaxed whitespace-pre-wrap text-sm md:text-base">{aboutText}</p>
                     </div>
                 </section>
@@ -195,18 +195,18 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
 
             {/* SACRED RITUALS & HIGHLIGHTS */}
             <Reveal>
-            <section className="bg-white py-14 md:py-20 border-b border-neutral-200">
+            <section className="bg-white py-10 md:py-14 border-b border-neutral-200">
                 <div className="max-w-5xl mx-auto px-4">
-                    <div className="text-center mb-10">
-                        <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-neutral-900">{t('section_highlights_title')}</h3>
+                    <div className="text-center mb-8">
+                        <h3 className="text-xl md:text-2xl font-bold tracking-tight text-neutral-900">{t('section_highlights_title')}</h3>
                         <p className="text-neutral-500 text-sm mt-2">{t('section_highlights_desc')}</p>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
                         {hl.map((h, i) => (
-                            <div key={i} className="rounded-2xl border border-orange-100 bg-gradient-to-br from-orange-50/60 to-amber-50/40 p-6 text-center hover:shadow-md hover:border-orange-200 transition">
-                                <div className="text-4xl mb-3">{h.icon}</div>
-                                <h4 className="font-bold text-neutral-900 mb-1.5">{h.title}</h4>
-                                {h.desc && <p className="text-neutral-500 text-sm leading-relaxed">{h.desc}</p>}
+                            <div key={i} className="rounded-2xl border border-orange-100 bg-gradient-to-br from-orange-50/60 to-amber-50/40 p-5 text-center hover:shadow-md hover:border-orange-200 transition">
+                                <div className="text-3xl mb-2.5">{h.icon}</div>
+                                <h4 className="font-bold text-neutral-900 mb-1 text-sm md:text-base">{h.title}</h4>
+                                {h.desc && <p className="text-neutral-500 text-xs md:text-sm leading-relaxed">{h.desc}</p>}
                             </div>
                         ))}
                     </div>
@@ -217,10 +217,10 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
             {/* GUEST / ARTIST LINEUP */}
             {guests.length > 0 && (
                 <Reveal>
-                <section className="bg-neutral-50 py-14 md:py-20 border-b border-neutral-200">
+                <section className="bg-neutral-50 py-10 md:py-14 border-b border-neutral-200">
                     <div className="max-w-5xl mx-auto px-4">
-                        <div className="text-center mb-10">
-                            <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-neutral-900">{t('section_lineup_title')}</h3>
+                        <div className="text-center mb-8">
+                            <h3 className="text-xl md:text-2xl font-bold tracking-tight text-neutral-900">{t('section_lineup_title')}</h3>
                             <p className="text-neutral-500 text-sm mt-2">{t('section_lineup_desc')}</p>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
@@ -251,10 +251,10 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
             {/* PROGRAMME SCHEDULE */}
             {schedule.length > 0 && (
                 <Reveal>
-                <section id="schedule" className="bg-gradient-to-b from-amber-50/40 to-white py-14 md:py-20 border-b border-neutral-200">
+                <section id="schedule" className="bg-gradient-to-b from-amber-50/40 to-white py-10 md:py-14 border-b border-neutral-200">
                     <div className="max-w-3xl mx-auto px-4">
-                        <div className="text-center mb-10">
-                            <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-neutral-900">{t('section_schedule_title')}</h3>
+                        <div className="text-center mb-8">
+                            <h3 className="text-xl md:text-2xl font-bold tracking-tight text-neutral-900">{t('section_schedule_title')}</h3>
                             <p className="text-neutral-500 text-sm mt-2">{t('section_schedule_desc')}</p>
                         </div>
                         <div className="space-y-3">
@@ -293,10 +293,10 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
             )}
 
             {/* REGISTRATION CATEGORIES */}
-            <section id="categories" className="bg-white py-16 md:py-24 border-t border-neutral-200">
+            <section id="categories" className="bg-white py-12 md:py-16 border-t border-neutral-200">
                 <div className="max-w-5xl mx-auto px-4">
-                    <div className="text-center mb-12">
-                        <h3 className="text-3xl font-bold mb-3 tracking-tight">{t('section_categories_title')}</h3>
+                    <div className="text-center mb-9">
+                        <h3 className="text-xl md:text-2xl font-bold mb-3 tracking-tight">{t('section_categories_title')}</h3>
                         <p className="text-neutral-500 text-sm">{t('section_categories_desc')}</p>
                     </div>
 
@@ -325,7 +325,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                             const isEffectivelyFull = category.is_full || (isCapacityEnforced && remaining === 0);
 
                             return (
-                                <div key={category.id} className="border border-neutral-200 rounded-2xl p-5 md:p-8 hover:shadow-lg hover:border-neutral-300 transition flex flex-col justify-between bg-white relative overflow-hidden">
+                                <div key={category.id} className="border border-neutral-200 rounded-2xl p-5 md:p-6 hover:shadow-lg hover:border-neutral-300 transition flex flex-col justify-between bg-white relative overflow-hidden">
 
                                     {isCapacityEnforced && category.show_availability && !isEffectivelyFull && (
                                         <div className="absolute top-0 right-0 bg-orange-100 text-orange-800 text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-bl-xl border-b border-l border-orange-200 flex items-center gap-1">
@@ -334,14 +334,14 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                                     )}
 
                                     <div>
-                                        <h4 className="text-xl font-bold mb-2 text-neutral-900 mt-2">{getCatTitle(category)}</h4>
-                                        <div className="text-3xl font-black mb-4 text-orange-600">
+                                        <h4 className="text-lg font-bold mb-2 text-neutral-900 mt-2">{getCatTitle(category)}</h4>
+                                        <div className="text-2xl md:text-3xl font-black mb-3 text-orange-600">
                                             {category.price > 0 ? `₹${category.price.toLocaleString('en-IN')}` : t('category_enquire_price')}
                                         </div>
                                         <p className="text-neutral-600 mb-4 text-sm leading-relaxed whitespace-pre-wrap">
                                             {getCatDesc(category)}
                                         </p>
-                                        <div className="flex flex-wrap gap-2 mb-8">
+                                        <div className="flex flex-wrap gap-2 mb-6">
                                             {category.show_emi_badge && !category.is_enquiry_only && (
                                                 <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full px-2.5 py-1">💳 EMI available</span>
                                             )}
@@ -381,14 +381,14 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
 
             {/* MEDIA */}
             {mediaItems && mediaItems.length > 0 && (
-                <section className="bg-neutral-100 py-16 md:py-24 border-t border-neutral-200">
+                <section className="bg-neutral-100 py-12 md:py-16 border-t border-neutral-200">
                     <div className="max-w-5xl mx-auto px-4">
 
                         {youtubeVideos.length > 0 && (
-                            <div className="mb-16">
+                            <div className="mb-12">
                                 <div className="flex items-center gap-2 mb-6 justify-center md:justify-start">
                                     <Video className="w-5 h-5 text-orange-600" />
-                                    <h3 className="text-2xl font-bold tracking-tight">{t('section_videos')}</h3>
+                                    <h3 className="text-xl md:text-2xl font-bold tracking-tight">{t('section_videos')}</h3>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                                     {youtubeVideos.map((video) => (
@@ -407,7 +407,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                             <div>
                                 <div className="flex items-center gap-2 mb-6 justify-center md:justify-start">
                                     <ImageIcon className="w-5 h-5 text-orange-600" />
-                                    <h3 className="text-2xl font-bold tracking-tight">{t('section_gallery')}</h3>
+                                    <h3 className="text-xl md:text-2xl font-bold tracking-tight">{t('section_gallery')}</h3>
                                 </div>
                                 <div className="columns-1 sm:columns-2 md:columns-3 gap-4 space-y-4">
                                     {galleryImages.map((image) => (
