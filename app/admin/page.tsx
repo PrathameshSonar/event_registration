@@ -6,7 +6,7 @@ import {
     Lock, Download, Users, IndianRupee, Activity, Eye, X, Settings, ListFilter,
     Save, Trash2, Plus, Image as ImageIcon, Video, CalendarDays,
     Ticket, Calendar as CalendarIcon, Search, LogOut, QrCode, Copy, Check,
-    LayoutDashboard, ScrollText, RefreshCw, MessageSquare, Pencil, Mail, Undo2
+    LayoutDashboard, ScrollText, RefreshCw, MessageSquare, Pencil, Mail, Undo2, Send, UserPlus
 } from 'lucide-react';
 import { youtubeThumbnail } from '@/lib/youtube';
 import FormFieldsManager from '@/components/FormFieldsManager';
@@ -14,10 +14,13 @@ import HomeContentManager from '@/components/HomeContentManager';
 import AuditLogPanel from '@/components/AuditLogPanel';
 import EnquiriesPanel from '@/components/EnquiriesPanel';
 import PaymentSettingsManager from '@/components/PaymentSettingsManager';
+import AdminUsersManager from '@/components/AdminUsersManager';
 import ScanLogPanel from '@/components/ScanLogPanel';
 import Toaster from '@/components/Toaster';
 import EditRegistrationModal from '@/components/EditRegistrationModal';
 import DashboardAnalytics from '@/components/DashboardAnalytics';
+import RegistrationActivity from '@/components/RegistrationActivity';
+import AddRegistrationModal from '@/components/AddRegistrationModal';
 import { toast, confirmDialog, promptDialog } from '@/lib/uiStore';
 
 type Role = 'admin' | 'viewer';
@@ -128,12 +131,13 @@ function statusClasses(status: PaymentStatus) {
 }
 
 export default function AdminDashboard() {
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [role, setRole] = useState<Role | null>(null);
     const isAdmin = role === 'admin';
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'enquiries' | 'scanlog' | 'settings' | 'audit'>('dashboard');
-    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'checkpoints' | 'formfields' | 'homecontent' | 'payment'>('events');
+    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'checkpoints' | 'formfields' | 'homecontent' | 'payment' | 'users'>('events');
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -222,7 +226,7 @@ export default function AdminDashboard() {
             const res = await fetch('/api/admin/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password }),
+                body: JSON.stringify({ username: username.trim() || undefined, password }),
             });
             const data = await res.json();
             if (!res.ok) { setError(data.error || 'Login failed'); return; }
@@ -403,6 +407,19 @@ export default function AdminDashboard() {
         if (!ok) { toast.error(data.error || 'Cleanup failed.'); return; }
         toast.success(`${data.count} abandoned pending checkout(s) marked as Failed.`);
         await fetchAllData();
+    };
+
+    const [showAddReg, setShowAddReg] = useState(false);
+    const [reminding, setReminding] = useState(false);
+    const handleBulkRemind = async (kind: 'pending' | 'balance') => {
+        const label = kind === 'balance' ? 'balance payment reminders to all Advance-Paid registrations' : 'payment links to all Pending (abandoned) checkouts';
+        if (!(await confirmDialog({ title: 'Send reminders', message: `Send ${label}? Each reachable person gets an email + WhatsApp with a fresh payment link.`, confirmLabel: 'Send' }))) return;
+        setReminding(true);
+        const { ok, data } = await mutate('/api/admin/bulk-remind', 'POST', { kind });
+        setReminding(false);
+        if (!ok) { toast.error(data.error || 'Could not send reminders.'); return; }
+        if (data.attempted === 0) { toast.info('No reachable registrations with a due amount to remind.'); return; }
+        toast.success(`Reminders sent to ${data.sent} of ${data.attempted}${data.failed ? ` (${data.failed} failed)` : ''}${data.capped ? ' — capped at 200; run again for the rest.' : ''}.`);
     };
 
     // ----- Manage a registration (edit / refund / resend confirmation) -----
@@ -831,9 +848,10 @@ export default function AdminDashboard() {
                 <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
                     <div className="w-16 h-16 bg-neutral-900 rounded-full flex items-center justify-center mx-auto mb-6"><Lock className="text-white w-8 h-8" /></div>
                     <h1 className="text-2xl font-bold mb-2">Admin Access</h1>
-                    <p className="text-sm text-neutral-500 mb-6">Enter your Admin or Viewer password.</p>
+                    <p className="text-sm text-neutral-500 mb-6">Sign in with your account, or leave the username blank to use the shared password.</p>
                     <form onSubmit={handleLogin} className="space-y-4">
-                        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter system password" className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600" />
+                        <input type="text" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username (optional)" className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600" />
+                        <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600" />
                         {error && <p className="text-red-500 text-sm">{error}</p>}
                         <button type="submit" className="w-full bg-neutral-900 text-white font-medium py-3 rounded-lg hover:bg-orange-600 transition">Unlock Terminal</button>
                     </form>
@@ -986,6 +1004,7 @@ export default function AdminDashboard() {
                                         </div>
                                     </div>
                                 )}
+                                <RegistrationActivity registrationId={selectedRegistration.id} />
                             </div>
                         </div>
                         {isAdmin && (
@@ -1005,6 +1024,10 @@ export default function AdminDashboard() {
 
             {editingReg && (
                 <EditRegistrationModal reg={editingReg} onClose={() => setEditingReg(null)} onSaved={async () => { setSelectedRegistration(null); await fetchAllData(); }} />
+            )}
+
+            {showAddReg && (
+                <AddRegistrationModal categories={categoriesList} onClose={() => setShowAddReg(false)} onCreated={async () => { setShowAddReg(false); await fetchAllData(); }} />
             )}
 
             <div className="max-w-7xl mx-auto mb-8 border-b border-neutral-200 pb-6 flex flex-col gap-4">
@@ -1109,6 +1132,7 @@ export default function AdminDashboard() {
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                                     <input type="text" placeholder="Search name, gotra, or phone..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="w-full pl-10 pr-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600" />
                                 </div>
+                                {isAdmin && <button onClick={() => setShowAddReg(true)} className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><UserPlus className="w-4 h-4" /> Add Registration</button>}
                                 <button onClick={downloadCSV} className="bg-neutral-900 hover:bg-orange-600 text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><Download className="w-4 h-4" /> CSV</button>
                                 <button onClick={downloadExcel} className="bg-neutral-900 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><Download className="w-4 h-4" /> Excel</button>
                                 <button onClick={printReceipts} title="Combined receipts for paid registrations in the current filter → save as PDF" className="border border-neutral-300 text-neutral-700 hover:bg-neutral-100 px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><Download className="w-4 h-4" /> Receipts PDF</button>
@@ -1141,11 +1165,22 @@ export default function AdminDashboard() {
                             })}
                         </div>
 
-                        {/* Abandoned-pending cleanup (Pending tab, admin only) */}
+                        {/* Abandoned-pending cleanup + recovery (Pending tab, admin only) */}
                         {isAdmin && statusFilter === 'pending' && (sectionCounts['pending'] || 0) > 0 && (
                             <div className="flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-xl px-5 py-3 gap-3 flex-wrap">
-                                <span className="text-sm text-yellow-900">Pending are online checkouts that were never paid. Clear old, abandoned ones to keep this view tidy.</span>
-                                <button onClick={handleClearPending} className="flex items-center gap-2 bg-yellow-600 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-yellow-700 transition whitespace-nowrap"><Trash2 className="w-4 h-4" /> Clear Abandoned</button>
+                                <span className="text-sm text-yellow-900">Pending are online checkouts that were never paid. Send a fresh payment link to recover them, or clear old, abandoned ones.</span>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <button onClick={() => handleBulkRemind('pending')} disabled={reminding} className="flex items-center gap-2 bg-orange-600 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-orange-700 transition whitespace-nowrap disabled:opacity-50"><Send className="w-4 h-4" /> {reminding ? 'Sending…' : 'Send Payment Links'}</button>
+                                    <button onClick={handleClearPending} className="flex items-center gap-2 bg-yellow-600 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-yellow-700 transition whitespace-nowrap"><Trash2 className="w-4 h-4" /> Clear Abandoned</button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Balance-due recovery (Advance-Paid tab, admin only) */}
+                        {isAdmin && statusFilter === 'advance_paid' && (sectionCounts['advance_paid'] || 0) > 0 && (
+                            <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 gap-3 flex-wrap">
+                                <span className="text-sm text-amber-900">These registrations have paid a part amount. Send everyone their remaining-balance payment link in one click.</span>
+                                <button onClick={() => handleBulkRemind('balance')} disabled={reminding} className="flex items-center gap-2 bg-amber-600 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-amber-700 transition whitespace-nowrap disabled:opacity-50"><Send className="w-4 h-4" /> {reminding ? 'Sending…' : 'Send Balance Reminders'}</button>
                             </div>
                         )}
 
@@ -1284,6 +1319,7 @@ export default function AdminDashboard() {
                             <button onClick={() => setSettingsSubTab('formfields')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'formfields' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ListFilter className="w-4 h-4" /> Form Fields</button>
                             <button onClick={() => setSettingsSubTab('homecontent')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'homecontent' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><CalendarDays className="w-4 h-4" /> Home Page Content</button>
                             <button onClick={() => setSettingsSubTab('payment')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'payment' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><IndianRupee className="w-4 h-4" /> Payment Details</button>
+                            <button onClick={() => setSettingsSubTab('users')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'users' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><Users className="w-4 h-4" /> Admin Users</button>
                         </div>
 
                         <div className="flex-1 p-6 lg:p-8 bg-white overflow-y-auto">
@@ -1496,6 +1532,7 @@ export default function AdminDashboard() {
 
                             {settingsSubTab === 'homecontent' && <HomeContentManager events={eventsList} />}
                             {settingsSubTab === 'payment' && <PaymentSettingsManager />}
+                            {settingsSubTab === 'users' && <AdminUsersManager />}
                         </div>
                     </div>
                 )}

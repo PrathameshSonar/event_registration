@@ -81,7 +81,8 @@ ALTER TABLE registrations
     ADD COLUMN IF NOT EXISTS offline_proof_path TEXT,   -- path in the private payment-proofs bucket
     ADD COLUMN IF NOT EXISTS offline_meta       JSONB,  -- bank name, cheque date, etc.
     ADD COLUMN IF NOT EXISTS verified_by        TEXT,
-    ADD COLUMN IF NOT EXISTS verified_at        TIMESTAMPTZ;
+    ADD COLUMN IF NOT EXISTS verified_at        TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS created_by_admin   BOOLEAN DEFAULT false;  -- manual walk-in entry
 
 -- Global key/value app config (e.g. the bank/UPI/cheque details shown to users
 -- for offline payments). Read server-side via the service role.
@@ -140,6 +141,23 @@ CREATE TABLE IF NOT EXISTS admin_login_attempts (
     updated_at   TIMESTAMPTZ DEFAULT now()
 );
 GRANT ALL ON admin_login_attempts TO service_role;
+
+-- Named admin/viewer accounts. Optional layer on top of the shared-password
+-- (env ADMIN_PASSWORD/VIEWER_PASSWORD) login: when a user logs in with a
+-- username, we authenticate against this table so the audit log records WHO
+-- acted. Passwords are scrypt-hashed (salt:hash) — never stored in plaintext.
+CREATE TABLE IF NOT EXISTS admin_users (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username      TEXT UNIQUE NOT NULL,
+    name          TEXT,
+    password_hash TEXT NOT NULL,                       -- scrypt: 'salt:hash' (hex)
+    role          TEXT NOT NULL DEFAULT 'admin' CHECK (role IN ('admin', 'viewer')),
+    active        BOOLEAN DEFAULT true,
+    created_at    TIMESTAMPTZ DEFAULT now(),
+    last_login_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS admin_users_username_idx ON admin_users (username);
+GRANT ALL ON admin_users TO service_role;
 
 -- registrations.payment_status uses a new value 'advance_paid'. If a CHECK
 -- constraint limits the allowed values, this rebuilds it to include the full

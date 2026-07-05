@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { createAdminSession } from '@/lib/adminSession';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { verifyPassword } from '@/lib/passwordHash';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,25 +46,49 @@ async function clearThrottle(ip) {
 
 export async function POST(request) {
     try {
-        const { password } = await request.json();
+        const { username, password } = await request.json();
         if (!password) {
             return NextResponse.json({ error: 'Password required.' }, { status: 400 });
-        }
-
-        const adminPassword = process.env.ADMIN_PASSWORD;
-        const viewerPassword = process.env.VIEWER_PASSWORD;
-        if (!adminPassword) {
-            console.error('ADMIN_PASSWORD is not configured.');
-            return NextResponse.json({ error: 'Server auth not configured.' }, { status: 500 });
         }
 
         const ip = clientIp(request);
         const throttle = await getThrottle(ip);
 
-        // Locked out?
+        // Locked out? (throttle keyed by IP, so it protects both login paths)
         if (throttle?.locked_until && new Date(throttle.locked_until).getTime() > Date.now()) {
             const mins = Math.ceil((new Date(throttle.locked_until).getTime() - Date.now()) / 60_000);
             return NextResponse.json({ error: `Too many attempts. Try again in ${mins} minute(s).` }, { status: 429 });
+        }
+
+        // ── Named account path: a username was supplied ──────────────────────
+        if (username && String(username).trim()) {
+            let user = null;
+            try {
+                const { data } = await supabaseAdmin
+                    .from('admin_users')
+                    .select('id, username, name, password_hash, role, active')
+                    .eq('username', String(username).trim().toLowerCase())
+                    .single();
+                user = data || null;
+            } catch { user = null; }
+
+            if (!user || user.active === false || !verifyPassword(password, user.password_hash)) {
+                await recordFail(ip, throttle);
+                return NextResponse.json({ error: 'Incorrect username or password.' }, { status: 401 });
+            }
+
+            await clearThrottle(ip);
+            try { await supabaseAdmin.from('admin_users').update({ last_login_at: new Date().toISOString() }).eq('id', user.id); } catch { /* best effort */ }
+            await createAdminSession({ role: user.role, username: user.username, name: user.name || user.username, uid: user.id });
+            return NextResponse.json({ role: user.role, name: user.name || user.username }, { status: 200 });
+        }
+
+        // ── Legacy shared-password path (env ADMIN_PASSWORD/VIEWER_PASSWORD) ──
+        const adminPassword = process.env.ADMIN_PASSWORD;
+        const viewerPassword = process.env.VIEWER_PASSWORD;
+        if (!adminPassword) {
+            console.error('ADMIN_PASSWORD is not configured.');
+            return NextResponse.json({ error: 'Server auth not configured.' }, { status: 500 });
         }
 
         let role = null;
