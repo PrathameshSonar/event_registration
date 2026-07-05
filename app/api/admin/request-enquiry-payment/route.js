@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
 const ELIGIBLE = ['enquired', 'contacted', 'awaiting_payment'];
 
 export async function POST(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'enquiries:manage' });
     if (response) return response;
 
     const { id } = await request.json();

@@ -24,7 +24,7 @@ import AddRegistrationModal from '@/components/AddRegistrationModal';
 import ImageUpload from '@/components/ImageUpload';
 import { toast, confirmDialog, promptDialog } from '@/lib/uiStore';
 
-type Role = 'admin' | 'viewer';
+type Role = 'admin' | 'volunteer';
 type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'enquired' | 'contacted' | 'amount_mismatch' | 'advance_paid' | 'awaiting_payment' | 'closed' | 'payment_review' | 'cheque_received' | 'payment_rejected';
 
 interface Registration {
@@ -138,7 +138,11 @@ export default function AdminDashboard() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [role, setRole] = useState<Role | null>(null);
+    const [permissions, setPermissions] = useState<string[]>([]);
     const isAdmin = role === 'admin';
+    const isVolunteer = role === 'volunteer';
+    // Permission check for the UI. Admin always passes; volunteers use their granted list.
+    const can = (perm: string) => isAdmin || permissions.includes(perm);
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'enquiries' | 'scanlog' | 'settings' | 'audit'>('dashboard');
     const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'checkpoints' | 'formfields' | 'homecontent' | 'payment' | 'users'>('events');
@@ -236,6 +240,7 @@ export default function AdminDashboard() {
             if (!res.ok) { setError(data.error || 'Login failed'); return; }
             setPassword('');
             setRole(data.role);
+            setPermissions(Array.isArray(data.permissions) ? data.permissions : []);
             fetchAllData();
         } catch {
             setError('Login failed. Please try again.');
@@ -770,7 +775,7 @@ export default function AdminDashboard() {
     // Shared between the desktop table row and the mobile card so both stay in sync.
     const renderStatusControl = (reg: Registration) => {
         const locked = TERMINAL_STATUSES.includes(reg.payment_status);
-        const editable = isAdmin && !locked;
+        const editable = can('registrations:manage') && !locked;
         return editable ? (
             <select
                 value={reg.payment_status}
@@ -793,10 +798,10 @@ export default function AdminDashboard() {
             {reg.payment_status === 'completed' && (
                 <a href={`/api/admin/qr/${reg.id}`} className="p-2 border border-neutral-200 rounded-lg bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition shadow-sm" title="Download QR Code"><QrCode className="w-4 h-4" /></a>
             )}
-            {(reg.payment_status === 'advance_paid' || reg.payment_status === 'amount_mismatch') && (
+            {(!isVolunteer || can('payments:verify')) && (reg.payment_status === 'advance_paid' || reg.payment_status === 'amount_mismatch') && (
                 <button onClick={() => handleSyncBalance(reg.id)} disabled={syncingId === reg.id} className="p-2 border border-green-200 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition shadow-sm disabled:opacity-50" title="Re-check this payment against Razorpay"><RefreshCw className={`w-4 h-4 ${syncingId === reg.id ? 'animate-spin' : ''}`} /></button>
             )}
-            {reg.payment_status === 'advance_paid' && (
+            {(!isVolunteer || can('reminders:send')) && reg.payment_status === 'advance_paid' && (
                 <button onClick={() => handleResendBalance(reg.id)} disabled={resendingId === reg.id} className="p-2 border border-amber-200 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition shadow-sm disabled:opacity-50" title="Re-send balance payment link"><IndianRupee className="w-4 h-4" /></button>
             )}
 
@@ -804,7 +809,7 @@ export default function AdminDashboard() {
             {reg.offline_proof_path && (reg.payment_status === 'payment_review' || reg.payment_status === 'cheque_received' || reg.payment_status === 'payment_rejected') && (
                 <button onClick={() => viewProof(reg.id)} className="p-2 border border-neutral-200 rounded-lg bg-white hover:bg-neutral-100 transition shadow-sm" title="View payment proof"><ImageIcon className="w-4 h-4" /></button>
             )}
-            {isAdmin && reg.payment_status === 'payment_review' && (
+            {can('payments:verify') && reg.payment_status === 'payment_review' && (
                 <>
                     {reg.payment_method === 'cheque'
                         ? <button onClick={() => handleVerifyPayment(reg, 'cheque_received')} disabled={verifyingId === reg.id} className="px-2.5 py-1.5 border border-cyan-200 rounded-lg bg-cyan-50 text-cyan-700 hover:bg-cyan-100 transition shadow-sm text-xs font-semibold disabled:opacity-50">Cheque in hand</button>
@@ -812,13 +817,13 @@ export default function AdminDashboard() {
                     <button onClick={() => handleVerifyPayment(reg, 'reject')} disabled={verifyingId === reg.id} className="px-2.5 py-1.5 border border-rose-200 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 transition shadow-sm text-xs font-semibold disabled:opacity-50">Reject</button>
                 </>
             )}
-            {isAdmin && reg.payment_status === 'cheque_received' && (
+            {can('payments:verify') && reg.payment_status === 'cheque_received' && (
                 <>
                     <button onClick={() => handleVerifyPayment(reg, 'cheque_cleared')} disabled={verifyingId === reg.id} className="px-2.5 py-1.5 border border-green-200 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition shadow-sm text-xs font-semibold disabled:opacity-50">Cleared</button>
                     <button onClick={() => handleVerifyPayment(reg, 'cheque_bounced')} disabled={verifyingId === reg.id} className="px-2.5 py-1.5 border border-rose-200 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 transition shadow-sm text-xs font-semibold disabled:opacity-50">Bounced</button>
                 </>
             )}
-            {isAdmin && (reg.payment_status === 'pending' || reg.payment_status === 'payment_rejected') && (
+            {can('payments:verify') && (reg.payment_status === 'pending' || reg.payment_status === 'payment_rejected') && (
                 <button onClick={() => handleRecordOffline(reg)} disabled={verifyingId === reg.id} className="px-2.5 py-1.5 border border-neutral-300 rounded-lg bg-white text-neutral-700 hover:bg-neutral-100 transition shadow-sm text-xs font-semibold disabled:opacity-50" title="Record an offline payment (cash/cheque/transfer)">Record ₹</button>
             )}
         </div>
@@ -864,8 +869,16 @@ export default function AdminDashboard() {
         );
     }
 
-    // Viewers cannot reach the admin-only tabs (settings, audit) — fall back.
-    const effectiveTab = (activeTab === 'settings' || activeTab === 'audit') && !isAdmin ? 'dashboard' : activeTab;
+    // Which tab actually renders. Admin sees the active tab as-is; a volunteer is
+    // redirected to their first permitted tab if the active one isn't allowed.
+    const TAB_PERM: Record<string, string> = { dashboard: 'dashboard:view', registrations: 'registrations:view', enquiries: 'enquiries:manage', scanlog: 'scanlog:view', settings: 'settings:manage', audit: 'audit:view' };
+    const effectiveTab = (() => {
+        if (isVolunteer) {
+            if (can(TAB_PERM[activeTab])) return activeTab;
+            return (['dashboard', 'registrations', 'enquiries', 'scanlog', 'settings', 'audit'] as const).find(k => can(TAB_PERM[k])) || 'dashboard';
+        }
+        return activeTab;
+    })();
 
     return (
         <div className="min-h-screen bg-neutral-50 p-4 md:p-8 font-sans text-neutral-900 [color-scheme:light]">
@@ -900,8 +913,8 @@ export default function AdminDashboard() {
                     >
                         Auto {autoRefresh ? 'ON' : 'OFF'}
                     </button>
-                    <span className={`text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-full ${isAdmin ? 'bg-orange-100 text-orange-700' : 'bg-neutral-200 text-neutral-600'}`}>
-                        {isAdmin ? 'Admin' : 'Viewer (read-only)'}
+                    <span className={`text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-full ${isAdmin ? 'bg-orange-100 text-orange-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                        {isAdmin ? 'Admin' : 'Volunteer'}
                     </span>
                     <a href="/scan" target="_blank" className="flex items-center gap-2 text-sm font-semibold text-neutral-600 hover:text-orange-600 border border-neutral-200 px-3 py-1.5 rounded-lg hover:border-orange-200 hover:bg-orange-50 transition"><QrCode className="w-4 h-4" /> Scanner</a>
                     <button onClick={handleLogout} className="flex items-center gap-2 text-sm font-semibold text-neutral-600 hover:text-red-600 border border-neutral-200 px-3 py-1.5 rounded-lg hover:border-red-200 hover:bg-red-50 transition"><LogOut className="w-4 h-4" /> Logout</button>
@@ -957,7 +970,7 @@ export default function AdminDashboard() {
                                                 {selectedRegistration.offline_proof_path && (
                                                     <button type="button" onClick={() => viewProof(selectedRegistration.id)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs font-semibold text-neutral-700 hover:bg-neutral-100 transition"><ImageIcon className="w-3.5 h-3.5" /> View proof</button>
                                                 )}
-                                                {isAdmin && selectedRegistration.payment_status === 'completed' && (
+                                                {can('payments:verify') && selectedRegistration.payment_status === 'completed' && (
                                                     <button type="button" onClick={() => handleVerifyPayment(selectedRegistration, 'reverse')} disabled={verifyingId === selectedRegistration.id} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-rose-200 rounded-lg text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 transition disabled:opacity-50"><X className="w-3.5 h-3.5" /> Reverse payment</button>
                                                 )}
                                             </div>
@@ -1011,13 +1024,13 @@ export default function AdminDashboard() {
                                 <RegistrationActivity registrationId={selectedRegistration.id} />
                             </div>
                         </div>
-                        {isAdmin && (
+                        {(can('registrations:manage') || can('payments:refund')) && (
                             <div className="px-6 py-4 border-t border-neutral-200 bg-neutral-50 flex flex-wrap gap-2 justify-end">
-                                <button onClick={() => setEditingReg(selectedRegistration)} className="inline-flex items-center gap-1.5 px-3 py-2 border border-neutral-300 rounded-lg text-sm font-semibold text-neutral-700 hover:bg-neutral-100 transition"><Pencil className="w-4 h-4" /> Edit details</button>
+                                {can('registrations:manage') && <button onClick={() => setEditingReg(selectedRegistration)} className="inline-flex items-center gap-1.5 px-3 py-2 border border-neutral-300 rounded-lg text-sm font-semibold text-neutral-700 hover:bg-neutral-100 transition"><Pencil className="w-4 h-4" /> Edit details</button>}
                                 {selectedRegistration.payment_status === 'completed' && (
                                     <>
-                                        <button onClick={() => handleResendConfirmation(selectedRegistration)} disabled={managingId === selectedRegistration.id} className="inline-flex items-center gap-1.5 px-3 py-2 border border-neutral-300 rounded-lg text-sm font-semibold text-neutral-700 hover:bg-neutral-100 transition disabled:opacity-50"><Mail className="w-4 h-4" /> Resend confirmation</button>
-                                        <button onClick={() => handleRefund(selectedRegistration)} disabled={managingId === selectedRegistration.id} className="inline-flex items-center gap-1.5 px-3 py-2 border border-rose-200 rounded-lg text-sm font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 transition disabled:opacity-50"><Undo2 className="w-4 h-4" /> Refund</button>
+                                        {can('registrations:manage') && <button onClick={() => handleResendConfirmation(selectedRegistration)} disabled={managingId === selectedRegistration.id} className="inline-flex items-center gap-1.5 px-3 py-2 border border-neutral-300 rounded-lg text-sm font-semibold text-neutral-700 hover:bg-neutral-100 transition disabled:opacity-50"><Mail className="w-4 h-4" /> Resend confirmation</button>}
+                                        {can('payments:refund') && <button onClick={() => handleRefund(selectedRegistration)} disabled={managingId === selectedRegistration.id} className="inline-flex items-center gap-1.5 px-3 py-2 border border-rose-200 rounded-lg text-sm font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 transition disabled:opacity-50"><Undo2 className="w-4 h-4" /> Refund</button>}
                                     </>
                                 )}
                             </div>
@@ -1040,12 +1053,12 @@ export default function AdminDashboard() {
                     instead of overflowing/wrapping. */}
                 <div className="flex gap-1 bg-neutral-200 p-1 rounded-xl overflow-x-auto no-scrollbar">
                     {([
-                        { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, show: true, badge: 0 },
-                        { key: 'registrations', label: 'Registrations', icon: ListFilter, show: true, badge: globalToVerify },
-                        { key: 'enquiries', label: 'Enquiries', icon: MessageSquare, show: true, badge: globalNewEnquiries },
-                        { key: 'scanlog', label: 'Scan Log', icon: QrCode, show: true, badge: 0 },
-                        { key: 'settings', label: 'Settings', icon: Settings, show: isAdmin, badge: 0 },
-                        { key: 'audit', label: 'Audit', icon: ScrollText, show: isAdmin, badge: 0 },
+                        { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, show: isVolunteer ? can('dashboard:view') : true, badge: 0 },
+                        { key: 'registrations', label: 'Registrations', icon: ListFilter, show: isVolunteer ? can('registrations:view') : true, badge: globalToVerify },
+                        { key: 'enquiries', label: 'Enquiries', icon: MessageSquare, show: isVolunteer ? can('enquiries:manage') : true, badge: globalNewEnquiries },
+                        { key: 'scanlog', label: 'Scan Log', icon: QrCode, show: isVolunteer ? can('scanlog:view') : true, badge: 0 },
+                        { key: 'settings', label: 'Settings', icon: Settings, show: isVolunteer ? can('settings:manage') : isAdmin, badge: 0 },
+                        { key: 'audit', label: 'Audit', icon: ScrollText, show: isVolunteer ? can('audit:view') : isAdmin, badge: 0 },
                     ] as const).filter(t => t.show).map(t => {
                         const Icon = t.icon;
                         return (
@@ -1136,7 +1149,7 @@ export default function AdminDashboard() {
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                                     <input type="text" placeholder="Search name, gotra, or phone..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="w-full pl-10 pr-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600" />
                                 </div>
-                                {isAdmin && <button onClick={() => setShowAddReg(true)} className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><UserPlus className="w-4 h-4" /> Add Registration</button>}
+                                {can('registrations:manage') && <button onClick={() => setShowAddReg(true)} className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><UserPlus className="w-4 h-4" /> Add Registration</button>}
                                 <button onClick={downloadCSV} className="bg-neutral-900 hover:bg-orange-600 text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><Download className="w-4 h-4" /> CSV</button>
                                 <button onClick={downloadExcel} className="bg-neutral-900 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><Download className="w-4 h-4" /> Excel</button>
                                 <button onClick={printReceipts} title="Combined receipts for paid registrations in the current filter → save as PDF" className="border border-neutral-300 text-neutral-700 hover:bg-neutral-100 px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><Download className="w-4 h-4" /> Receipts PDF</button>
@@ -1169,26 +1182,26 @@ export default function AdminDashboard() {
                             })}
                         </div>
 
-                        {/* Abandoned-pending cleanup + recovery (Pending tab, admin only) */}
-                        {isAdmin && statusFilter === 'pending' && (sectionCounts['pending'] || 0) > 0 && (
+                        {/* Abandoned-pending cleanup + recovery (Pending tab) */}
+                        {(can('registrations:manage') || can('reminders:send')) && statusFilter === 'pending' && (sectionCounts['pending'] || 0) > 0 && (
                             <div className="flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-xl px-5 py-3 gap-3 flex-wrap">
                                 <span className="text-sm text-yellow-900">Pending are online checkouts that were never paid. Send a fresh payment link to recover them, or clear old, abandoned ones.</span>
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <button onClick={() => handleBulkRemind('pending')} disabled={reminding} className="flex items-center gap-2 bg-orange-600 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-orange-700 transition whitespace-nowrap disabled:opacity-50"><Send className="w-4 h-4" /> {reminding ? 'Sending…' : 'Send Payment Links'}</button>
-                                    <button onClick={handleClearPending} className="flex items-center gap-2 bg-yellow-600 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-yellow-700 transition whitespace-nowrap"><Trash2 className="w-4 h-4" /> Clear Abandoned</button>
+                                    {can('reminders:send') && <button onClick={() => handleBulkRemind('pending')} disabled={reminding} className="flex items-center gap-2 bg-orange-600 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-orange-700 transition whitespace-nowrap disabled:opacity-50"><Send className="w-4 h-4" /> {reminding ? 'Sending…' : 'Send Payment Links'}</button>}
+                                    {can('registrations:manage') && <button onClick={handleClearPending} className="flex items-center gap-2 bg-yellow-600 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-yellow-700 transition whitespace-nowrap"><Trash2 className="w-4 h-4" /> Clear Abandoned</button>}
                                 </div>
                             </div>
                         )}
 
-                        {/* Balance-due recovery (Advance-Paid tab, admin only) */}
-                        {isAdmin && statusFilter === 'advance_paid' && (sectionCounts['advance_paid'] || 0) > 0 && (
+                        {/* Balance-due recovery (Advance-Paid tab) */}
+                        {can('reminders:send') && statusFilter === 'advance_paid' && (sectionCounts['advance_paid'] || 0) > 0 && (
                             <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 gap-3 flex-wrap">
                                 <span className="text-sm text-amber-900">These registrations have paid a part amount. Send everyone their remaining-balance payment link in one click.</span>
                                 <button onClick={() => handleBulkRemind('balance')} disabled={reminding} className="flex items-center gap-2 bg-amber-600 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-amber-700 transition whitespace-nowrap disabled:opacity-50"><Send className="w-4 h-4" /> {reminding ? 'Sending…' : 'Send Balance Reminders'}</button>
                             </div>
                         )}
 
-                        {selectedIds.size > 0 && (() => {
+                        {selectedIds.size > 0 && (!isVolunteer || can('qr:send')) && (() => {
                             const selSel = registrations.filter(r => selectedIds.has(r.id));
                             const selPaid = selSel.filter(r => r.payment_status === 'completed');
                             const selNotPaid = selSel.length - selPaid.length;
@@ -1302,18 +1315,18 @@ export default function AdminDashboard() {
                 )}
 
                 {effectiveTab === 'enquiries' && (
-                    <EnquiriesPanel registrations={registrations} isAdmin={isAdmin} onChanged={refreshRegistrations} />
+                    <EnquiriesPanel registrations={registrations} isAdmin={can('enquiries:manage')} onChanged={refreshRegistrations} />
                 )}
 
                 {effectiveTab === 'scanlog' && (
                     <ScanLogPanel checkpoints={checkpointsList} />
                 )}
 
-                {effectiveTab === 'audit' && isAdmin && (
+                {effectiveTab === 'audit' && can('audit:view') && (
                     <AuditLogPanel />
                 )}
 
-                {effectiveTab === 'settings' && isAdmin && (
+                {effectiveTab === 'settings' && can('settings:manage') && (
                     <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm overflow-hidden flex flex-col md:flex-row min-h-[600px]">
                         <div className="w-full md:w-64 bg-neutral-50 border-r border-neutral-200 p-4 space-y-2">
                             <button onClick={() => setSettingsSubTab('events')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'events' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><CalendarDays className="w-4 h-4" /> Event Setup</button>

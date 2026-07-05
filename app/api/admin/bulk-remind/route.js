@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic';
 const MAX_BATCH = 200; // safety cap on a single click
 
 export async function POST(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'reminders:send' });
     if (response) return response;
 
     const { kind } = await request.json();

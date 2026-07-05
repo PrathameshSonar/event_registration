@@ -14,7 +14,7 @@ let _resend = null;
 const getResend = () => (_resend ||= new Resend(process.env.RESEND_API_KEY));
 
 export async function POST(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'reminders:send' });
     if (response) return response;
 
     const { id } = await request.json();

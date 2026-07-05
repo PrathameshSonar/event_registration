@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { createAdminSession } from '@/lib/adminSession';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { verifyPassword } from '@/lib/passwordHash';
+import { effectivePermissions } from '@/lib/permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,7 +67,7 @@ export async function POST(request) {
             try {
                 const { data } = await supabaseAdmin
                     .from('admin_users')
-                    .select('id, username, name, password_hash, role, active')
+                    .select('id, username, name, password_hash, role, active, permissions')
                     .eq('username', String(username).trim().toLowerCase())
                     .single();
                 user = data || null;
@@ -79,30 +80,26 @@ export async function POST(request) {
 
             await clearThrottle(ip);
             try { await supabaseAdmin.from('admin_users').update({ last_login_at: new Date().toISOString() }).eq('id', user.id); } catch { /* best effort */ }
-            await createAdminSession({ role: user.role, username: user.username, name: user.name || user.username, uid: user.id });
-            return NextResponse.json({ role: user.role, name: user.name || user.username }, { status: 200 });
+            const permissions = effectivePermissions(user.role, user.permissions);
+            await createAdminSession({ role: user.role, username: user.username, name: user.name || user.username, uid: user.id, permissions });
+            return NextResponse.json({ role: user.role, name: user.name || user.username, permissions }, { status: 200 });
         }
 
-        // ── Legacy shared-password path (env ADMIN_PASSWORD/VIEWER_PASSWORD) ──
+        // ── Shared-password path (env ADMIN_PASSWORD) → admin ──
         const adminPassword = process.env.ADMIN_PASSWORD;
-        const viewerPassword = process.env.VIEWER_PASSWORD;
         if (!adminPassword) {
             console.error('ADMIN_PASSWORD is not configured.');
             return NextResponse.json({ error: 'Server auth not configured.' }, { status: 500 });
         }
 
-        let role = null;
-        if (safeEqual(password, adminPassword)) role = 'admin';
-        else if (viewerPassword && safeEqual(password, viewerPassword)) role = 'viewer';
-
-        if (!role) {
+        if (!safeEqual(password, adminPassword)) {
             await recordFail(ip, throttle);
             return NextResponse.json({ error: 'Incorrect password' }, { status: 401 });
         }
 
         await clearThrottle(ip);
-        await createAdminSession(role);
-        return NextResponse.json({ role }, { status: 200 });
+        await createAdminSession('admin');
+        return NextResponse.json({ role: 'admin', permissions: effectivePermissions('admin', null) }, { status: 200 });
     } catch (error) {
         console.error('Admin login error:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

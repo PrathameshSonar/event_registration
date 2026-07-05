@@ -27,7 +27,7 @@ async function ensureBuiltins() {
 }
 
 export async function GET(request) {
-    const { response } = await authorize({ requireAdmin: true });
+    const { response } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
     await ensureBuiltins();
     const categoryId = request.nextUrl.searchParams.get('categoryId');
@@ -36,7 +36,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
     const { label, label_hi, field_type, options } = await request.json();
     if (!label?.trim()) return NextResponse.json({ error: 'Label required.' }, { status: 400 });
@@ -71,7 +71,7 @@ export async function POST(request) {
 
 // Batch-save a category's field settings (the "Save Changes" button).
 export async function PATCH(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
     const { categoryId, fields } = await request.json();
     if (!categoryId) return NextResponse.json({ error: 'Missing category.' }, { status: 400 });
@@ -104,7 +104,7 @@ export async function PATCH(request) {
 }
 
 export async function DELETE(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
     const { id } = await request.json();
     if (!id) return NextResponse.json({ error: 'Missing id.' }, { status: 400 });

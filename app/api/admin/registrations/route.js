@@ -20,7 +20,7 @@ const EDITABLE = ['salutation', 'first_name', 'last_name', 'gotra', 'gender', 'd
 const TEXT_FIELDS = ['salutation', 'first_name', 'last_name', 'gotra', 'gender', 'pincode', 'taluka', 'state', 'problem_samasya'];
 
 export async function PATCH(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'registrations:manage' });
     if (response) return response;
 
     const { id, status, updates } = await request.json();

@@ -10,12 +10,17 @@ import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAudit } from '@/lib/auditLog';
 import { hashPassword } from '@/lib/passwordHash';
+import { PERMISSION_KEYS } from '@/lib/permissions';
 
 export const dynamic = 'force-dynamic';
 
-const PUBLIC_COLS = 'id, username, name, role, active, created_at, last_login_at';
-const ROLES = ['admin', 'viewer'];
+const PUBLIC_COLS = 'id, username, name, role, permissions, active, created_at, last_login_at';
+const ROLES = ['admin', 'volunteer'];
 const bad = (m) => NextResponse.json({ error: m }, { status: 400 });
+
+// Keep only known permission keys; volunteers carry a list, others carry [].
+const cleanPerms = (role, perms) =>
+    role === 'volunteer' ? (Array.isArray(perms) ? perms.filter((p) => PERMISSION_KEYS.includes(p)) : []) : [];
 
 export async function GET() {
     const { response } = await authorize({ requireAdmin: true });
@@ -29,15 +34,17 @@ export async function POST(request) {
     const { response, session } = await authorize({ requireAdmin: true });
     if (response) return response;
 
-    const { username, name, password, role = 'admin' } = await request.json();
+    const { username, name, password, role = 'admin', permissions } = await request.json();
     const uname = String(username || '').trim().toLowerCase();
     if (!/^[a-z0-9._-]{3,32}$/.test(uname)) return bad('Username: 3–32 chars, letters/numbers/._- only.');
     if (!password || String(password).length < 8) return bad('Password must be at least 8 characters.');
     if (!ROLES.includes(role)) return bad('Invalid role.');
+    const perms = cleanPerms(role, permissions);
+    if (role === 'volunteer' && perms.length === 0) return bad('Select at least one permission for a volunteer.');
 
     const { data, error } = await supabaseAdmin
         .from('admin_users')
-        .insert({ username: uname, name: (name || '').trim() || uname, password_hash: hashPassword(password), role })
+        .insert({ username: uname, name: (name || '').trim() || uname, password_hash: hashPassword(password), role, permissions: perms })
         .select(PUBLIC_COLS)
         .single();
     if (error) {
@@ -45,7 +52,7 @@ export async function POST(request) {
         return NextResponse.json({ error: 'Could not create the user.' }, { status: 500 });
     }
 
-    await logAudit({ session, request, action: 'admin_user.create', entity: 'admin_user', entityId: data.id, summary: `Created ${role} account "${uname}"`, metadata: { role } });
+    await logAudit({ session, request, action: 'admin_user.create', entity: 'admin_user', entityId: data.id, summary: `Created ${role} account "${uname}"`, metadata: { role, permissions: perms } });
     return NextResponse.json({ ok: true, user: data });
 }
 
@@ -53,14 +60,24 @@ export async function PATCH(request) {
     const { response, session } = await authorize({ requireAdmin: true });
     if (response) return response;
 
-    const { id, name, role, active, password } = await request.json();
+    const { id, name, role, active, password, permissions } = await request.json();
     if (!id) return bad('Missing id.');
+
+    // Need the current role to correctly clean permissions when only one changes.
+    const { data: current } = await supabaseAdmin.from('admin_users').select('role').eq('id', id).single();
+    const effectiveRole = role !== undefined ? role : current?.role;
 
     const patch = {};
     if (name !== undefined) patch.name = String(name).trim();
     if (role !== undefined) { if (!ROLES.includes(role)) return bad('Invalid role.'); patch.role = role; }
     if (active !== undefined) patch.active = !!active;
     if (password) { if (String(password).length < 8) return bad('Password must be at least 8 characters.'); patch.password_hash = hashPassword(password); }
+    // Recompute permissions whenever role or permissions change.
+    if (role !== undefined || permissions !== undefined) {
+        const perms = cleanPerms(effectiveRole, permissions !== undefined ? permissions : undefined);
+        if (effectiveRole === 'volunteer' && permissions !== undefined && perms.length === 0) return bad('Select at least one permission for a volunteer.');
+        patch.permissions = perms;
+    }
     if (Object.keys(patch).length === 0) return bad('Nothing to update.');
 
     const { data, error } = await supabaseAdmin.from('admin_users').update(patch).eq('id', id).select(PUBLIC_COLS).single();

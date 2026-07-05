@@ -31,7 +31,7 @@ function sanitize(input = {}) {
 }
 
 export async function POST(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
     const body = await request.json();
     const values = sanitize(body);
@@ -50,7 +50,7 @@ export async function POST(request) {
 }
 
 export async function PATCH(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
     const { id, updates } = await request.json();
     if (!id) return NextResponse.json({ error: 'Missing id.' }, { status: 400 });
@@ -67,7 +67,7 @@ export async function PATCH(request) {
 }
 
 export async function DELETE(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
     const { id, password, force } = await request.json();
     if (!id) return NextResponse.json({ error: 'Missing id.' }, { status: 400 });

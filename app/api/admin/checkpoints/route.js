@@ -7,7 +7,7 @@ import { logAudit } from '@/lib/auditLog';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-    const { response } = await authorize({ requireAdmin: true });
+    const { response } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
     const { data, error } = await supabaseAdmin
         .from('checkpoints')
@@ -18,7 +18,7 @@ export async function GET() {
 }
 
 export async function POST(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
     const { name, sort_order } = await request.json();
     if (!name?.trim()) return NextResponse.json({ error: 'Name required' }, { status: 400 });
@@ -37,7 +37,7 @@ export async function POST(request) {
 }
 
 export async function PATCH(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
     const { id, ...updates } = await request.json();
     if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
@@ -62,7 +62,7 @@ export async function PATCH(request) {
 }
 
 export async function DELETE(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
     const { id } = await request.json();
     if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });

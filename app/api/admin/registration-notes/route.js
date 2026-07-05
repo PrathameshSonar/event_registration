@@ -26,7 +26,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'enquiries:manage' });
     if (response) return response;
 
     const { registrationId, note } = await request.json();

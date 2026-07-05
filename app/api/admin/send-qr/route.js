@@ -19,7 +19,7 @@ function getResend() {
 const BATCH_LIMIT = 100;
 
 export async function POST(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'qr:send' });
     if (response) return response;
 
     const { registrationIds } = await request.json();

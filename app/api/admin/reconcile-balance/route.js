@@ -11,7 +11,7 @@ import { reconcileRegistrationWithRazorpay } from '@/lib/payments';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'payments:verify' });
     if (response) return response;
 
     const { id } = await request.json();

@@ -9,7 +9,7 @@ import { logAudit } from '@/lib/auditLog';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
     const { title, short_description, long_description, title_hi, short_description_hi, long_description_hi, date_time, date_time_hi, venue, venue_hi, map_url, makeActive } = await request.json();
     if (!title) return NextResponse.json({ error: 'Title required.' }, { status: 400 });
@@ -43,7 +43,7 @@ export async function POST(request) {
 }
 
 export async function PATCH(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
     const { id, setActive, updates } = await request.json();
     if (!id) return NextResponse.json({ error: 'Missing id.' }, { status: 400 });
@@ -91,7 +91,7 @@ export async function PATCH(request) {
 }
 
 export async function DELETE(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
     const { id, password } = await request.json();
     if (!id) return NextResponse.json({ error: 'Missing id.' }, { status: 400 });

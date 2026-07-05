@@ -26,7 +26,7 @@ const CREATE_STATUSES = ['completed', 'advance_paid', 'pending'];
 const bad = (m) => NextResponse.json({ error: m }, { status: 400 });
 
 export async function POST(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'registrations:manage' });
     if (response) return response;
 
     const body = await request.json().catch(() => ({}));

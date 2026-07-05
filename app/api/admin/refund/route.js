@@ -11,7 +11,7 @@ import { getRazorpayClient } from '@/lib/razorpayClient';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'payments:refund' });
     if (response) return response;
 
     const { id, amount, note } = await request.json();

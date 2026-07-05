@@ -11,7 +11,7 @@ import { logAudit } from '@/lib/auditLog';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'registrations:manage' });
     if (response) return response;
 
     const body = await request.json().catch(() => ({}));

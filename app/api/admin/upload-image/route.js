@@ -24,7 +24,7 @@ async function ensureBucket() {
 }
 
 export async function POST(request) {
-    const { response } = await authorize({ requireAdmin: true });
+    const { response } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
 
     let form;

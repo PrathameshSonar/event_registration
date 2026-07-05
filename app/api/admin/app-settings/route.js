@@ -25,7 +25,7 @@ export async function GET() {
 }
 
 export async function PATCH(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
 
     const { bank_details } = await request.json();

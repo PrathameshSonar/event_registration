@@ -15,7 +15,7 @@ function pick(input = {}) {
 }
 
 export async function GET(request) {
-    const { response } = await authorize({ requireAdmin: true });
+    const { response } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
     const eventId = request.nextUrl.searchParams.get('eventId');
     if (!eventId) return NextResponse.json({ items: [] });
@@ -25,7 +25,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
     const body = await request.json();
     if (!body.event_id) return NextResponse.json({ error: 'Missing event.' }, { status: 400 });
@@ -38,7 +38,7 @@ export async function POST(request) {
 }
 
 export async function PATCH(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
     const { id, ...updates } = await request.json();
     if (!id) return NextResponse.json({ error: 'Missing id.' }, { status: 400 });
@@ -49,7 +49,7 @@ export async function PATCH(request) {
 }
 
 export async function DELETE(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
     const { id } = await request.json();
     if (!id) return NextResponse.json({ error: 'Missing id.' }, { status: 400 });

@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic';
 const OFFLINE_METHODS = ['bank_transfer', 'cheque', 'cash', 'dd'];
 
 export async function POST(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'payments:verify' });
     if (response) return response;
 
     const { id, action, amount, note, method, reference } = await request.json();

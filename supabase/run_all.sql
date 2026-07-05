@@ -142,22 +142,35 @@ CREATE TABLE IF NOT EXISTS admin_login_attempts (
 );
 GRANT ALL ON admin_login_attempts TO service_role;
 
--- Named admin/viewer accounts. Optional layer on top of the shared-password
--- (env ADMIN_PASSWORD/VIEWER_PASSWORD) login: when a user logs in with a
--- username, we authenticate against this table so the audit log records WHO
--- acted. Passwords are scrypt-hashed (salt:hash) — never stored in plaintext.
+-- Named admin / volunteer accounts. Optional layer on top of the shared-password
+-- (env ADMIN_PASSWORD) login: when a user logs in with a username, we authenticate
+-- against this table so the audit log records WHO acted. Passwords are
+-- scrypt-hashed (salt:hash) — never stored in plaintext. 'volunteer' accounts get
+-- granular access via the permissions array (RBAC checkboxes).
 CREATE TABLE IF NOT EXISTS admin_users (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username      TEXT UNIQUE NOT NULL,
     name          TEXT,
     password_hash TEXT NOT NULL,                       -- scrypt: 'salt:hash' (hex)
-    role          TEXT NOT NULL DEFAULT 'admin' CHECK (role IN ('admin', 'viewer')),
+    role          TEXT NOT NULL DEFAULT 'admin' CHECK (role IN ('admin', 'volunteer')),
+    permissions   JSONB DEFAULT '[]'::jsonb,           -- granular access for 'volunteer' role
     active        BOOLEAN DEFAULT true,
     created_at    TIMESTAMPTZ DEFAULT now(),
     last_login_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS admin_users_username_idx ON admin_users (username);
 GRANT ALL ON admin_users TO service_role;
+
+-- Ensure the permissions column exists, migrate any legacy 'viewer' accounts to
+-- 'volunteer' (roles are now admin/volunteer only), then (re)apply the CHECK.
+-- Idempotent and safe to re-run.
+ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '[]'::jsonb;
+DO $$
+BEGIN
+    UPDATE admin_users SET role = 'volunteer', permissions = '[]'::jsonb WHERE role = 'viewer';
+    ALTER TABLE admin_users DROP CONSTRAINT IF EXISTS admin_users_role_check;
+    ALTER TABLE admin_users ADD CONSTRAINT admin_users_role_check CHECK (role IN ('admin', 'volunteer'));
+END $$;
 
 -- registrations.payment_status uses a new value 'advance_paid'. If a CHECK
 -- constraint limits the allowed values, this rebuilds it to include the full

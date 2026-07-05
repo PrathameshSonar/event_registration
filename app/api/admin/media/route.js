@@ -8,7 +8,7 @@ import { logAudit } from '@/lib/auditLog';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
     const { media_type, url, caption, event_id } = await request.json();
     if (!url || !event_id) return NextResponse.json({ error: 'URL and event are required.' }, { status: 400 });
@@ -32,7 +32,7 @@ export async function POST(request) {
 }
 
 export async function DELETE(request) {
-    const { response, session } = await authorize({ requireAdmin: true });
+    const { response, session } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
     const { id, password } = await request.json();
     if (!id) return NextResponse.json({ error: 'Missing id.' }, { status: 400 });
