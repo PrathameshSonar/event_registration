@@ -342,6 +342,32 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
     if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
       errs.email = "Enter a valid email address.";
     }
+    // Names + gotra: letters only (allows spaces, . ' - and any language script).
+    const lettersOnly = /^[\p{L}\s.'-]+$/u;
+    if (!String(formData.firstName || "").trim()) {
+      errs.firstName = `${t("form_first_name")} is required.`;
+    } else if (!lettersOnly.test(formData.firstName.trim())) {
+      errs.firstName = "Only letters are allowed.";
+    }
+    if (!String(formData.lastName || "").trim()) {
+      errs.lastName = `${t("form_last_name")} is required.`;
+    } else if (!lettersOnly.test(formData.lastName.trim())) {
+      errs.lastName = "Only letters are allowed.";
+    }
+    if (isVisible("gotra") && formData.gotra && !lettersOnly.test(formData.gotra.trim())) {
+      errs.gotra = "Only letters are allowed.";
+    }
+    // Donation must be a non-negative number.
+    if (formData.donation !== "" && formData.donation != null && !/^\d+(\.\d{1,2})?$/.test(String(formData.donation))) {
+      errs.donation = "Enter a valid amount (numbers only).";
+    }
+    // Pincode is always required (6-digit Indian PIN), regardless of tier config.
+    const pin = String(formData.pincode || "").trim();
+    if (!pin) {
+      errs.pincode = `${t("form_pincode")} is required.`;
+    } else if (!/^\d{6}$/.test(pin)) {
+      errs.pincode = "Enter a valid 6-digit pincode.";
+    }
     if (isVisible("dob") && formData.dob && formData.dob > TODAY_STR) {
       errs.dob = "Date of birth cannot be a future date.";
     }
@@ -846,7 +872,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
               onChange={handleChange}
               variant="outlined"
               error={!!fieldErrors.gotra}
-              helperText={fieldErrors.gotra}
+              helperText={fieldErrors.gotra || t("form_gotra_hint")}
             />
           )}
           {isVisible("gender") && (
@@ -925,12 +951,13 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
               input: adorn(<Mail className="w-5 h-5 text-neutral-400" />),
             }}
           />
-          {isVisible("pincode") && (
+          {/* Pincode is always shown & required (drives taluka/state autofill). */}
+          {true && (
             <TextField
               fullWidth
               label={t("form_pincode")}
               name="pincode"
-              required={isRequired("pincode")}
+              required
               value={formData.pincode}
               onChange={handlePincodeChange}
               variant="outlined"
@@ -942,7 +969,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
               }}
             />
           )}
-          {isVisible("pincode") && (
+          {true && (
             <div className="flex gap-2">
               <TextField
                 fullWidth
@@ -1100,8 +1127,10 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
                 }}
                 variant="outlined"
                 placeholder="0"
+                error={!!fieldErrors.donation}
+                helperText={fieldErrors.donation}
                 slotProps={{
-                  htmlInput: { min: 0, step: 1 },
+                  htmlInput: { min: 0, step: 1, inputMode: "decimal" },
                   input: {
                     startAdornment: (
                       <InputAdornment position="start">₹</InputAdornment>

@@ -319,6 +319,7 @@ GRANT ALL ON category_field_settings TO service_role;
 -- 7) ── Homepage: countdown, helpline, schedule, ritual highlights ──────────
 ALTER TABLE events
     ADD COLUMN IF NOT EXISTS start_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS end_at   TIMESTAMPTZ,   -- event end (for a correct multi-day "Add to Calendar")
     ADD COLUMN IF NOT EXISTS contact_phone TEXT;
 
 CREATE TABLE IF NOT EXISTS event_schedule (

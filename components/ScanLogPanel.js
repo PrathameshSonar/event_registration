@@ -1,0 +1,112 @@
+// components/ScanLogPanel.js
+// Live scan log — every entry check-in recorded by the /scan kiosks, with the
+// registrant's name/status and the checkpoint. Read-only; any admin/viewer.
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { RefreshCw, Search, QrCode } from "lucide-react";
+
+const STATUS_CLASS = {
+    completed: "bg-green-100 text-green-700 border-green-200",
+    advance_paid: "bg-amber-100 text-amber-800 border-amber-300",
+};
+const STATUS_LABEL = { completed: "Paid", advance_paid: "Advance" };
+
+function nameOf(reg) {
+    if (!reg) return "—";
+    return [reg.salutation, reg.first_name, reg.last_name].filter(Boolean).join(" ");
+}
+
+/**
+ * @param {{ checkpoints?: any[] }} props
+ */
+export default function ScanLogPanel({ checkpoints = [] }) {
+    const [checkpointId, setCheckpointId] = useState("all");
+    const [q, setQ] = useState("");
+    const [rows, setRows] = useState([]);
+    const [stats, setStats] = useState({ totalScans: 0, uniqueAttendees: 0 });
+    const [loading, setLoading] = useState(true);
+
+    const load = useCallback(async () => {
+        setLoading(true);
+        try {
+            const params = new URLSearchParams();
+            if (checkpointId !== "all") params.set("checkpointId", checkpointId);
+            const res = await fetch(`/api/admin/checkins?${params.toString()}`);
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+                setRows(data.checkins || []);
+                setStats({ totalScans: data.totalScans || 0, uniqueAttendees: data.uniqueAttendees || 0 });
+            } else { setRows([]); }
+        } finally { setLoading(false); }
+    }, [checkpointId]);
+
+    useEffect(() => { const t = setTimeout(load, 0); return () => clearTimeout(t); }, [load]);
+
+    const term = q.trim().toLowerCase();
+    const filtered = term
+        ? rows.filter((c) => `${nameOf(c.registrations)} ${c.registrations?.phone || ""}`.toLowerCase().includes(term))
+        : rows;
+
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-1">
+                <QrCode className="w-5 h-5 text-neutral-500" />
+                <h3 className="text-lg font-bold text-neutral-900">Scan Log</h3>
+                <span className="text-xs text-neutral-400">Everyone scanned at the entry gates.</span>
+            </div>
+
+            {/* Summary */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="bg-white border border-neutral-200 rounded-xl p-4"><p className="text-xs text-neutral-500">Total Scans</p><p className="text-2xl font-bold">{stats.totalScans}</p></div>
+                <div className="bg-white border border-neutral-200 rounded-xl p-4"><p className="text-xs text-neutral-500">Unique Attendees</p><p className="text-2xl font-bold">{stats.uniqueAttendees}</p></div>
+            </div>
+
+            {/* Filters */}
+            <div className="bg-white p-3 rounded-xl border border-neutral-200 shadow-sm flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                    <input type="text" placeholder="Search name or phone…" value={q} onChange={(e) => setQ(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600" />
+                </div>
+                <select value={checkpointId} onChange={(e) => setCheckpointId(e.target.value)} className="px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600">
+                    <option value="all">All Checkpoints</option>
+                    {checkpoints.map((cp) => <option key={cp.id} value={cp.id}>{cp.name}</option>)}
+                </select>
+                <button onClick={load} className="flex items-center justify-center gap-2 bg-neutral-900 hover:bg-orange-600 text-white px-4 py-2.5 rounded-lg font-semibold text-sm transition">
+                    <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Refresh
+                </button>
+            </div>
+
+            {/* Table */}
+            <div className="bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm whitespace-nowrap">
+                        <thead className="bg-neutral-100 text-neutral-600 font-medium border-b border-neutral-200">
+                            <tr><th className="px-5 py-3">Name</th><th className="px-5 py-3">Category</th><th className="px-5 py-3">Checkpoint</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Scanned At</th></tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-100">
+                            {loading ? (
+                                <tr><td colSpan={5} className="px-5 py-8 text-center text-neutral-400">Loading scans…</td></tr>
+                            ) : filtered.length === 0 ? (
+                                <tr><td colSpan={5} className="px-5 py-8 text-center text-neutral-400">No scans yet.</td></tr>
+                            ) : filtered.map((c) => (
+                                <tr key={c.id} className="hover:bg-neutral-50 transition">
+                                    <td className="px-5 py-3 font-medium text-neutral-900">{nameOf(c.registrations)}<div className="text-xs font-normal text-neutral-400">{c.registrations?.phone}</div></td>
+                                    <td className="px-5 py-3 text-neutral-600">{c.registrations?.categories?.title || "—"}</td>
+                                    <td className="px-5 py-3 text-neutral-600">{c.checkpoints?.name || "—"}</td>
+                                    <td className="px-5 py-3">
+                                        <span className={`inline-flex items-center py-0.5 px-2 rounded-full text-[11px] font-bold border ${STATUS_CLASS[c.registrations?.payment_status] || "bg-neutral-100 text-neutral-500 border-neutral-200"}`}>
+                                            {STATUS_LABEL[c.registrations?.payment_status] || c.registrations?.payment_status || "—"}
+                                        </span>
+                                    </td>
+                                    <td className="px-5 py-3 text-neutral-500">{new Date(c.scanned_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {!loading && filtered.length > 0 && <p className="text-xs text-neutral-400 text-center">Showing the {filtered.length} most recent scan(s).</p>}
+        </div>
+    );
+}

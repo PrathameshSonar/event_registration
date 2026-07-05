@@ -163,7 +163,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
 
                     {/* Add to calendar + share — one row */}
                     <div className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-3">
-                        <AddToCalendar title={eventTitle} startAt={pageData?.start_at} location={displayVenue} details={eventDesc} />
+                        <AddToCalendar title={eventTitle} startAt={pageData?.start_at} endAt={pageData?.end_at} location={displayVenue} details={eventDesc} />
                         <ShareButtons title={eventTitle} />
                     </div>
 

@@ -489,6 +489,9 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
 Keep newest first. Add an entry for every meaningful change.
 
 - **2026-06-28**
+  - **Scan Log** — admin Settings → Scan Log ([components/ScanLogPanel.js](components/ScanLogPanel.js), `GET /api/admin/checkins`): every entry scan with name/category/checkpoint/time/status, filter by checkpoint + search, total-scans & unique-attendees counts.
+  - **Multi-day calendar** — `events.end_at` + Event end field in Home Content; "Add to Calendar" now spans the real event days (all-day multi-day .ics/Google when start/end differ).
+  - **Form validation tightening** — first/last name + gotra letters-only (any script); pincode always shown + required (6-digit, client + all submit routes); donation numeric-only; gotra hint "if unknown, use Kashyap".
   - **Per-tier age restriction** — `categories.min_age`/`max_age` (blank = open to all). Age computed from DOB in [lib/age.js](lib/age.js); enforced client-side (CheckoutForm, DOB forced required) **and** server-side (razorpay / enquiry / offline routes). Admin sets it per tier; home card + form show the limit ("Ages 14+").
   - **Security hardening** — admin **login lockout** (5 failed attempts/IP → 15-min cooldown, Supabase-backed `admin_login_attempts`, fail-open); **HTML-escape** all user/admin text in outbound emails ([lib/escape.js](lib/escape.js) applied across ticket/notify/payments/send-qr/resend-balance). Reminder: set strong `ADMIN_PASSWORD`/`VIEWER_PASSWORD`/`SESSION_SECRET` in prod env; put Cloudflare + per-IP rate limiting + Turnstile in front before launch.
   - **Payment-mode filter + row label** in the Registrations ledger (All Modes / Online / Bank / Cheque / Cash / DD); each row shows "via <mode>". Home + register pages show the fee on enquiry tiers that have a price.

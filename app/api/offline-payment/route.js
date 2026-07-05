@@ -40,10 +40,11 @@ export async function POST(request) {
         if (!OFFLINE_METHODS.includes(paymentMethod)) return bad('Invalid payment method.');
         if (!attendee || typeof attendee !== 'object') return bad('Missing attendee details.');
 
-        for (const f of ['firstName', 'lastName', 'email', 'phone']) {
+        for (const f of ['firstName', 'lastName', 'email', 'phone', 'pincode']) {
             if (!attendee[f] || String(attendee[f]).trim() === '') return bad(`Missing required field: ${f}.`);
         }
         if (!/^\S+@\S+\.\S+$/.test(String(attendee.email))) return bad('Invalid email address.');
+        if (!/^\d{6}$/.test(String(attendee.pincode).trim())) return bad('Enter a valid 6-digit pincode.');
         const cleanPhone = String(attendee.phone).replace(/\s+/g, '').replace(/^(\+91|0091|91|0)/, '');
         if (!/^[6-9]\d{9}$/.test(cleanPhone)) return bad('Invalid mobile number.');
 

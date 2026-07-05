@@ -15,6 +15,7 @@ export default function HomeContentManager(props) {
 
   // Event-level fields
   const [startAt, setStartAt] = useState("");
+  const [endAt, setEndAt] = useState("");
   const [phone, setPhone] = useState("");
   const [heroImage, setHeroImage] = useState("");
   const [evDirty, setEvDirty] = useState(false);
@@ -69,11 +70,12 @@ export default function HomeContentManager(props) {
 
   useEffect(() => {
     setStartAt(toLocalInput(ev?.start_at));
+    setEndAt(toLocalInput(ev?.end_at));
     setPhone(ev?.contact_phone || "");
     setHeroImage(ev?.hero_image_url || "");
     setEvDirty(false);
     if (eventId) loadLists(eventId);
-  }, [eventId, ev?.start_at, ev?.contact_phone, ev?.hero_image_url, loadLists]);
+  }, [eventId, ev?.start_at, ev?.end_at, ev?.contact_phone, ev?.hero_image_url, loadLists]);
 
   const saveEventFields = async () => {
     setSavingEv(true);
@@ -84,6 +86,7 @@ export default function HomeContentManager(props) {
         id: eventId,
         updates: {
           start_at: startAt ? new Date(startAt).toISOString() : null,
+          end_at: endAt ? new Date(endAt).toISOString() : null,
           contact_phone: phone.trim() || null,
           hero_image_url: heroImage.trim() || null,
         },
@@ -208,6 +211,11 @@ export default function HomeContentManager(props) {
           <div>
             <label className="block text-xs font-semibold text-neutral-600 mb-1 flex items-center gap-1.5"><CalendarClock className="w-3.5 h-3.5" /> Event start (for countdown)</label>
             <input type="datetime-local" value={startAt} onChange={(e) => { setStartAt(e.target.value); setEvDirty(true); }} className={inputCls} />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-neutral-600 mb-1 flex items-center gap-1.5"><CalendarClock className="w-3.5 h-3.5" /> Event end (for “Add to Calendar”)</label>
+            <input type="datetime-local" value={endAt} onChange={(e) => { setEndAt(e.target.value); setEvDirty(true); }} className={inputCls} />
+            <p className="text-xs text-neutral-400 mt-1">For a multi-day event, set the last day — the .ics will span all days.</p>
           </div>
           <div>
             <label className="block text-xs font-semibold text-neutral-600 mb-1 flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" /> WhatsApp helpline number</label>

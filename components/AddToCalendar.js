@@ -8,19 +8,46 @@ import { CalendarPlus } from "lucide-react";
 function stamp(d) {
   return d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
 }
+// Local YYYYMMDD for all-day (VALUE=DATE) events.
+function dateStamp(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}${m}${day}`;
+}
+function sameDay(a, b) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
 
-export default function AddToCalendar({ title, startAt, location, details }) {
+export default function AddToCalendar({ title, startAt, endAt, location, details }) {
   const [open, setOpen] = useState(false);
   if (!startAt) return null;
   const start = new Date(startAt);
   if (Number.isNaN(start.getTime())) return null;
-  const end = new Date(start.getTime() + 2 * 3600 * 1000);
+
+  let end = endAt ? new Date(endAt) : null;
+  if (!end || Number.isNaN(end.getTime()) || end <= start) end = new Date(start.getTime() + 2 * 3600 * 1000);
   const name = title || "Mahotsav";
+
+  // A multi-day event is represented as an all-day event spanning the dates
+  // (DTEND is exclusive, so add one day). Single-day stays a timed event.
+  const multiDay = !sameDay(start, end);
+  let gDates, dtStart, dtEnd;
+  if (multiDay) {
+    const endExclusive = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1);
+    gDates = `${dateStamp(start)}/${dateStamp(endExclusive)}`;
+    dtStart = `DTSTART;VALUE=DATE:${dateStamp(start)}`;
+    dtEnd = `DTEND;VALUE=DATE:${dateStamp(endExclusive)}`;
+  } else {
+    gDates = `${stamp(start)}/${stamp(end)}`;
+    dtStart = `DTSTART:${stamp(start)}`;
+    dtEnd = `DTEND:${stamp(end)}`;
+  }
 
   const googleUrl =
     `https://calendar.google.com/calendar/render?action=TEMPLATE` +
     `&text=${encodeURIComponent(name)}` +
-    `&dates=${stamp(start)}/${stamp(end)}` +
+    `&dates=${gDates}` +
     `&location=${encodeURIComponent(location || "")}` +
     `&details=${encodeURIComponent(details || "")}`;
 
@@ -29,8 +56,8 @@ export default function AddToCalendar({ title, startAt, location, details }) {
       "BEGIN:VCALENDAR",
       "VERSION:2.0",
       "BEGIN:VEVENT",
-      `DTSTART:${stamp(start)}`,
-      `DTEND:${stamp(end)}`,
+      dtStart,
+      dtEnd,
       `SUMMARY:${name}`,
       `LOCATION:${location || ""}`,
       `DESCRIPTION:${details || ""}`,

@@ -14,6 +14,7 @@ import HomeContentManager from '@/components/HomeContentManager';
 import AuditLogPanel from '@/components/AuditLogPanel';
 import EnquiriesPanel from '@/components/EnquiriesPanel';
 import PaymentSettingsManager from '@/components/PaymentSettingsManager';
+import ScanLogPanel from '@/components/ScanLogPanel';
 
 type Role = 'admin' | 'viewer';
 type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'enquired' | 'contacted' | 'amount_mismatch' | 'advance_paid' | 'awaiting_payment' | 'closed' | 'payment_review' | 'cheque_received' | 'payment_rejected';
@@ -128,7 +129,7 @@ export default function AdminDashboard() {
     const isAdmin = role === 'admin';
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'enquiries' | 'settings' | 'audit'>('dashboard');
-    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'checkpoints' | 'formfields' | 'homecontent' | 'payment'>('events');
+    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'checkpoints' | 'scanlog' | 'formfields' | 'homecontent' | 'payment'>('events');
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -1141,6 +1142,7 @@ export default function AdminDashboard() {
                             <button onClick={() => setSettingsSubTab('tiers')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'tiers' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><Ticket className="w-4 h-4" /> Ticket Tiers</button>
                             <button onClick={() => setSettingsSubTab('media')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'media' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ImageIcon className="w-4 h-4" /> Media Gallery</button>
                             <button onClick={() => setSettingsSubTab('checkpoints')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'checkpoints' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><QrCode className="w-4 h-4" /> Entry Checkpoints</button>
+                            <button onClick={() => setSettingsSubTab('scanlog')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'scanlog' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ListFilter className="w-4 h-4" /> Scan Log</button>
                             <button onClick={() => setSettingsSubTab('formfields')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'formfields' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ListFilter className="w-4 h-4" /> Form Fields</button>
                             <button onClick={() => setSettingsSubTab('homecontent')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'homecontent' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><CalendarDays className="w-4 h-4" /> Home Page Content</button>
                             <button onClick={() => setSettingsSubTab('payment')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'payment' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><IndianRupee className="w-4 h-4" /> Payment Details</button>
@@ -1352,6 +1354,7 @@ export default function AdminDashboard() {
                                 </div>
                             )}
 
+                            {settingsSubTab === 'scanlog' && <ScanLogPanel checkpoints={checkpointsList} />}
                             {settingsSubTab === 'formfields' && <FormFieldsManager categories={categoriesList} />}
 
                             {settingsSubTab === 'homecontent' && <HomeContentManager events={eventsList} />}
