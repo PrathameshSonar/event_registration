@@ -34,16 +34,19 @@ export default async function Home() {
     let schedule: any[] = [];
     let highlights: any[] = [];
     let faqs: any[] = [];
+    let guests: any[] = [];
     if (pageData?.id) {
         // Use the service-role client: these tables aren't granted to the anon role.
-        const [schedRes, hlRes, faqRes] = await Promise.all([
+        const [schedRes, hlRes, faqRes, guestRes] = await Promise.all([
             supabaseAdmin.from('event_schedule').select('*').eq('event_id', pageData.id).order('sort_order'),
             supabaseAdmin.from('event_highlights').select('*').eq('event_id', pageData.id).order('sort_order'),
             supabaseAdmin.from('event_faqs').select('*').eq('event_id', pageData.id).order('sort_order'),
+            supabaseAdmin.from('event_guests').select('*').eq('event_id', pageData.id).order('sort_order'),
         ]);
         schedule = schedRes.data || [];
         highlights = hlRes.data || [];
         faqs = faqRes.data || [];
+        guests = guestRes.data || [];
     }
 
     // 4. Seat counts — requires service-role key (RLS blocks anon reads on registrations)
@@ -57,14 +60,18 @@ export default async function Home() {
         seatsTaken[reg.category_id] = (seatsTaken[reg.category_id] || 0) + (reg.attendees_count || 1);
     });
 
+    // Social proof: paid registrations for this event's tiers.
+    let registeredCount = 0;
+    if (pageData?.id && categories.length) {
+        const { count } = await supabaseAdmin
+            .from('registrations')
+            .select('id', { count: 'exact', head: true })
+            .eq('payment_status', 'completed')
+            .in('category_id', categories.map((c: any) => c.id));
+        registeredCount = count || 0;
+    }
+
     return (
-        <>
-        <h1>Testing URL - not a actual url</h1>
-        <h1>Testing URL - not a actual url</h1>
-        <h1>Testing URL - not a actual url</h1>
-        <h1>Testing URL - not a actual url</h1>
-        <h1>Testing URL - not a actual url</h1>
-        
         <HomeContent
             pageData={pageData}
             categories={categories || []}
@@ -73,7 +80,8 @@ export default async function Home() {
             schedule={schedule}
             highlights={highlights}
             faqs={faqs}
+            guests={guests}
+            registeredCount={registeredCount}
         />
-        </>
     );
 }

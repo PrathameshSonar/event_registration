@@ -351,6 +351,23 @@ CREATE INDEX IF NOT EXISTS event_highlights_event_idx ON event_highlights(event_
 GRANT ALL ON event_schedule TO service_role;
 GRANT ALL ON event_highlights TO service_role;
 
+-- Guest / artist / saint lineup shown on the home page (admin-managed per event).
+CREATE TABLE IF NOT EXISTS event_guests (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id   UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    name_hi    TEXT,
+    role       TEXT,
+    role_hi    TEXT,
+    photo_url  TEXT,
+    bio        TEXT,
+    bio_hi     TEXT,
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS event_guests_event_idx ON event_guests(event_id);
+GRANT ALL ON event_guests TO service_role;
+
 
 -- 8) ── Homepage hero background image (per event) ──────────────────────────
 ALTER TABLE events

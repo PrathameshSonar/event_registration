@@ -5,7 +5,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Trash2, Save, Clock, Sparkles, Phone, CalendarClock, Image as ImageIcon, HelpCircle, BellRing } from "lucide-react";
+import { Plus, Trash2, Save, Clock, Sparkles, Phone, CalendarClock, Image as ImageIcon, HelpCircle, BellRing, Star } from "lucide-react";
+import { toast } from "@/lib/uiStore";
 
 export default function HomeContentManager(props) {
   const events = props.events || [];
@@ -24,8 +25,15 @@ export default function HomeContentManager(props) {
   const [schedule, setSchedule] = useState([]);
   const [highlights, setHighlights] = useState([]);
   const [faqs, setFaqs] = useState([]);
+  const [guests, setGuests] = useState([]);
   const [reminders, setReminders] = useState([]);
   const [busy, setBusy] = useState(false);
+
+  // New guest
+  const [gName, setGName] = useState("");
+  const [gRole, setGRole] = useState("");
+  const [gPhoto, setGPhoto] = useState("");
+  const [gBio, setGBio] = useState("");
 
   // New FAQ
   const [fq, setFq] = useState("");
@@ -56,17 +64,39 @@ export default function HomeContentManager(props) {
 
   const loadLists = useCallback(async (id) => {
     if (!id) return;
-    const [s, h, f, r] = await Promise.all([
+    const [s, h, f, r, g] = await Promise.all([
       fetch(`/api/admin/schedule?eventId=${id}`).then((r) => r.json()).catch(() => ({ items: [] })),
       fetch(`/api/admin/highlights?eventId=${id}`).then((r) => r.json()).catch(() => ({ items: [] })),
       fetch(`/api/admin/faqs?eventId=${id}`).then((r) => r.json()).catch(() => ({ items: [] })),
       fetch(`/api/admin/reminders?eventId=${id}`).then((r) => r.json()).catch(() => ({ items: [] })),
+      fetch(`/api/admin/guests?eventId=${id}`).then((r) => r.json()).catch(() => ({ items: [] })),
     ]);
     setSchedule(s.items || []);
     setHighlights(h.items || []);
     setFaqs(f.items || []);
     setReminders(r.items || []);
+    setGuests(g.items || []);
   }, []);
+
+  const addGuest = async (e) => {
+    e.preventDefault();
+    if (!gName.trim()) return;
+    setBusy(true);
+    const res = await fetch("/api/admin/guests", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event_id: eventId, name: gName, role: gRole, photo_url: gPhoto, bio: gBio }),
+    });
+    setBusy(false);
+    if (!res.ok) { toast.error("Could not add guest."); return; }
+    setGName(""); setGRole(""); setGPhoto(""); setGBio("");
+    await loadLists(eventId);
+  };
+  const delGuest = async (id) => {
+    setBusy(true);
+    await fetch("/api/admin/guests", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    await loadLists(eventId);
+    setBusy(false);
+  };
 
   useEffect(() => {
     setStartAt(toLocalInput(ev?.start_at));
@@ -249,6 +279,34 @@ export default function HomeContentManager(props) {
           <input type="text" placeholder="Title (English)" value={sTitle} onChange={(e) => setSTitle(e.target.value)} className={inputCls} required />
           <input type="text" placeholder="शीर्षक (हिंदी)" value={sTitleHi} onChange={(e) => setSTitleHi(e.target.value)} className={inputHiCls} />
           <button type="submit" disabled={busy || !sTitle.trim()} className="md:col-span-2 flex items-center justify-center gap-2 bg-neutral-900 hover:bg-orange-600 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-lg text-sm transition"><Plus className="w-4 h-4" /> Add Schedule Item</button>
+        </form>
+      </div>
+
+      {/* Guest / artist lineup */}
+      <div className="mb-8">
+        <h3 className="font-bold text-sm uppercase tracking-wider text-neutral-700 mb-1 flex items-center gap-2"><Star className="w-4 h-4" /> Guest / Artist Lineup</h3>
+        <p className="text-xs text-neutral-400 mb-3">Featured guests, artists or saints shown on the home page. Leave empty to hide the section.</p>
+        <div className="space-y-2 mb-4">
+          {guests.map((g) => (
+            <div key={g.id} className="flex items-center gap-3 bg-white border border-neutral-200 rounded-lg p-3">
+              {g.photo_url
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={g.photo_url} alt={g.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                : <div className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center flex-shrink-0"><Star className="w-4 h-4 text-neutral-400" /></div>}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-neutral-900 truncate">{g.name}</p>
+                {g.role && <p className="text-xs text-neutral-400 truncate">{g.role}</p>}
+              </div>
+              <button onClick={() => delGuest(g.id)} disabled={busy} className="p-2 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
+            </div>
+          ))}
+        </div>
+        <form onSubmit={addGuest} className="bg-neutral-50 border border-neutral-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <input type="text" placeholder="Name" value={gName} onChange={(e) => setGName(e.target.value)} className={inputCls} required />
+          <input type="text" placeholder="Role / title (e.g. Kathavachak, Singer)" value={gRole} onChange={(e) => setGRole(e.target.value)} className={inputCls} />
+          <input type="url" placeholder="Photo URL (Supabase Storage / any image link)" value={gPhoto} onChange={(e) => setGPhoto(e.target.value)} className={`${inputCls} md:col-span-2`} />
+          <input type="text" placeholder="Short bio (optional)" value={gBio} onChange={(e) => setGBio(e.target.value)} className={`${inputCls} md:col-span-2`} />
+          <button type="submit" disabled={busy || !gName.trim()} className="md:col-span-2 flex items-center justify-center gap-2 bg-neutral-900 hover:bg-orange-600 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-lg text-sm transition"><Plus className="w-4 h-4" /> Add Guest</button>
         </form>
       </div>
 

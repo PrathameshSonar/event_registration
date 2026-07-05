@@ -27,9 +27,10 @@ const DEFAULT_HIGHLIGHTS = [
     { icon: '📿', en: 'Pravachan', hi: 'प्रवचन', enD: 'Spiritual discourses by revered saints', hiD: 'पूज्य संतों द्वारा आध्यात्मिक प्रवचन' },
 ];
 
-export default function HomeContent({ pageData, categories, mediaItems, seatsTaken, schedule, highlights, faqs }) {
+export default function HomeContent({ pageData, categories, mediaItems, seatsTaken, schedule, highlights, faqs, guests, registeredCount }) {
     schedule = schedule || [];
     highlights = highlights || [];
+    guests = guests || [];
     faqs = faqs || [];
     const { t, lang } = useLanguage();
 
@@ -161,6 +162,13 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                         )}
                     </div>
 
+                    {/* Social proof */}
+                    {registeredCount > 0 && (
+                        <div className="mt-6 inline-flex items-center gap-2 bg-white/10 border border-white/25 backdrop-blur-sm text-amber-50 rounded-full px-4 py-2 text-sm font-semibold">
+                            🙏 {t('hero_registered_count', registeredCount.toLocaleString('en-IN'))}
+                        </div>
+                    )}
+
                     {/* Add to calendar + share — one row */}
                     <div className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-3">
                         <AddToCalendar title={eventTitle} startAt={pageData?.start_at} endAt={pageData?.end_at} location={displayVenue} details={eventDesc} />
@@ -211,6 +219,70 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                 </div>
             </section>
             </Reveal>
+
+            {/* GUEST / ARTIST LINEUP */}
+            {guests.length > 0 && (
+                <Reveal>
+                <section className="bg-neutral-50 py-14 md:py-20 border-b border-neutral-200">
+                    <div className="max-w-5xl mx-auto px-4">
+                        <div className="text-center mb-10">
+                            <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-neutral-900">{t('section_lineup_title')}</h3>
+                            <p className="text-neutral-500 text-sm mt-2">{t('section_lineup_desc')}</p>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+                            {guests.map((g) => {
+                                const gName = lang === 'hi' ? (g.name_hi || g.name) : g.name;
+                                const gRole = lang === 'hi' ? (g.role_hi || g.role) : g.role;
+                                const gBio = lang === 'hi' ? (g.bio_hi || g.bio) : g.bio;
+                                return (
+                                    <div key={g.id} className="text-center">
+                                        {g.photo_url ? (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img src={g.photo_url} alt={gName} className="w-24 h-24 md:w-28 md:h-28 rounded-full object-cover mx-auto shadow-md ring-2 ring-orange-100" />
+                                        ) : (
+                                            <div className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center mx-auto text-3xl">🙏</div>
+                                        )}
+                                        <h4 className="font-bold text-neutral-900 mt-3 text-sm md:text-base">{gName}</h4>
+                                        {gRole && <p className="text-orange-600 text-xs font-semibold">{gRole}</p>}
+                                        {gBio && <p className="text-neutral-500 text-xs mt-1 leading-relaxed">{gBio}</p>}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </section>
+                </Reveal>
+            )}
+
+            {/* VENUE MAP */}
+            {displayVenue && (
+                <Reveal>
+                <section className="bg-white py-14 md:py-20 border-b border-neutral-200">
+                    <div className="max-w-4xl mx-auto px-4">
+                        <div className="text-center mb-8">
+                            <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-neutral-900 flex items-center justify-center gap-2"><MapPin className="w-6 h-6 text-orange-600" /> {t('section_venue_title')}</h3>
+                            <p className="text-neutral-600 text-sm mt-2">{displayVenue}</p>
+                        </div>
+                        <div className="rounded-2xl overflow-hidden border border-neutral-200 shadow-sm">
+                            <iframe
+                                title="Venue map"
+                                src={`https://www.google.com/maps?q=${encodeURIComponent(displayVenue)}&output=embed`}
+                                className="w-full h-64 md:h-80 border-0"
+                                loading="lazy"
+                                referrerPolicy="no-referrer-when-downgrade"
+                            />
+                        </div>
+                        {mapUrl && (
+                            <div className="text-center mt-4">
+                                <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-neutral-900 hover:bg-orange-600 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition">
+                                    <MapPin className="w-4 h-4" /> {t('venue_directions')}
+                                </a>
+                            </div>
+                        )}
+                    </div>
+                </section>
+                </Reveal>
+            )}
 
             {/* PROGRAMME SCHEDULE */}
             {schedule.length > 0 && (

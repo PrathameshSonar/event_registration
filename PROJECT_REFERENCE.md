@@ -171,8 +171,8 @@ Active-event model. Columns: `id, title, title_hi, short_description(+_hi), long
 ### `form_fields` / `category_field_settings`
 Catalog of registration fields + per-category visibility/required/order. See §13.
 
-### `event_schedule` / `event_highlights` / `event_faqs` / `event_reminders` / `event_media`
-Homepage content per event (programme, ritual cards, FAQ accordion, reminder opt-ins, gallery image/YouTube).
+### `event_schedule` / `event_highlights` / `event_guests` / `event_faqs` / `event_reminders` / `event_media`
+Homepage content per event (programme, ritual cards, **guest/artist lineup**, FAQ accordion, reminder opt-ins, gallery image/YouTube). `event_guests`: `name(+_hi), role(+_hi), photo_url, bio(+_hi), sort_order`. All need `GRANT ALL ... TO service_role`.
 
 ### `registration_notes`
 Contact-history log for the enquiry pipeline: `id, registration_id→registrations (cascade), note, actor_role, created_at`. One row per note. Needs `GRANT ALL ... TO service_role`.
@@ -491,6 +491,7 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
 Keep newest first. Add an entry for every meaningful change.
 
 - **2026-06-28**
+  - **Homepage additions** — **guest/artist lineup** (new `event_guests` table + `/api/admin/guests` + editor in Home Content + public grid), **embedded venue map** (Google Maps iframe from the venue + "Get Directions" to `map_url`), and **social proof** ("Join N+ registered devotees" from the paid count). Removed the leftover test `<h1>` placeholders from the homepage.
   - **Bulk receipts + financial statement** — Registrations tab: **Receipts PDF** (print-friendly combined receipts for PAID rows in the current date/filter → save as one PDF) and **Financial** (paid-only .xls statement with receipt numbers + total). Client-side, instant, respects the date-range filter. No GST (simple receipts); a server-side emailed-PDF job can be added later if needed.
   - **Dashboard analytics** — [components/DashboardAnalytics.js](components/DashboardAnalytics.js): daily registrations + revenue (14-day bars), payment conversion %, enquiry pipeline, per-tier fill %. Nav **work badges** (to-verify count on Registrations, new-enquiry count on Enquiries). All computed client-side from loaded data; no chart dependency.
   - **Manage a registration** — detail modal now has **Edit details** (all personal/contact/custom fields via [EditRegistrationModal.js](components/EditRegistrationModal.js) → `PATCH /api/admin/registrations` with `{updates}`, editable even on completed rows), **Resend confirmation** (`/api/admin/resend-confirmation`), and **Refund** (`/api/admin/refund`, full/partial via Razorpay; full → `refunded`).
