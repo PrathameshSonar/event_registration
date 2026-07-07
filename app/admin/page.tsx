@@ -22,6 +22,8 @@ import DashboardAnalytics from '@/components/DashboardAnalytics';
 import RegistrationActivity from '@/components/RegistrationActivity';
 import AddRegistrationModal from '@/components/AddRegistrationModal';
 import EventOpsPanel from '@/components/EventOpsPanel';
+import HealthPanel from '@/components/HealthPanel';
+import ManualCheckin from '@/components/ManualCheckin';
 import ImageUpload from '@/components/ImageUpload';
 import { toast, confirmDialog, promptDialog } from '@/lib/uiStore';
 
@@ -41,6 +43,7 @@ interface Registration {
     custom_fields: Record<string, string> | null;
     amount_paid: number; amount_due: number;
     payment_plan: string | null; balance_link_url: string | null;
+    ticket_email_status: string | null; ticket_wa_status: string | null;
     qr_sent_at: string | null;
     payment_method: string | null; offline_reference: string | null; offline_proof_path: string | null;
     verified_by: string | null; verified_at: string | null;
@@ -801,6 +804,9 @@ export default function AdminDashboard() {
             {reg.payment_status === 'completed' && (
                 <a href={`/api/admin/qr/${reg.id}`} className="p-2 border border-neutral-200 rounded-lg bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition shadow-sm" title="Download QR Code"><QrCode className="w-4 h-4" /></a>
             )}
+            {can('registrations:manage') && reg.payment_status === 'completed' && (reg.ticket_email_status === 'failed' || reg.ticket_wa_status === 'failed') && (
+                <button onClick={() => handleResendConfirmation(reg)} disabled={managingId === reg.id} className="p-2 border border-rose-200 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition shadow-sm disabled:opacity-50 animate-pulse" title={`Ticket delivery failed (${[reg.ticket_email_status === 'failed' ? 'email' : null, reg.ticket_wa_status === 'failed' ? 'WhatsApp' : null].filter(Boolean).join(' + ')}) — click to retry`}>⚠️</button>
+            )}
             {(!isVolunteer || can('payments:verify')) && (reg.payment_status === 'advance_paid' || reg.payment_status === 'amount_mismatch') && (
                 <button onClick={() => handleSyncBalance(reg.id)} disabled={syncingId === reg.id} className="p-2 border border-green-200 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition shadow-sm disabled:opacity-50" title="Re-check this payment against Razorpay"><RefreshCw className={`w-4 h-4 ${syncingId === reg.id ? 'animate-spin' : ''}`} /></button>
             )}
@@ -1132,6 +1138,8 @@ export default function AdminDashboard() {
                             <button onClick={() => { setActiveTab('registrations'); setStatusFilter('payment_review'); }} className={`bg-white border p-5 md:p-6 rounded-xl flex items-center gap-4 shadow-sm text-left transition ${globalToVerify > 0 ? 'border-indigo-300 hover:bg-indigo-50' : 'border-neutral-200'}`}><div className="p-4 bg-indigo-100 text-indigo-600 rounded-lg"><IndianRupee className="w-6 h-6" /></div><div><p className="text-sm font-medium text-neutral-500">Payments to Verify</p><p className="text-2xl font-bold">{globalToVerify}</p></div></button>
                         </div>
 
+                        {isAdmin && <HealthPanel />}
+
                         <DashboardAnalytics registrations={registrations} categories={categoriesList} />
 
                         {/* Sales per category */}
@@ -1368,6 +1376,7 @@ export default function AdminDashboard() {
                 {effectiveTab === 'scanlog' && (
                     <div className="space-y-6">
                         <EventOpsPanel />
+                        <ManualCheckin registrations={registrations} checkpoints={checkpointsList} onCheckedIn={refreshRegistrations} />
                         <ScanLogPanel checkpoints={checkpointsList} />
                     </div>
                 )}

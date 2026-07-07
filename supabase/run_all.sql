@@ -82,7 +82,12 @@ ALTER TABLE registrations
     ADD COLUMN IF NOT EXISTS offline_meta       JSONB,  -- bank name, cheque date, etc.
     ADD COLUMN IF NOT EXISTS verified_by        TEXT,
     ADD COLUMN IF NOT EXISTS verified_at        TIMESTAMPTZ,
-    ADD COLUMN IF NOT EXISTS created_by_admin   BOOLEAN DEFAULT false;  -- manual walk-in entry
+    ADD COLUMN IF NOT EXISTS created_by_admin   BOOLEAN DEFAULT false,  -- manual walk-in entry
+    -- Ticket delivery outcome (written by dispatchTicket) so failures surface in
+    -- the admin ledger with a retry, instead of dying silently in server logs.
+    ADD COLUMN IF NOT EXISTS ticket_email_status TEXT,     -- 'sent' | 'failed' | 'skipped'
+    ADD COLUMN IF NOT EXISTS ticket_wa_status    TEXT,     -- 'sent' | 'failed' | 'skipped'
+    ADD COLUMN IF NOT EXISTS ticket_sent_at      TIMESTAMPTZ;
 
 -- Global key/value app config (e.g. the bank/UPI/cheque details shown to users
 -- for offline payments). Read server-side via the service role.
@@ -296,6 +301,10 @@ CREATE INDEX IF NOT EXISTS checkins_checkpoint_id_idx ON checkins(checkpoint_id)
 
 GRANT ALL ON checkpoints TO service_role;
 GRANT ALL ON checkins TO service_role;
+
+-- Manual check-in fallback: gate staff can check in a Paid person whose QR won't
+-- scan (dead phone / email never arrived). Marked so the log shows it was manual.
+ALTER TABLE checkins ADD COLUMN IF NOT EXISTS manual BOOLEAN DEFAULT false;
 
 
 -- 3) ── Link categories to their parent event ───────────────────────────────

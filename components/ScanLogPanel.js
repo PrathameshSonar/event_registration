@@ -98,7 +98,7 @@ export default function ScanLogPanel({ checkpoints = [] }) {
                                 <tr key={c.id} className="hover:bg-neutral-50 transition">
                                     <td className="px-5 py-3 font-medium text-neutral-900">{nameOf(c.registrations)}<div className="text-xs font-normal text-neutral-400">{c.registrations?.phone}</div></td>
                                     <td className="px-5 py-3 text-neutral-600">{c.registrations?.categories?.title || "—"}</td>
-                                    <td className="px-5 py-3 text-neutral-600">{c.checkpoints?.name || "—"}</td>
+                                    <td className="px-5 py-3 text-neutral-600">{c.checkpoints?.name || "—"}{c.manual && <span className="ml-2 inline-flex items-center py-0.5 px-1.5 rounded text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200" title="Checked in manually by staff (not a QR scan)">MANUAL</span>}</td>
                                     <td className="px-5 py-3">
                                         <span className={`inline-flex items-center py-0.5 px-2 rounded-full text-[11px] font-bold border ${STATUS_CLASS[c.registrations?.payment_status] || "bg-neutral-100 text-neutral-500 border-neutral-200"}`}>
                                             {STATUS_LABEL[c.registrations?.payment_status] || c.registrations?.payment_status || "—"}

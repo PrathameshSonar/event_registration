@@ -9,9 +9,9 @@ export const dynamic = 'force-dynamic';
 export async function POST(request, { params }) {
     const { id } = await params;
     const body = await request.json().catch(() => ({}));
-    const { scannerPin, checkpointId } = body;
+    const { scannerPin, checkpointId, manual } = body;
 
-    // Accept scanner PIN (entry staff) OR admin/viewer session.
+    // Accept scanner PIN (entry staff) OR admin/volunteer session.
     const pinEnv = process.env.SCANNER_PIN;
     const pinOk = pinEnv && scannerPin === pinEnv;
     if (!pinOk) {
@@ -49,7 +49,7 @@ export async function POST(request, { params }) {
     // One check-in row per registration + checkpoint. Re-scans at the same
     // checkpoint are reported as DUPLICATE but do NOT add another row.
     if (isFirst) {
-        await supabaseAdmin.from('checkins').insert({ registration_id: id, checkpoint_id: checkpointId });
+        await supabaseAdmin.from('checkins').insert({ registration_id: id, checkpoint_id: checkpointId, manual: !!manual });
         return NextResponse.json({ status: 'NEW', reg });
     }
     return NextResponse.json({ status: 'DUPLICATE', reg, count: existingCount });

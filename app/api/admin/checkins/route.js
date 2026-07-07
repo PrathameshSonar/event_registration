@@ -20,7 +20,7 @@ export async function GET(request) {
 
     let query = supabaseAdmin
         .from('checkins')
-        .select('id, scanned_at, checkpoint_id, checkpoints(name), registrations(id, first_name, last_name, salutation, payment_status, phone, categories(title))')
+        .select('id, scanned_at, checkpoint_id, manual, checkpoints(name), registrations(id, first_name, last_name, salutation, payment_status, phone, categories(title))')
         .order('scanned_at', { ascending: false })
         .limit(limit);
     if (checkpointId && checkpointId !== 'all') query = query.eq('checkpoint_id', checkpointId);
