@@ -306,6 +306,22 @@ GRANT ALL ON checkins TO service_role;
 -- scan (dead phone / email never arrived). Marked so the log shows it was manual.
 ALTER TABLE checkins ADD COLUMN IF NOT EXISTS manual BOOLEAN DEFAULT false;
 
+-- Waitlist: when a tier is full, interested people join here. When a seat frees
+-- (refund/cancel), an admin notifies the next person with a registration link.
+CREATE TABLE IF NOT EXISTS waitlist (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    category_id UUID REFERENCES categories(id) ON DELETE CASCADE,
+    event_id    UUID REFERENCES events(id) ON DELETE SET NULL,
+    name        TEXT NOT NULL,
+    phone       TEXT NOT NULL,
+    email       TEXT,
+    status      TEXT NOT NULL DEFAULT 'waiting' CHECK (status IN ('waiting', 'notified', 'converted', 'removed')),
+    created_at  TIMESTAMPTZ DEFAULT now(),
+    notified_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS waitlist_category_idx ON waitlist(category_id);
+GRANT ALL ON waitlist TO service_role;
+
 
 -- 3) ── Link categories to their parent event ───────────────────────────────
 ALTER TABLE categories

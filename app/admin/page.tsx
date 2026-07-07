@@ -6,7 +6,7 @@ import {
     Lock, Download, Users, IndianRupee, Activity, Eye, X, Settings, ListFilter,
     Save, Trash2, Plus, Image as ImageIcon, Video, CalendarDays,
     Ticket, Calendar as CalendarIcon, Search, LogOut, QrCode, Copy, Check,
-    LayoutDashboard, ScrollText, RefreshCw, MessageSquare, Pencil, Mail, Undo2, Send, UserPlus
+    LayoutDashboard, ScrollText, RefreshCw, MessageSquare, Pencil, Mail, Undo2, Send, UserPlus, Megaphone
 } from 'lucide-react';
 import { youtubeThumbnail } from '@/lib/youtube';
 import FormFieldsManager from '@/components/FormFieldsManager';
@@ -15,6 +15,7 @@ import AuditLogPanel from '@/components/AuditLogPanel';
 import EnquiriesPanel from '@/components/EnquiriesPanel';
 import PaymentSettingsManager from '@/components/PaymentSettingsManager';
 import AdminUsersManager from '@/components/AdminUsersManager';
+import WaitlistManager from '@/components/WaitlistManager';
 import ScanLogPanel from '@/components/ScanLogPanel';
 import Toaster from '@/components/Toaster';
 import EditRegistrationModal from '@/components/EditRegistrationModal';
@@ -24,6 +25,7 @@ import AddRegistrationModal from '@/components/AddRegistrationModal';
 import EventOpsPanel from '@/components/EventOpsPanel';
 import HealthPanel from '@/components/HealthPanel';
 import ManualCheckin from '@/components/ManualCheckin';
+import BroadcastModal from '@/components/BroadcastModal';
 import ImageUpload from '@/components/ImageUpload';
 import { toast, confirmDialog, promptDialog } from '@/lib/uiStore';
 
@@ -150,7 +152,7 @@ export default function AdminDashboard() {
     const can = (perm: string) => isAdmin || permissions.includes(perm);
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'enquiries' | 'scanlog' | 'settings' | 'audit'>('dashboard');
-    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'checkpoints' | 'formfields' | 'homecontent' | 'payment' | 'users'>('events');
+    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'checkpoints' | 'formfields' | 'homecontent' | 'payment' | 'users' | 'waitlist'>('events');
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -425,6 +427,7 @@ export default function AdminDashboard() {
     };
 
     const [showAddReg, setShowAddReg] = useState(false);
+    const [showBroadcast, setShowBroadcast] = useState(false);
     const [reminding, setReminding] = useState(false);
     const handleBulkRemind = async (kind: 'pending' | 'balance') => {
         const label = kind === 'balance' ? 'balance payment reminders to all Advance-Paid registrations' : 'payment links to all Pending (abandoned) checkouts';
@@ -1100,6 +1103,10 @@ export default function AdminDashboard() {
                 <AddRegistrationModal categories={categoriesList} onClose={() => setShowAddReg(false)} onCreated={async () => { setShowAddReg(false); await fetchAllData(); }} />
             )}
 
+            {showBroadcast && (
+                <BroadcastModal categories={categoriesList} onClose={() => setShowBroadcast(false)} />
+            )}
+
             <div className="max-w-7xl mx-auto mb-8 border-b border-neutral-200 pb-6 flex flex-col gap-4">
                 <h1 className="text-3xl font-bold text-neutral-900">Control Center</h1>
                 {/* Responsive segmented nav — scrolls horizontally on small screens
@@ -1205,6 +1212,7 @@ export default function AdminDashboard() {
                                     <input type="text" placeholder="Search name, gotra, or phone..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="w-full pl-10 pr-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600" />
                                 </div>
                                 {can('registrations:manage') && <button onClick={() => setShowAddReg(true)} className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><UserPlus className="w-4 h-4" /> Add Registration</button>}
+                                {can('reminders:send') && <button onClick={() => setShowBroadcast(true)} className="bg-neutral-900 hover:bg-orange-600 text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><Megaphone className="w-4 h-4" /> Broadcast</button>}
                                 <button onClick={downloadCSV} className="bg-neutral-900 hover:bg-orange-600 text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><Download className="w-4 h-4" /> CSV</button>
                                 <button onClick={downloadExcel} className="bg-neutral-900 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><Download className="w-4 h-4" /> Excel</button>
                                 <button onClick={printReceipts} title="Combined receipts for paid registrations in the current filter → save as PDF" className="border border-neutral-300 text-neutral-700 hover:bg-neutral-100 px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><Download className="w-4 h-4" /> Receipts PDF</button>
@@ -1396,6 +1404,7 @@ export default function AdminDashboard() {
                             <button onClick={() => setSettingsSubTab('homecontent')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'homecontent' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><CalendarDays className="w-4 h-4" /> Home Page Content</button>
                             <button onClick={() => setSettingsSubTab('payment')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'payment' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><IndianRupee className="w-4 h-4" /> Payment Details</button>
                             <button onClick={() => setSettingsSubTab('users')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'users' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><Users className="w-4 h-4" /> Admin Users</button>
+                            <button onClick={() => setSettingsSubTab('waitlist')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'waitlist' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ListFilter className="w-4 h-4" /> Waitlist</button>
                         </div>
 
                         <div className="flex-1 p-6 lg:p-8 bg-white overflow-y-auto">
@@ -1614,6 +1623,7 @@ export default function AdminDashboard() {
                             {settingsSubTab === 'homecontent' && <HomeContentManager events={eventsList} />}
                             {settingsSubTab === 'payment' && <PaymentSettingsManager />}
                             {settingsSubTab === 'users' && <AdminUsersManager />}
+                            {settingsSubTab === 'waitlist' && <WaitlistManager />}
                         </div>
                     </div>
                 )}

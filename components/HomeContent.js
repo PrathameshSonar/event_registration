@@ -16,6 +16,8 @@ import ShareButtons from './ShareButtons';
 import { ageLimitLabel } from '@/lib/age';
 import FaqAccordion from './FaqAccordion';
 import Reveal from './Reveal';
+import WaitlistModal from './WaitlistModal';
+import { useState } from 'react';
 
 // Brand icons — lucide dropped these (trademark), so inline the marks (CSP-safe).
 const InstagramIcon = (props) => (
@@ -44,6 +46,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
     guests = guests || [];
     faqs = faqs || [];
     const { t, lang } = useLanguage();
+    const [waitlistCat, setWaitlistCat] = useState(null);
 
     const eventTitle = lang === 'hi'
         ? (pageData?.title_hi || pageData?.title || t('hero_event_fallback'))
@@ -378,8 +381,13 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                                     </div>
 
                                     {isEffectivelyFull ? (
-                                        <div className="w-full text-center bg-neutral-100 text-neutral-400 font-semibold py-3 rounded-xl border border-neutral-200 cursor-not-allowed text-sm">
-                                            {t('category_full')}
+                                        <div className="space-y-2">
+                                            <div className="w-full text-center bg-neutral-100 text-neutral-400 font-semibold py-3 rounded-xl border border-neutral-200 cursor-not-allowed text-sm">
+                                                {t('category_full')}
+                                            </div>
+                                            <button onClick={() => setWaitlistCat(category)} className="w-full text-center bg-white border border-orange-300 text-orange-700 font-semibold py-2.5 rounded-xl hover:bg-orange-50 transition text-sm">
+                                                🔔 {t('category_join_waitlist')}
+                                            </button>
                                         </div>
                                     ) : (
                                         <Link href={`/register/${category.id}`} className="w-full text-center bg-neutral-900 text-white font-semibold py-3 rounded-xl hover:bg-orange-600 transition text-sm block">
@@ -500,6 +508,8 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                 </section>
                 </Reveal>
             )}
+
+            {waitlistCat && <WaitlistModal category={waitlistCat} onClose={() => setWaitlistCat(null)} />}
 
             <FloatingActions phone={pageData?.contact_phone} hasCategories={hasCategories} />
             <Footer />

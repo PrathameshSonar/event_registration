@@ -4,7 +4,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { RefreshCw, Search, QrCode } from "lucide-react";
+import { RefreshCw, Search, QrCode, Undo2 } from "lucide-react";
+import { toast, confirmDialog } from "@/lib/uiStore";
 
 const STATUS_CLASS = {
     completed: "bg-green-100 text-green-700 border-green-200",
@@ -44,6 +45,19 @@ export default function ScanLogPanel({ checkpoints = [] }) {
     }, [checkpointId]);
 
     useEffect(() => { const t = setTimeout(load, 0); return () => clearTimeout(t); }, [load]);
+
+    const [undoingId, setUndoingId] = useState(null);
+    const undo = async (c) => {
+        if (!(await confirmDialog({ title: "Undo check-in", message: `Remove the check-in for ${nameOf(c.registrations)} at ${c.checkpoints?.name || "this checkpoint"}? They can be scanned in again.`, danger: true, confirmLabel: "Undo" }))) return;
+        setUndoingId(c.id);
+        try {
+            const res = await fetch("/api/admin/checkins", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: c.id }) });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) { toast.error(data.error || "Could not undo."); return; }
+            toast.success("Check-in undone.");
+            load();
+        } finally { setUndoingId(null); }
+    };
 
     const term = q.trim().toLowerCase();
     const filtered = term
@@ -87,13 +101,13 @@ export default function ScanLogPanel({ checkpoints = [] }) {
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm whitespace-nowrap">
                         <thead className="bg-neutral-100 text-neutral-600 font-medium border-b border-neutral-200">
-                            <tr><th className="px-5 py-3">Name</th><th className="px-5 py-3">Category</th><th className="px-5 py-3">Checkpoint</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Scanned At</th></tr>
+                            <tr><th className="px-5 py-3">Name</th><th className="px-5 py-3">Category</th><th className="px-5 py-3">Checkpoint</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Scanned At</th><th className="px-5 py-3 text-right">Undo</th></tr>
                         </thead>
                         <tbody className="divide-y divide-neutral-100">
                             {loading ? (
-                                <tr><td colSpan={5} className="px-5 py-8 text-center text-neutral-400">Loading scans…</td></tr>
+                                <tr><td colSpan={6} className="px-5 py-8 text-center text-neutral-400">Loading scans…</td></tr>
                             ) : filtered.length === 0 ? (
-                                <tr><td colSpan={5} className="px-5 py-8 text-center text-neutral-400">No scans yet.</td></tr>
+                                <tr><td colSpan={6} className="px-5 py-8 text-center text-neutral-400">No scans yet.</td></tr>
                             ) : paged.map((c) => (
                                 <tr key={c.id} className="hover:bg-neutral-50 transition">
                                     <td className="px-5 py-3 font-medium text-neutral-900">{nameOf(c.registrations)}<div className="text-xs font-normal text-neutral-400">{c.registrations?.phone}</div></td>
@@ -105,6 +119,9 @@ export default function ScanLogPanel({ checkpoints = [] }) {
                                         </span>
                                     </td>
                                     <td className="px-5 py-3 text-neutral-500">{new Date(c.scanned_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
+                                    <td className="px-5 py-3 text-right">
+                                        <button onClick={() => undo(c)} disabled={undoingId === c.id} className="inline-flex items-center gap-1 px-2 py-1 border border-neutral-200 rounded-lg text-xs font-semibold text-neutral-500 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition disabled:opacity-50" title="Undo this check-in"><Undo2 className="w-3.5 h-3.5" /> Undo</button>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>

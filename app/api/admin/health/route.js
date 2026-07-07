@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { waConfigured } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
 
@@ -93,7 +94,7 @@ export async function GET() {
     check(process.env.ADMIN_PASSWORD, 'Admin password', 'ADMIN_PASSWORD set');
     check(process.env.RESEND_API_KEY, 'Email (Resend)', 'RESEND_API_KEY set');
     check(process.env.RESEND_FROM, 'Email sender', 'RESEND_FROM set (verified domain sender)');
-    check(process.env.WHATSAPP_API_URL && process.env.WHATSAPP_ACCESS_TOKEN, 'WhatsApp API', 'WHATSAPP_API_URL + WHATSAPP_ACCESS_TOKEN set');
+    check(waConfigured(), 'WhatsApp API', 'WHATSAPP_API_URL + WHATSAPP_ACCESS_TOKEN set');
     check(process.env.SCANNER_PIN, 'Scanner PIN', 'SCANNER_PIN set for gate staff');
     check(process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_VERCEL_URL, 'Site URL', 'NEXT_PUBLIC_SITE_URL set (used in payment links)');
 

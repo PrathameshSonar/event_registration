@@ -6,15 +6,10 @@ import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAudit } from '@/lib/auditLog';
 import { escapeHtml } from '@/lib/escape';
-import { Resend } from 'resend';
+import { sendEmail } from '@/lib/email';
+import { sendWhatsAppText, sendWhatsAppImage, waConfigured } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
-
-let _resend = null;
-function getResend() {
-    if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY);
-    return _resend;
-}
 
 const BATCH_LIMIT = 100;
 
@@ -92,13 +87,11 @@ export async function POST(request) {
         }
 
         // ── EMAIL ─────────────────────────────────────────────
-        if (reg.email && process.env.RESEND_API_KEY) {
-            try {
-                await getResend().emails.send({
-                    from: process.env.RESEND_FROM || 'BaglaBhairav <onboarding@resend.dev>',
-                    to: [reg.email],
-                    subject: '🎟️ Your Entry QR Code — BaglaBhairav Mahotsav',
-                    html: `
+        if (reg.email) {
+            const ok = await sendEmail({
+                to: reg.email,
+                subject: '🎟️ Your Entry QR Code — BaglaBhairav Mahotsav',
+                html: `
 <div style="font-family:sans-serif;max-width:600px;margin:0 auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
   <div style="background:#171717;padding:32px;text-align:center;">
     <span style="color:#ea580c;font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.1em;">Entry Pass</span>
@@ -127,38 +120,20 @@ export async function POST(request) {
     Ref: ${shortId} · Secured via Razorpay
   </div>
 </div>`,
-                });
-                emailSent++;
-                delivered = true;
-            } catch (e) {
-                console.error('Email QR failed for', reg.id, e);
-                emailFailed++;
-            }
+            });
+            if (ok) { emailSent++; delivered = true; } else { emailFailed++; }
         }
 
         // ── WHATSAPP ──────────────────────────────────────────
-        if (reg.phone && process.env.WHATSAPP_API_URL && process.env.WHATSAPP_ACCESS_TOKEN) {
+        if (reg.phone && waConfigured()) {
             try {
-                let cleanPhone = reg.phone.replace(/\D/g, '');
-                if (cleanPhone.length === 10) cleanPhone = `91${cleanPhone}`;
-
                 const caption = `🎟️ *BaglaBhairav Entry Pass*\n\n👤 *Name:* ${fullName}\n🏷️ *Category:* ${categoryTitle}\n👥 *Attendees:* ${reg.attendees_count}\n💰 *Paid:* ₹${reg.total_amount}\n\n📲 *Scan QR or open:*\n${verifyUrl}`;
 
                 // Send as image if we have a public URL; otherwise fall back to text with link.
-                const waBody = qrPublicUrl
-                    ? { messaging_product: 'whatsapp', to: cleanPhone, type: 'image', image: { link: qrPublicUrl, caption } }
-                    : { messaging_product: 'whatsapp', to: cleanPhone, type: 'text', text: { preview_url: true, body: caption } };
-
-                await fetch(process.env.WHATSAPP_API_URL, {
-                    method: 'POST',
-                    headers: {
-                        Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(waBody),
-                });
-                waSent++;
-                delivered = true;
+                const ok = qrPublicUrl
+                    ? await sendWhatsAppImage(reg.phone, qrPublicUrl, caption)
+                    : await sendWhatsAppText(reg.phone, caption);
+                if (ok) { waSent++; delivered = true; } else { waFailed++; }
             } catch (e) {
                 console.error('WhatsApp QR failed for', reg.id, e);
                 waFailed++;
