@@ -65,6 +65,9 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
         : (pageData?.venue || t('hero_venue'));
 
     const mapUrl = pageData?.map_url || null;
+    const travelInfo = lang === 'hi'
+        ? (pageData?.travel_info_hi || pageData?.travel_info || '')
+        : (pageData?.travel_info || '');
 
     const socialLinks = [
         { key: 'instagram', href: pageData?.instagram_url, label: 'Instagram', Icon: InstagramIcon },
@@ -478,6 +481,33 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                 </section>
                 </Reveal>
             )}
+
+            {/* PLAN YOUR VISIT — travel / parking / stay */}
+            {travelInfo && (
+                <Reveal>
+                <section className="bg-gold-50/40 py-10 md:py-14 border-t border-gold-100/70">
+                    <div className="max-w-3xl mx-auto px-4 text-center">
+                        <h3 className="font-serif text-xl md:text-2xl font-bold tracking-tight text-neutral-900 flex items-center justify-center gap-2"><MapPin className="w-5 h-5 text-orange-600" /> {t('section_travel_title')}</h3>
+                        <div className="gold-divider"><span /></div>
+                        <p className="text-neutral-600 leading-relaxed whitespace-pre-wrap text-sm md:text-base mt-4 text-left">{travelInfo}</p>
+                    </div>
+                </section>
+                </Reveal>
+            )}
+
+            {/* SEVA / DONATE CTA */}
+            <Reveal>
+            <section className="bg-gradient-to-r from-amber-800 via-orange-700 to-amber-800 text-white">
+                <div className="max-w-3xl mx-auto px-4 py-10 md:py-12 text-center">
+                    <div className="text-3xl mb-2">🪔</div>
+                    <h3 className="font-serif text-xl md:text-2xl font-bold">{t('section_seva_title')}</h3>
+                    <p className="text-amber-50/90 text-sm mt-2 mb-6 max-w-md mx-auto">{t('section_seva_desc')}</p>
+                    <Link href="/donate" className="inline-block bg-white text-orange-700 font-bold px-7 py-3 rounded-xl shadow-lg ring-1 ring-gold-300 hover:bg-gold-50 hover:scale-[1.02] transition text-sm">
+                        🙏 {t('section_seva_cta')}
+                    </Link>
+                </div>
+            </section>
+            </Reveal>
 
             {/* CONTACT US — small block, kept last */}
             {(hasSocials || pageData?.contact_phone) && (

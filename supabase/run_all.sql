@@ -306,6 +306,23 @@ GRANT ALL ON checkins TO service_role;
 -- scan (dead phone / email never arrived). Marked so the log shows it was manual.
 ALTER TABLE checkins ADD COLUMN IF NOT EXISTS manual BOOLEAN DEFAULT false;
 
+-- Seva / donations: standalone contributions (no tier/seat). Paid via Razorpay
+-- and confirmed by HMAC signature verification (not seat-managed like tickets).
+CREATE TABLE IF NOT EXISTS donations (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name                TEXT NOT NULL,
+    phone               TEXT,
+    email               TEXT,
+    amount              NUMERIC NOT NULL,
+    message             TEXT,
+    razorpay_order_id   TEXT,
+    razorpay_payment_id TEXT,
+    status              TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed')),
+    created_at          TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS donations_status_idx ON donations(status);
+GRANT ALL ON donations TO service_role;
+
 -- Waitlist: when a tier is full, interested people join here. When a seat frees
 -- (refund/cancel), an admin notifies the next person with a registration link.
 CREATE TABLE IF NOT EXISTS waitlist (
@@ -432,6 +449,12 @@ GRANT ALL ON event_guests TO service_role;
 -- 8) ── Homepage hero background image (per event) ──────────────────────────
 ALTER TABLE events
     ADD COLUMN IF NOT EXISTS hero_image_url TEXT;
+
+-- "Plan Your Visit" — how to reach / parking / accommodation, shown on the
+-- homepage near the venue map. Optional, bilingual.
+ALTER TABLE events
+    ADD COLUMN IF NOT EXISTS travel_info    TEXT,
+    ADD COLUMN IF NOT EXISTS travel_info_hi TEXT;
 
 
 -- 9) ── FAQ accordion + reminder opt-ins ────────────────────────────────────

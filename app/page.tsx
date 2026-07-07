@@ -1,9 +1,38 @@
 // app/page.tsx — Server Component. Fetches data only; rendering is in HomeContent.
+import type { Metadata } from 'next';
 import { supabase } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import HomeContent from '@/components/HomeContent';
 
 export const revalidate = 60;
+
+// Build the social/WhatsApp link-preview + <title>/description from the ACTIVE
+// event, so a shared link shows the real event's title, date and hero image
+// (falls back to the static /og-image.jpg when no hero image is set).
+export async function generateMetadata(): Promise<Metadata> {
+    const { data: ev } = await supabase
+        .from('events')
+        .select('title, short_description, date_time, venue, hero_image_url')
+        .eq('is_active', true)
+        .single();
+
+    const title = ev?.title ? `${ev.title} — BaglaBhairav Mahotsav` : 'BaglaBhairav | Annual Mahotsav';
+    const bits = [ev?.date_time, ev?.venue].filter(Boolean).join(' · ');
+    const description = ev?.short_description
+        ? `${ev.short_description}${bits ? ` (${bits})` : ''}`
+        : 'Join the BaglaBhairav Mahotsav. Reserve your pass and connect with the community.';
+    const image = ev?.hero_image_url || '/og-image.jpg';
+
+    return {
+        title,
+        description,
+        openGraph: {
+            title, description, siteName: 'BaglaBhairav', locale: 'en_IN', type: 'website',
+            images: [{ url: image, width: 1200, height: 630, alt: title }],
+        },
+        twitter: { card: 'summary_large_image', title, description, images: [image] },
+    };
+}
 
 export default async function Home() {
     // 1. Event hero text (includes title_hi, short_description_hi if set)
@@ -71,17 +100,38 @@ export default async function Home() {
         registeredCount = count || 0;
     }
 
+    // Event structured data (JSON-LD) so Google can show a rich event result.
+    const pricedTiers = categories.filter((c) => Number(c.price) > 0).map((c) => Number(c.price));
+    const minPrice = pricedTiers.length ? Math.min(...pricedTiers) : Infinity;
+    const jsonLd: Record<string, unknown> = {
+        '@context': 'https://schema.org',
+        '@type': 'Event',
+        name: pageData?.title || 'BaglaBhairav Mahotsav',
+        description: pageData?.short_description || undefined,
+        eventStatus: 'https://schema.org/EventScheduled',
+        eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+        ...(pageData?.start_at ? { startDate: pageData.start_at } : {}),
+        ...(pageData?.end_at ? { endDate: pageData.end_at } : {}),
+        ...(pageData?.hero_image_url ? { image: [pageData.hero_image_url] } : {}),
+        ...(pageData?.venue ? { location: { '@type': 'Place', name: pageData.venue } } : {}),
+        organizer: { '@type': 'Organization', name: 'BaglaBhairav' },
+        ...(minPrice !== Infinity ? { offers: { '@type': 'Offer', price: minPrice, priceCurrency: 'INR', availability: 'https://schema.org/InStock' } } : {}),
+    };
+
     return (
-        <HomeContent
-            pageData={pageData}
-            categories={categories || []}
-            mediaItems={mediaItems || []}
-            seatsTaken={seatsTaken}
-            schedule={schedule}
-            highlights={highlights}
-            faqs={faqs}
-            guests={guests}
-            registeredCount={registeredCount}
-        />
+        <>
+            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+            <HomeContent
+                pageData={pageData}
+                categories={categories || []}
+                mediaItems={mediaItems || []}
+                seatsTaken={seatsTaken}
+                schedule={schedule}
+                highlights={highlights}
+                faqs={faqs}
+                guests={guests}
+                registeredCount={registeredCount}
+            />
+        </>
     );
 }

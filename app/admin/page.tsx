@@ -16,6 +16,7 @@ import EnquiriesPanel from '@/components/EnquiriesPanel';
 import PaymentSettingsManager from '@/components/PaymentSettingsManager';
 import AdminUsersManager from '@/components/AdminUsersManager';
 import WaitlistManager from '@/components/WaitlistManager';
+import DonationsManager from '@/components/DonationsManager';
 import ScanLogPanel from '@/components/ScanLogPanel';
 import Toaster from '@/components/Toaster';
 import EditRegistrationModal from '@/components/EditRegistrationModal';
@@ -84,6 +85,8 @@ interface EventItem {
     instagram_url: string | null;
     facebook_url: string | null;
     youtube_url: string | null;
+    travel_info: string | null;
+    travel_info_hi: string | null;
 }
 interface MediaItem { id: string; media_type: 'image' | 'youtube'; url: string; caption: string; event_id: string; events?: { title: string }; }
 
@@ -152,7 +155,7 @@ export default function AdminDashboard() {
     const can = (perm: string) => isAdmin || permissions.includes(perm);
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'enquiries' | 'scanlog' | 'settings' | 'audit'>('dashboard');
-    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'checkpoints' | 'formfields' | 'homecontent' | 'payment' | 'users' | 'waitlist'>('events');
+    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'checkpoints' | 'formfields' | 'homecontent' | 'payment' | 'users' | 'waitlist' | 'donations'>('events');
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -1405,6 +1408,7 @@ export default function AdminDashboard() {
                             <button onClick={() => setSettingsSubTab('payment')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'payment' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><IndianRupee className="w-4 h-4" /> Payment Details</button>
                             <button onClick={() => setSettingsSubTab('users')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'users' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><Users className="w-4 h-4" /> Admin Users</button>
                             <button onClick={() => setSettingsSubTab('waitlist')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'waitlist' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ListFilter className="w-4 h-4" /> Waitlist</button>
+                            <button onClick={() => setSettingsSubTab('donations')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'donations' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><IndianRupee className="w-4 h-4" /> Donations</button>
                         </div>
 
                         <div className="flex-1 p-6 lg:p-8 bg-white overflow-y-auto">
@@ -1624,6 +1628,7 @@ export default function AdminDashboard() {
                             {settingsSubTab === 'payment' && <PaymentSettingsManager />}
                             {settingsSubTab === 'users' && <AdminUsersManager />}
                             {settingsSubTab === 'waitlist' && <WaitlistManager />}
+                            {settingsSubTab === 'donations' && <DonationsManager />}
                         </div>
                     </div>
                 )}
@@ -1774,6 +1779,8 @@ function EventRow({ event, onSetActive, onUpdate, onDelete }: {
     const [facebookUrl, setFacebookUrl] = useState(event.facebook_url || '');
     const [youtubeUrl, setYoutubeUrl] = useState(event.youtube_url || '');
     const [heroImageUrl, setHeroImageUrl] = useState(event.hero_image_url || '');
+    const [travelInfo, setTravelInfo] = useState(event.travel_info || '');
+    const [travelInfoHi, setTravelInfoHi] = useState(event.travel_info_hi || '');
     const [isChanged, setIsChanged] = useState(false);
 
     const handleSave = () => {
@@ -1788,6 +1795,8 @@ function EventRow({ event, onSetActive, onUpdate, onDelete }: {
             facebook_url: facebookUrl || null,
             youtube_url: youtubeUrl || null,
             hero_image_url: heroImageUrl || null,
+            travel_info: travelInfo || null,
+            travel_info_hi: travelInfoHi || null,
         });
         setIsChanged(false);
     };
@@ -1862,6 +1871,10 @@ function EventRow({ event, onSetActive, onUpdate, onDelete }: {
                             <ImageUpload onUploaded={(url) => { setHeroImageUrl(url); track(); }} />
                             {heroImageUrl && <button type="button" onClick={() => { setHeroImageUrl(''); track(); }} className="px-3 py-2 text-sm font-semibold rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 transition">Clear</button>}
                         </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Plan Your Visit (EN)</label><textarea value={travelInfo} onChange={e => { setTravelInfo(e.target.value); track(); }} rows={4} placeholder="How to reach, parking, nearby accommodation…" className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
+                        <div><label className="block text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1">यात्रा जानकारी (HI)</label><textarea value={travelInfoHi} onChange={e => { setTravelInfoHi(e.target.value); track(); }} rows={4} placeholder="कैसे पहुँचें, पार्किंग, ठहरने की व्यवस्था…" className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg bg-blue-50/30 focus:outline-none focus:border-blue-500 focus:bg-white transition" /></div>
                     </div>
                     <div className="flex justify-end pt-2 border-t border-neutral-100">
                         <button onClick={handleSave} disabled={!isChanged} className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all ${isChanged ? 'bg-orange-600 text-white shadow-md hover:bg-orange-700' : 'bg-neutral-100 text-neutral-400 cursor-not-allowed border border-neutral-200'}`}><Save className="w-4 h-4" />{isChanged ? 'Save Changes' : 'Up to date'}</button>
