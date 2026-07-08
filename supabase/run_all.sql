@@ -306,6 +306,18 @@ GRANT ALL ON checkins TO service_role;
 -- scan (dead phone / email never arrived). Marked so the log shows it was manual.
 ALTER TABLE checkins ADD COLUMN IF NOT EXISTS manual BOOLEAN DEFAULT false;
 
+-- Self-service "Find my registration": rate-limit log so the public lookup can't
+-- be abused to spam a registrant's inbox / rack up WhatsApp cost.
+CREATE TABLE IF NOT EXISTS self_service_requests (
+    id         BIGSERIAL PRIMARY KEY,
+    phone      TEXT,
+    ip         TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS self_service_requests_phone_idx ON self_service_requests (phone, created_at DESC);
+GRANT ALL ON self_service_requests TO service_role;
+GRANT USAGE, SELECT ON SEQUENCE self_service_requests_id_seq TO service_role;
+
 -- Seva / donations: standalone contributions (no tier/seat). Paid via Razorpay
 -- and confirmed by HMAC signature verification (not seat-managed like tickets).
 CREATE TABLE IF NOT EXISTS donations (

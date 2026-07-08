@@ -934,6 +934,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
             helperText={fieldErrors.phone || "10-digit Indian mobile number"}
             slotProps={{
               input: adorn(<Phone className="w-5 h-5 text-neutral-400" />),
+              htmlInput: { inputMode: "numeric", maxLength: 13 },
             }}
           />
           <TextField

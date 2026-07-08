@@ -16,6 +16,8 @@ export default function Footer() {
                         <Link href="/" className="hover:text-white transition">Home</Link>
                         <Link href="/pitham" className="hover:text-white transition">Pitham</Link>
                         <Link href="/previous-events" className="hover:text-white transition">Past Events</Link>
+                        <Link href="/my-pass" className="hover:text-white transition">Find My Registration</Link>
+                        <Link href="/donate" className="hover:text-white transition">Donate / Seva</Link>
                         <Link href="/terms" className="hover:text-white transition">Terms &amp; Conditions</Link>
                         <Link href="/privacy" className="hover:text-white transition">Privacy Policy</Link>
                         <Link href="/refund" className="hover:text-white transition">Refund Policy</Link>
