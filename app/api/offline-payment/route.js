@@ -11,6 +11,7 @@ import { validateSubmission } from '@/lib/formFieldsServer';
 import { upsertProfile } from '@/lib/profiles';
 import { notifyOfflineSubmitted } from '@/lib/notify';
 import { ageError } from '@/lib/age';
+import { sanitizeAttendees } from '@/lib/attendees';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +31,7 @@ export async function POST(request) {
         const offlineReference = String(form.get('offlineReference') || '').trim();
         const agreedToTerms = form.get('agreedToTerms') === 'true';
         const attendee = JSON.parse(form.get('attendee') || '{}');
+        const attendeesRaw = (() => { try { return JSON.parse(form.get('attendees') || 'null'); } catch { return null; } })();
         const customFields = JSON.parse(form.get('customFields') || '{}');
         const donation = form.get('donation');
         const attendeesCount = form.get('attendeesCount');
@@ -103,7 +105,8 @@ export async function POST(request) {
             email: String(attendee.email).toLowerCase().trim(), phone: attendee.phone,
             pincode: attendee.pincode || null, taluka: attendee.taluka || null, state: attendee.state || null,
             problem_samasya: sanitizedProblem || null, custom_fields: cleanCustom || {},
-            attendees_count: seats, donation_amount: donationValue, total_amount: totalAmount,
+            attendees_count: seats, attendees: sanitizeAttendees(attendeesRaw, seats),
+            donation_amount: donationValue, total_amount: totalAmount,
             amount_paid: 0, amount_due: totalAmount, payment_plan: 'full',
             payment_method: paymentMethod, offline_reference: offlineReference || null,
             payment_status: 'payment_review',

@@ -17,6 +17,7 @@ import PaymentSettingsManager from '@/components/PaymentSettingsManager';
 import AdminUsersManager from '@/components/AdminUsersManager';
 import WaitlistManager from '@/components/WaitlistManager';
 import DonationsManager from '@/components/DonationsManager';
+import FeedbackManager from '@/components/FeedbackManager';
 import ScanLogPanel from '@/components/ScanLogPanel';
 import Toaster from '@/components/Toaster';
 import EditRegistrationModal from '@/components/EditRegistrationModal';
@@ -41,6 +42,7 @@ interface Registration {
     date_of_birth: string; phone: string; email: string; pincode: string;
     taluka: string; state: string; problem_samasya: string; attendees_count: number;
     donation_amount: number; total_amount: number; razorpay_payment_id: string | null;
+    attendees: { name: string }[] | null;
     gotra: string; category_id: string | null;
     categories: { title: string } | null;
     custom_fields: Record<string, string> | null;
@@ -155,7 +157,7 @@ export default function AdminDashboard() {
     const can = (perm: string) => isAdmin || permissions.includes(perm);
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'enquiries' | 'scanlog' | 'settings' | 'audit'>('dashboard');
-    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'checkpoints' | 'formfields' | 'homecontent' | 'payment' | 'users' | 'waitlist' | 'donations'>('events');
+    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'checkpoints' | 'formfields' | 'homecontent' | 'payment' | 'users' | 'waitlist' | 'donations' | 'feedback'>('events');
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -995,6 +997,9 @@ export default function AdminDashboard() {
                                     <p className="mt-3"><span className="text-neutral-500 block text-xs">Gotra</span><span className="font-semibold">{selectedRegistration.gotra || 'Not provided'}</span></p>
                                     <p className="mt-3"><span className="text-neutral-500 block text-xs">DOB / Gender</span><span>{selectedRegistration.date_of_birth} ({selectedRegistration.gender})</span></p>
                                     <p className="mt-3"><span className="text-neutral-500 block text-xs">Total Attendees</span><span className="font-bold">{selectedRegistration.attendees_count} Person(s)</span></p>
+                                    {Array.isArray(selectedRegistration.attendees) && selectedRegistration.attendees.length > 0 && (
+                                        <div className="mt-3"><span className="text-neutral-500 block text-xs mb-1">Attendee Names</span><ol className="list-decimal ml-4 text-sm text-neutral-800 space-y-0.5">{selectedRegistration.attendees.map((a, i) => <li key={i}>{a.name}</li>)}</ol></div>
+                                    )}
                                 </div>
                                 <div>
                                     <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2 border-b pb-1">Communications</h3>
@@ -1409,6 +1414,7 @@ export default function AdminDashboard() {
                             <button onClick={() => setSettingsSubTab('users')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'users' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><Users className="w-4 h-4" /> Admin Users</button>
                             <button onClick={() => setSettingsSubTab('waitlist')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'waitlist' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ListFilter className="w-4 h-4" /> Waitlist</button>
                             <button onClick={() => setSettingsSubTab('donations')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'donations' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><IndianRupee className="w-4 h-4" /> Donations</button>
+                            <button onClick={() => setSettingsSubTab('feedback')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'feedback' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><MessageSquare className="w-4 h-4" /> Feedback</button>
                         </div>
 
                         <div className="flex-1 p-6 lg:p-8 bg-white overflow-y-auto">
@@ -1629,6 +1635,7 @@ export default function AdminDashboard() {
                             {settingsSubTab === 'users' && <AdminUsersManager />}
                             {settingsSubTab === 'waitlist' && <WaitlistManager />}
                             {settingsSubTab === 'donations' && <DonationsManager />}
+                            {settingsSubTab === 'feedback' && <FeedbackManager />}
                         </div>
                     </div>
                 )}

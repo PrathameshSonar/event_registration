@@ -231,6 +231,11 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
     donation: "",
   });
 
+  // Names of additional attendees (positions 2..N; the primary is the main form).
+  const [attendeeNames, setAttendeeNames] = useState([]);
+  const setAttendeeName = (i, val) =>
+    setAttendeeNames((prev) => { const next = [...prev]; next[i] = val; return next; });
+
   // Admin-configured field visibility/requirements (null = still loading → defaults).
   const [serverFields, setServerFields] = useState(null);
   const [customValues, setCustomValues] = useState({});
@@ -476,6 +481,15 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
     const fullName =
       `${formData.salutation} ${formData.firstName} ${formData.lastName}`.trim();
 
+    // Group attendee names: primary first, then any additional names provided.
+    const extraCount = Math.max(0, (parseInt(formData.attendeesCount, 10) || 1) - 1);
+    const attendeesList = [
+      { name: `${formData.firstName} ${formData.lastName}`.trim() },
+      ...Array.from({ length: extraCount }, (_, i) => (attendeeNames[i] || "").trim())
+        .filter(Boolean)
+        .map((name) => ({ name })),
+    ];
+
     // ── ENQUIRY ──────────────────────────────────────────────────────
     if (asEnquiry) {
       try {
@@ -521,6 +535,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
         fd.append("offlineReference", offlineReference);
         fd.append("agreedToTerms", "true");
         fd.append("attendee", JSON.stringify(attendeePayload));
+        fd.append("attendees", JSON.stringify(attendeesList));
         fd.append("customFields", JSON.stringify(customValues));
         fd.append("donation", String(formData.donation || 0));
         fd.append("attendeesCount", String(formData.attendeesCount));
@@ -570,6 +585,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
         attendeesCount: formData.attendeesCount,
         agreedToTerms,
         attendee: attendeePayload,
+        attendees: attendeesList,
         customFields: customValues,
         paymentPlan: usePartial ? "partial" : "full",
       }),
@@ -1105,6 +1121,24 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
               </MenuItem>
             ))}
           </TextField>
+
+          {/* Names of the additional attendees (optional but helps at the gate). */}
+          {(parseInt(formData.attendeesCount, 10) || 1) > 1 && (
+            <div className="sm:col-span-2 space-y-2">
+              <p className="text-xs font-semibold text-neutral-500">{t("form_attendee_names") || "Names of accompanying attendees (optional)"}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {Array.from({ length: (parseInt(formData.attendeesCount, 10) || 1) - 1 }, (_, i) => (
+                  <input
+                    key={i}
+                    value={attendeeNames[i] || ""}
+                    onChange={(e) => setAttendeeName(i, e.target.value)}
+                    placeholder={`Attendee ${i + 2} name`}
+                    className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-500"
+                  />
+                ))}
+              </div>
+            </div>
+          )}
 
           {!isEnquiry && (
             <div className="mt-4 p-6 border border-orange-100 bg-orange-50/50 rounded-xl">

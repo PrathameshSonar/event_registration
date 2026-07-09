@@ -10,6 +10,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { validateSubmission } from '@/lib/formFieldsServer';
 import { upsertProfile } from '@/lib/profiles';
 import { ageError } from '@/lib/age';
+import { sanitizeAttendees } from '@/lib/attendees';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +30,7 @@ export async function POST(request) {
         }
 
         const body = await request.json();
-        const { categoryId, donation, attendeesCount, agreedToTerms, attendee, customFields, paymentPlan } = body || {};
+        const { categoryId, donation, attendeesCount, agreedToTerms, attendee, attendees, customFields, paymentPlan } = body || {};
 
         // 1. Basic validation
         if (!agreedToTerms) return badRequest('You must agree to the Terms & Conditions.');
@@ -180,6 +181,7 @@ export async function POST(request) {
                 problem_samasya: sanitizedProblem || null,
                 custom_fields: cleanCustom || {},
                 attendees_count: seats,
+                attendees: sanitizeAttendees(attendees, seats),
                 donation_amount: donationValue,
                 total_amount: totalAmount,
                 amount_paid: 0,

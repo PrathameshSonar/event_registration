@@ -73,6 +73,11 @@ ALTER TABLE registrations
 ALTER TABLE registrations
     ADD COLUMN IF NOT EXISTS qr_sent_at       TIMESTAMPTZ;
 
+-- Names of the people in a group booking (attendees_count > 1). JSON array of
+-- { name }, primary registrant first. Optional supplementary data for the gate.
+ALTER TABLE registrations
+    ADD COLUMN IF NOT EXISTS attendees        JSONB;
+
 -- Offline payments (bank transfer / cheque / cash). The user submits proof, an
 -- admin verifies, and on approval the row becomes 'completed' like an online pay.
 ALTER TABLE registrations
@@ -317,6 +322,19 @@ CREATE TABLE IF NOT EXISTS self_service_requests (
 CREATE INDEX IF NOT EXISTS self_service_requests_phone_idx ON self_service_requests (phone, created_at DESC);
 GRANT ALL ON self_service_requests TO service_role;
 GRANT USAGE, SELECT ON SEQUENCE self_service_requests_id_seq TO service_role;
+
+-- Post-event feedback: attendees rate the event + leave a comment.
+CREATE TABLE IF NOT EXISTS feedback (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id   UUID REFERENCES events(id) ON DELETE SET NULL,
+    name       TEXT,
+    phone      TEXT,
+    rating     INTEGER CHECK (rating BETWEEN 1 AND 5),
+    comment    TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS feedback_event_idx ON feedback (event_id, created_at DESC);
+GRANT ALL ON feedback TO service_role;
 
 -- Seva / donations: standalone contributions (no tier/seat). Paid via Razorpay
 -- and confirmed by HMAC signature verification (not seat-managed like tickets).
