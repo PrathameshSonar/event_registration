@@ -1,8 +1,7 @@
 // components/admin/EventRow.tsx
 // Editable event card (Settings → Event Setup): activate, edit all fields, delete.
 // Translatable fields use TranslatableField (English → base column, hi/mr →
-// translations JSONB; hi is mirrored back to the legacy _hi columns so the
-// pick() fallback never goes stale). Extracted from app/admin/page.tsx.
+// translations JSONB). Extracted from app/admin/page.tsx.
 "use client";
 
 import { useState } from 'react';
@@ -13,7 +12,6 @@ import { buildTranslations } from '@/lib/i18n';
 import type { EventItem } from '@/app/admin/types';
 
 type Tr = Record<string, Record<string, string>>;
-const TR_FIELDS = ['title', 'short_description', 'long_description', 'date_time', 'venue', 'travel_info'];
 
 export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
     event: EventItem;
@@ -36,17 +34,10 @@ export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
     const [heroImageUrl, setHeroImageUrl] = useState(event.hero_image_url || '');
     const [isChanged, setIsChanged] = useState(false);
 
-    // Non-English translations, seeded from translations JSONB, with legacy _hi
-    // columns filled in where translations.hi is missing (so existing Hindi shows).
-    const [tr, setTr] = useState<Tr>(() => {
-        const t: Tr = { hi: { ...(event.translations as Tr)?.hi }, mr: { ...(event.translations as Tr)?.mr } };
-        const legacyHi: Record<string, string | null> = {
-            title: event.title_hi, short_description: event.short_description_hi, long_description: event.long_description_hi,
-            date_time: event.date_time_hi, venue: event.venue_hi, travel_info: event.travel_info_hi,
-        };
-        for (const f of TR_FIELDS) if (!t.hi[f] && legacyHi[f]) t.hi[f] = legacyHi[f] as string;
-        return t;
-    });
+    // Non-English translations, seeded from the translations JSONB.
+    const [tr, setTr] = useState<Tr>(() => ({
+        hi: { ...(event.translations as Tr)?.hi }, mr: { ...(event.translations as Tr)?.mr },
+    }));
     const setTrField = (lang: string, field: string, v: string) => {
         setTr((p) => ({ ...p, [lang]: { ...p[lang], [field]: v } }));
         setIsChanged(true);
@@ -54,17 +45,12 @@ export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
     const track = () => setIsChanged(true);
 
     const handleSave = () => {
-        const hi = tr.hi || {};
         onUpdate(event.id, {
             title, short_description: shortDesc, long_description: longDesc,
             date_time: dateTime || null, venue: venue || null, travel_info: travelInfo || null,
             map_url: mapUrl || null,
             instagram_url: instagramUrl || null, facebook_url: facebookUrl || null, youtube_url: youtubeUrl || null,
             hero_image_url: heroImageUrl || null,
-            // Mirror Hindi into the legacy _hi columns so pick()'s fallback stays in sync.
-            title_hi: hi.title || null, short_description_hi: hi.short_description || null,
-            long_description_hi: hi.long_description || null, date_time_hi: hi.date_time || null,
-            venue_hi: hi.venue || null, travel_info_hi: hi.travel_info || null,
             translations: buildTranslations(tr) as Record<string, Record<string, string>>,
         });
         setIsChanged(false);

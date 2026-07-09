@@ -35,7 +35,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function Home() {
-    // 1. Event hero text (includes translations JSONB + legacy _hi columns)
+    // 1. Event hero text (English in base columns + translations JSONB)
     const { data: pageData } = await supabase
         .from('events')
         .select('*')

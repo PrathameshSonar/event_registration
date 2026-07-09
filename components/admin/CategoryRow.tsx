@@ -11,7 +11,6 @@ import { buildTranslations } from '@/lib/i18n';
 import type { Category } from '@/app/admin/types';
 
 type Tr = Record<string, Record<string, string>>;
-const TR_FIELDS = ['title', 'description', 'detailed_description'];
 
 export default function CategoryRow({ category, onUpdate, onDelete }: { category: Category, onUpdate: (id: string, updates: Partial<Category>) => void, onDelete: (id: string, title: string) => void }) {
     const [price, setPrice] = useState(category.price);
@@ -31,27 +30,17 @@ export default function CategoryRow({ category, onUpdate, onDelete }: { category
     const [maxAge, setMaxAge] = useState<string>(category.max_age ? String(category.max_age) : '');
     const [isChanged, setIsChanged] = useState(false);
 
-    // Non-English translations, seeded from translations JSONB with legacy _hi
-    // columns filled in where translations.hi is missing (so existing Hindi shows).
-    const [tr, setTr] = useState<Tr>(() => {
-        const t: Tr = { hi: { ...(category.translations as Tr)?.hi }, mr: { ...(category.translations as Tr)?.mr } };
-        const legacyHi: Record<string, string | null> = {
-            title: category.title_hi, description: category.description_hi, detailed_description: category.detailed_description_hi,
-        };
-        for (const f of TR_FIELDS) if (!t.hi[f] && legacyHi[f]) t.hi[f] = legacyHi[f] as string;
-        return t;
-    });
+    // Non-English translations, seeded from the translations JSONB.
+    const [tr, setTr] = useState<Tr>(() => ({
+        hi: { ...(category.translations as Tr)?.hi }, mr: { ...(category.translations as Tr)?.mr },
+    }));
     const setTrField = (lang: string, field: string, v: string) => {
         setTr((p) => ({ ...p, [lang]: { ...p[lang], [field]: v } }));
         setIsChanged(true);
     };
 
     const handleUpdateClick = () => {
-        const hi = tr.hi || {};
         onUpdate(category.id, {
-            // Mirror Hindi into the legacy _hi columns so pick()'s fallback stays in sync.
-            title_hi: hi.title || null,
-            description_hi: hi.description || null, detailed_description_hi: hi.detailed_description || null,
             price, media_url: mediaUrl, description: desc, detailed_description: detailedDesc,
             is_full: isFull, is_enquiry_only: isEnquiry, max_capacity: capacity, show_availability: showAvail,
             max_attendees_per_reg: maxPerReg,

@@ -9,6 +9,7 @@ import {
     LayoutDashboard, ScrollText, RefreshCw, MessageSquare, Send, UserPlus, Megaphone
 } from 'lucide-react';
 import { youtubeThumbnail } from '@/lib/youtube';
+import { buildTranslations } from '@/lib/i18n';
 import FormFieldsManager from '@/components/FormFieldsManager';
 import HomeContentManager from '@/components/HomeContentManager';
 import AuditLogPanel from '@/components/AuditLogPanel';
@@ -238,10 +239,15 @@ export default function AdminDashboard() {
         e.preventDefault(); setSaving(true);
         const { ok, data } = await mutate('/api/admin/events', 'POST', {
             title: newEventTitle, short_description: newEventShort, long_description: newEventLong,
-            title_hi: newEventTitleHi || null, short_description_hi: newEventShortHi || null, long_description_hi: newEventLongHi || null,
-            date_time: newEventDate || null, date_time_hi: newEventDateHi || null,
-            venue: newEventVenue || null, venue_hi: newEventVenueHi || null,
+            date_time: newEventDate || null, venue: newEventVenue || null,
             map_url: newEventMapUrl || null,
+            // Hindi entered at create time goes straight into the translations JSONB.
+            translations: buildTranslations({
+                hi: {
+                    title: newEventTitleHi, short_description: newEventShortHi, long_description: newEventLongHi,
+                    date_time: newEventDateHi, venue: newEventVenueHi,
+                },
+            }),
             makeActive: eventsList.length === 0,
         });
         if (!ok) toast.error(data.error || 'Failed to create event.');

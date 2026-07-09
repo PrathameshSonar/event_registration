@@ -38,7 +38,7 @@ export async function GET(request) {
 export async function POST(request) {
     const { response, session } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
-    const { label, label_hi, translations, field_type, options } = await request.json();
+    const { label, translations, field_type, options } = await request.json();
     if (!label?.trim()) return NextResponse.json({ error: 'Label required.' }, { status: 400 });
     const type = CUSTOM_FIELD_TYPES.includes(field_type) ? field_type : 'text';
 
@@ -50,7 +50,6 @@ export async function POST(request) {
     const row = {
         field_key,
         label: label.trim(),
-        label_hi: label_hi?.trim() || null,
         field_type: type,
         options: type === 'select' && Array.isArray(options) ? options.filter(Boolean) : null,
         is_custom: true,

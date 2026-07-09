@@ -4,26 +4,21 @@
 import { useLanguage } from './LanguageProvider';
 import { LANGUAGES } from '@/lib/i18n';
 
-// Compact language switcher. Driven by LANGUAGES in lib/i18n — add a language
+// Language switcher (dropdown). Driven by LANGUAGES in lib/i18n — add a language
 // there and it appears here automatically (no edit needed).
 export default function LangToggle() {
     const { lang, setLanguage } = useLanguage();
 
     return (
-        <div className="flex items-center border border-neutral-300 rounded-md overflow-hidden text-xs font-bold select-none" aria-label="Switch language">
-            {LANGUAGES.map((l, i) => (
-                <span key={l.code} className="flex items-center">
-                    {i > 0 && <span className="border-l border-neutral-300 self-stretch" />}
-                    <button
-                        onClick={() => setLanguage(l.code)}
-                        className={`px-2.5 py-1 transition ${lang === l.code ? 'bg-orange-600 text-white' : 'text-neutral-500 hover:bg-neutral-100'}`}
-                        aria-pressed={lang === l.code}
-                        title={l.label}
-                    >
-                        {l.short || l.native}
-                    </button>
-                </span>
+        <select
+            value={lang}
+            onChange={(e) => setLanguage(e.target.value)}
+            aria-label="Switch language"
+            className="border border-neutral-300 rounded-md text-xs font-bold text-neutral-700 bg-white px-2 py-1.5 cursor-pointer focus:outline-none focus:border-orange-500 hover:bg-neutral-50 transition"
+        >
+            {LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>{l.native}</option>
             ))}
-        </div>
+        </select>
     );
 }

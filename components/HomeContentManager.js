@@ -88,12 +88,10 @@ export default function HomeContentManager(props) {
     e.preventDefault();
     if (!gName.trim()) return;
     setBusy(true);
-    const hi = gTr.hi || {};
     const res = await fetch("/api/admin/guests", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         event_id: eventId, name: gName, role: gRole, photo_url: gPhoto, bio: gBio,
-        name_hi: hi.name || null, role_hi: hi.role || null, bio_hi: hi.bio || null,
         translations: buildTranslations(gTr),
       }),
     });
@@ -144,7 +142,7 @@ export default function HomeContentManager(props) {
     await fetch("/api/admin/schedule", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event_id: eventId, time_label: sTime, title: sTitle, title_hi: sTr.hi?.title || null, day_label: sDay, translations: buildTranslations(sTr) }),
+      body: JSON.stringify({ event_id: eventId, time_label: sTime, title: sTitle, day_label: sDay, translations: buildTranslations(sTr) }),
     });
     setSTime(""); setSTitle(""); setSDay(""); setSTr({});
     await loadLists(eventId);
@@ -165,7 +163,7 @@ export default function HomeContentManager(props) {
     await fetch("/api/admin/highlights", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event_id: eventId, icon: hIcon, title: hTitle, title_hi: hTr.hi?.title || null, description: hDesc, description_hi: hTr.hi?.description || null, translations: buildTranslations(hTr) }),
+      body: JSON.stringify({ event_id: eventId, icon: hIcon, title: hTitle, description: hDesc, translations: buildTranslations(hTr) }),
     });
     setHIcon("🪔"); setHTitle(""); setHDesc(""); setHTr({});
     await loadLists(eventId);
@@ -186,7 +184,7 @@ export default function HomeContentManager(props) {
     await fetch("/api/admin/faqs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event_id: eventId, question: fq, question_hi: fTr.hi?.question || null, answer: fa, answer_hi: fTr.hi?.answer || null, translations: buildTranslations(fTr) }),
+      body: JSON.stringify({ event_id: eventId, question: fq, answer: fa, translations: buildTranslations(fTr) }),
     });
     setFq(""); setFa(""); setFTr({});
     await loadLists(eventId);
@@ -277,7 +275,7 @@ export default function HomeContentManager(props) {
               <span className="text-xs font-bold text-orange-700 w-20 flex-shrink-0">{s.time_label || "—"}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-neutral-900 truncate">{s.title}</p>
-                {(s.title_hi || s.day_label) && <p className="text-xs text-neutral-400 truncate">{[s.day_label, s.title_hi].filter(Boolean).join(" · ")}</p>}
+                {(s.translations?.hi?.title || s.day_label) && <p className="text-xs text-neutral-400 truncate">{[s.day_label, s.translations?.hi?.title].filter(Boolean).join(" · ")}</p>}
               </div>
               <button onClick={() => delSchedule(s.id)} disabled={busy} className="p-2 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
             </div>

@@ -598,6 +598,32 @@ UPDATE form_fields SET translations = jsonb_set(COALESCE(translations, '{}'::jso
 WHERE translations->'hi' IS NULL
   AND label_hi IS NOT NULL;
 
+-- 9c) ── Retire the legacy "_hi" columns ─────────────────────────────────────
+-- The app reads/writes Hindi (and every language) only via `translations` JSONB.
+-- The 9b backfill (runs first, idempotent) copied existing Hindi into
+-- translations.hi, so dropping these is lossless. IF EXISTS = safe to re-run.
+ALTER TABLE events           DROP COLUMN IF EXISTS title_hi,
+                             DROP COLUMN IF EXISTS short_description_hi,
+                             DROP COLUMN IF EXISTS long_description_hi,
+                             DROP COLUMN IF EXISTS date_time_hi,
+                             DROP COLUMN IF EXISTS venue_hi,
+                             DROP COLUMN IF EXISTS travel_info_hi;
+ALTER TABLE categories       DROP COLUMN IF EXISTS title_hi,
+                             DROP COLUMN IF EXISTS description_hi,
+                             DROP COLUMN IF EXISTS detailed_description_hi;
+ALTER TABLE event_schedule   DROP COLUMN IF EXISTS day_label_hi,
+                             DROP COLUMN IF EXISTS title_hi;
+ALTER TABLE event_highlights DROP COLUMN IF EXISTS title_hi,
+                             DROP COLUMN IF EXISTS description_hi;
+ALTER TABLE event_guests     DROP COLUMN IF EXISTS name_hi,
+                             DROP COLUMN IF EXISTS role_hi,
+                             DROP COLUMN IF EXISTS bio_hi;
+ALTER TABLE event_faqs       DROP COLUMN IF EXISTS question_hi,
+                             DROP COLUMN IF EXISTS answer_hi;
+ALTER TABLE form_fields      DROP COLUMN IF EXISTS label_hi;
+ALTER TABLE page_content     DROP COLUMN IF EXISTS title_hi,
+                             DROP COLUMN IF EXISTS description_text_hi;
+
 
 -- 10) ── Row Level Security ──────────────────────────────────────────────────
 -- registrations + profiles hold PII: RLS on, NO anon policy (service role bypasses).

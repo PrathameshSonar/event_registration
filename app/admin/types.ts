@@ -30,9 +30,9 @@ export interface Registration {
 }
 
 export interface Category {
-    id: string; title: string; title_hi: string | null; price: number;
-    description: string; description_hi: string | null;
-    detailed_description: string; detailed_description_hi: string | null;
+    id: string; title: string; price: number;
+    description: string;
+    detailed_description: string;
     media_url: string; is_full: boolean;
     is_enquiry_only: boolean;
     max_capacity: number;
@@ -49,11 +49,11 @@ export interface Category {
 }
 
 export interface EventItem {
-    id: string; title: string; title_hi: string | null;
-    short_description: string; short_description_hi: string | null;
-    long_description: string; long_description_hi: string | null;
-    date_time: string | null; date_time_hi: string | null;
-    venue: string | null; venue_hi: string | null;
+    id: string; title: string;
+    short_description: string;
+    long_description: string;
+    date_time: string | null;
+    venue: string | null;
     map_url: string | null;
     is_active: boolean;
     show_in_archive: boolean;
@@ -64,7 +64,6 @@ export interface EventItem {
     facebook_url: string | null;
     youtube_url: string | null;
     travel_info: string | null;
-    travel_info_hi: string | null;
     translations: Record<string, Record<string, string>> | null;
 }
 

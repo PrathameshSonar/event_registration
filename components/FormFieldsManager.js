@@ -104,7 +104,6 @@ export default function FormFieldsManager({ categories = [] }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         label: label.trim(),
-        label_hi: labelTr.hi?.label?.trim() || null,
         translations: buildTranslations(labelTr),
         field_type: type,
         options:

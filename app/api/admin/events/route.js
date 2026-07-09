@@ -11,24 +11,19 @@ export const dynamic = 'force-dynamic';
 export async function POST(request) {
     const { response, session } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
-    const { title, short_description, long_description, title_hi, short_description_hi, long_description_hi, date_time, date_time_hi, venue, venue_hi, map_url, makeActive } = await request.json();
+    const { title, short_description, long_description, translations, date_time, venue, map_url, makeActive } = await request.json();
     if (!title) return NextResponse.json({ error: 'Title required.' }, { status: 400 });
-    // Build insert payload — only include _hi fields when present so the insert
-    // works even if add_hindi_columns.sql hasn't been run yet.
+    // English lives in the base columns; other languages in `translations` JSONB.
     const insertData = {
         title,
         short_description: short_description || null,
         long_description: long_description || null,
         is_active: !!makeActive,
     };
-    if (title_hi) insertData.title_hi = title_hi;
-    if (short_description_hi) insertData.short_description_hi = short_description_hi;
-    if (long_description_hi) insertData.long_description_hi = long_description_hi;
     if (date_time) insertData.date_time = date_time;
-    if (date_time_hi) insertData.date_time_hi = date_time_hi;
     if (venue) insertData.venue = venue;
-    if (venue_hi) insertData.venue_hi = venue_hi;
     if (map_url) insertData.map_url = map_url;
+    if (translations && typeof translations === 'object' && Object.keys(translations).length) insertData.translations = translations;
     const { data: created, error } = await supabaseAdmin.from('events').insert([insertData]).select('id').single();
     if (error) {
         console.error('Event create error:', error.code, error.message);
@@ -63,11 +58,10 @@ export async function PATCH(request) {
         // Update event content fields.
         const allowed = [
             'title', 'short_description', 'long_description',
-            'title_hi', 'short_description_hi', 'long_description_hi',
-            'date_time', 'date_time_hi', 'venue', 'venue_hi', 'map_url',
+            'date_time', 'venue', 'map_url',
             'start_at', 'end_at', 'contact_phone', 'hero_image_url',
             'instagram_url', 'facebook_url', 'youtube_url',
-            'travel_info', 'travel_info_hi',
+            'travel_info',
             'translations',
         ];
         const sanitized = {};
