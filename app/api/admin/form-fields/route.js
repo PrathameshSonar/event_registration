@@ -38,7 +38,7 @@ export async function GET(request) {
 export async function POST(request) {
     const { response, session } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
-    const { label, label_hi, field_type, options } = await request.json();
+    const { label, label_hi, translations, field_type, options } = await request.json();
     if (!label?.trim()) return NextResponse.json({ error: 'Label required.' }, { status: 400 });
     const type = CUSTOM_FIELD_TYPES.includes(field_type) ? field_type : 'text';
 
@@ -59,6 +59,11 @@ export async function POST(request) {
         is_required: false,
         sort_order: (count || 0) + 1,
     };
+    // Only include translations when non-empty, so the insert still works if the
+    // translations column hasn't been migrated yet (see run_all.sql, section 9b).
+    if (translations && typeof translations === 'object' && Object.keys(translations).length) {
+        row.translations = translations;
+    }
     const { data, error } = await supabaseAdmin.from('form_fields').insert(row).select().single();
     if (error) return NextResponse.json({ error: 'Create failed.' }, { status: 500 });
     await logAudit({

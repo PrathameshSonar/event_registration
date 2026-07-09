@@ -1,12 +1,19 @@
 // components/admin/EventRow.tsx
 // Editable event card (Settings → Event Setup): activate, edit all fields, delete.
-// Self-contained draft state; commits via onUpdate. Extracted from app/admin/page.tsx.
+// Translatable fields use TranslatableField (English → base column, hi/mr →
+// translations JSONB; hi is mirrored back to the legacy _hi columns so the
+// pick() fallback never goes stale). Extracted from app/admin/page.tsx.
 "use client";
 
 import { useState } from 'react';
 import { Trash2, Save } from 'lucide-react';
 import ImageUpload from '@/components/ImageUpload';
+import TranslatableField from '@/components/admin/TranslatableField';
+import { buildTranslations } from '@/lib/i18n';
 import type { EventItem } from '@/app/admin/types';
+
+type Tr = Record<string, Record<string, string>>;
+const TR_FIELDS = ['title', 'short_description', 'long_description', 'date_time', 'venue', 'travel_info'];
 
 export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
     event: EventItem;
@@ -16,43 +23,52 @@ export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
 }) {
     const [expanded, setExpanded] = useState(false);
     const [title, setTitle] = useState(event.title || '');
-    const [titleHi, setTitleHi] = useState(event.title_hi || '');
     const [shortDesc, setShortDesc] = useState(event.short_description || '');
-    const [shortDescHi, setShortDescHi] = useState(event.short_description_hi || '');
     const [longDesc, setLongDesc] = useState(event.long_description || '');
-    const [longDescHi, setLongDescHi] = useState(event.long_description_hi || '');
     const [dateTime, setDateTime] = useState(event.date_time || '');
-    const [dateTimeHi, setDateTimeHi] = useState(event.date_time_hi || '');
     const [venue, setVenue] = useState(event.venue || '');
-    const [venueHi, setVenueHi] = useState(event.venue_hi || '');
+    const [travelInfo, setTravelInfo] = useState(event.travel_info || '');
+    // Non-translatable fields.
     const [mapUrl, setMapUrl] = useState(event.map_url || '');
     const [instagramUrl, setInstagramUrl] = useState(event.instagram_url || '');
     const [facebookUrl, setFacebookUrl] = useState(event.facebook_url || '');
     const [youtubeUrl, setYoutubeUrl] = useState(event.youtube_url || '');
     const [heroImageUrl, setHeroImageUrl] = useState(event.hero_image_url || '');
-    const [travelInfo, setTravelInfo] = useState(event.travel_info || '');
-    const [travelInfoHi, setTravelInfoHi] = useState(event.travel_info_hi || '');
     const [isChanged, setIsChanged] = useState(false);
 
+    // Non-English translations, seeded from translations JSONB, with legacy _hi
+    // columns filled in where translations.hi is missing (so existing Hindi shows).
+    const [tr, setTr] = useState<Tr>(() => {
+        const t: Tr = { hi: { ...(event.translations as Tr)?.hi }, mr: { ...(event.translations as Tr)?.mr } };
+        const legacyHi: Record<string, string | null> = {
+            title: event.title_hi, short_description: event.short_description_hi, long_description: event.long_description_hi,
+            date_time: event.date_time_hi, venue: event.venue_hi, travel_info: event.travel_info_hi,
+        };
+        for (const f of TR_FIELDS) if (!t.hi[f] && legacyHi[f]) t.hi[f] = legacyHi[f] as string;
+        return t;
+    });
+    const setTrField = (lang: string, field: string, v: string) => {
+        setTr((p) => ({ ...p, [lang]: { ...p[lang], [field]: v } }));
+        setIsChanged(true);
+    };
+    const track = () => setIsChanged(true);
+
     const handleSave = () => {
+        const hi = tr.hi || {};
         onUpdate(event.id, {
-            title, title_hi: titleHi || null,
-            short_description: shortDesc, short_description_hi: shortDescHi || null,
-            long_description: longDesc, long_description_hi: longDescHi || null,
-            date_time: dateTime || null, date_time_hi: dateTimeHi || null,
-            venue: venue || null, venue_hi: venueHi || null,
+            title, short_description: shortDesc, long_description: longDesc,
+            date_time: dateTime || null, venue: venue || null, travel_info: travelInfo || null,
             map_url: mapUrl || null,
-            instagram_url: instagramUrl || null,
-            facebook_url: facebookUrl || null,
-            youtube_url: youtubeUrl || null,
+            instagram_url: instagramUrl || null, facebook_url: facebookUrl || null, youtube_url: youtubeUrl || null,
             hero_image_url: heroImageUrl || null,
-            travel_info: travelInfo || null,
-            travel_info_hi: travelInfoHi || null,
+            // Mirror Hindi into the legacy _hi columns so pick()'s fallback stays in sync.
+            title_hi: hi.title || null, short_description_hi: hi.short_description || null,
+            long_description_hi: hi.long_description || null, date_time_hi: hi.date_time || null,
+            venue_hi: hi.venue || null, travel_info_hi: hi.travel_info || null,
+            translations: buildTranslations(tr) as Record<string, Record<string, string>>,
         });
         setIsChanged(false);
     };
-
-    const track = () => setIsChanged(true);
 
     return (
         <div className={`rounded-xl border shadow-sm transition-all ${event.is_active ? 'border-orange-300 bg-orange-50/30' : 'border-neutral-200 bg-white'}`}>
@@ -84,26 +100,13 @@ export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
 
             {expanded && (
                 <div className="border-t border-neutral-200 p-5 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Title (EN)</label><input value={title} onChange={e => { setTitle(e.target.value); track(); }} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
-                        <div><label className="block text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1">शीर्षक (HI)</label><input value={titleHi} onChange={e => { setTitleHi(e.target.value); track(); }} className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg bg-blue-50/30 focus:outline-none focus:border-blue-500 focus:bg-white transition" /></div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Short Description (EN)</label><textarea value={shortDesc} onChange={e => { setShortDesc(e.target.value); track(); }} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition h-16 resize-none" /></div>
-                        <div><label className="block text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1">संक्षिप्त विवरण (HI)</label><textarea value={shortDescHi} onChange={e => { setShortDescHi(e.target.value); track(); }} className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg bg-blue-50/30 focus:outline-none focus:border-blue-500 focus:bg-white transition h-16 resize-none" /></div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Long Description (EN)</label><textarea value={longDesc} onChange={e => { setLongDesc(e.target.value); track(); }} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition h-24 resize-none" /></div>
-                        <div><label className="block text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1">विस्तृत विवरण (HI)</label><textarea value={longDescHi} onChange={e => { setLongDescHi(e.target.value); track(); }} className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg bg-blue-50/30 focus:outline-none focus:border-blue-500 focus:bg-white transition h-24 resize-none" /></div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Date / Duration (EN)</label><input value={dateTime} onChange={e => { setDateTime(e.target.value); track(); }} placeholder="e.g. March 15–17, 2026" className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
-                        <div><label className="block text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1">तारीख / अवधि (HI)</label><input value={dateTimeHi} onChange={e => { setDateTimeHi(e.target.value); track(); }} className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg bg-blue-50/30 focus:outline-none focus:border-blue-500 focus:bg-white transition" /></div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Venue (EN)</label><input value={venue} onChange={e => { setVenue(e.target.value); track(); }} placeholder="e.g. Nashik, Maharashtra" className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
-                        <div><label className="block text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1">स्थान (HI)</label><input value={venueHi} onChange={e => { setVenueHi(e.target.value); track(); }} className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg bg-blue-50/30 focus:outline-none focus:border-blue-500 focus:bg-white transition" /></div>
-                    </div>
+                    <TranslatableField label="Title" field="title" value={title} onValue={(v) => { setTitle(v); track(); }} tr={tr} onTr={setTrField} />
+                    <TranslatableField label="Short Description" field="short_description" value={shortDesc} onValue={(v) => { setShortDesc(v); track(); }} tr={tr} onTr={setTrField} multiline rows={2} />
+                    <TranslatableField label="Long Description" field="long_description" value={longDesc} onValue={(v) => { setLongDesc(v); track(); }} tr={tr} onTr={setTrField} multiline rows={3} />
+                    <TranslatableField label="Date / Duration" field="date_time" value={dateTime} onValue={(v) => { setDateTime(v); track(); }} tr={tr} onTr={setTrField} placeholder="e.g. March 15–17, 2026" />
+                    <TranslatableField label="Venue" field="venue" value={venue} onValue={(v) => { setVenue(v); track(); }} tr={tr} onTr={setTrField} placeholder="e.g. Nashik, Maharashtra" />
+                    <TranslatableField label="Plan Your Visit" field="travel_info" value={travelInfo} onValue={(v) => { setTravelInfo(v); track(); }} tr={tr} onTr={setTrField} multiline rows={4} placeholder="How to reach, parking, nearby accommodation…" />
+
                     <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Google Maps Link</label><input type="url" value={mapUrl} onChange={e => { setMapUrl(e.target.value); track(); }} placeholder="https://maps.google.com/..." className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Instagram URL</label><input type="url" value={instagramUrl} onChange={e => { setInstagramUrl(e.target.value); track(); }} placeholder="https://instagram.com/..." className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
@@ -122,10 +125,6 @@ export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
                             <ImageUpload onUploaded={(url) => { setHeroImageUrl(url); track(); }} />
                             {heroImageUrl && <button type="button" onClick={() => { setHeroImageUrl(''); track(); }} className="px-3 py-2 text-sm font-semibold rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 transition">Clear</button>}
                         </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Plan Your Visit (EN)</label><textarea value={travelInfo} onChange={e => { setTravelInfo(e.target.value); track(); }} rows={4} placeholder="How to reach, parking, nearby accommodation…" className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
-                        <div><label className="block text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1">यात्रा जानकारी (HI)</label><textarea value={travelInfoHi} onChange={e => { setTravelInfoHi(e.target.value); track(); }} rows={4} placeholder="कैसे पहुँचें, पार्किंग, ठहरने की व्यवस्था…" className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg bg-blue-50/30 focus:outline-none focus:border-blue-500 focus:bg-white transition" /></div>
                     </div>
                     <div className="flex justify-end pt-2 border-t border-neutral-100">
                         <button onClick={handleSave} disabled={!isChanged} className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all ${isChanged ? 'bg-orange-600 text-white shadow-md hover:bg-orange-700' : 'bg-neutral-100 text-neutral-400 cursor-not-allowed border border-neutral-200'}`}><Save className="w-4 h-4" />{isChanged ? 'Save Changes' : 'Up to date'}</button>

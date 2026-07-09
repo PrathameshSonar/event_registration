@@ -11,14 +11,16 @@ import QRCode from 'qrcode';
 import Link from 'next/link';
 import en from '@/lib/lang/en';
 import hi from '@/lib/lang/hi';
+import mr from '@/lib/lang/mr';
 
 export const dynamic = 'force-dynamic';
 
 // Server-side i18n: read the language the visitor chose (mirrored into a cookie by
 // LanguageProvider), then resolve keys from the same dictionaries the client uses.
+const DICTS: Record<string, Record<string, unknown>> = { en, hi, mr };
 async function getT() {
-    const lang = (await cookies()).get('bb_lang')?.value === 'hi' ? 'hi' : 'en';
-    const dict = (lang === 'hi' ? hi : en) as Record<string, unknown>;
+    const cookieLang = (await cookies()).get('bb_lang')?.value || 'en';
+    const dict = DICTS[cookieLang] || en;
     return (key: string, ...args: unknown[]): string => {
         const val = dict[key] ?? (en as Record<string, unknown>)[key] ?? key;
         return typeof val === 'function' ? val(...args) : String(val);

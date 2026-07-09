@@ -4,8 +4,10 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import en from '@/lib/lang/en';
 import hi from '@/lib/lang/hi';
+import mr from '@/lib/lang/mr';
+import { LANG_CODES } from '@/lib/i18n';
 
-type Lang = 'en' | 'hi';
+type Lang = 'en' | 'hi' | 'mr';
 
 interface LanguageContextValue {
     lang: Lang;
@@ -15,7 +17,7 @@ interface LanguageContextValue {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const dicts: Record<Lang, Record<string, any>> = { en, hi };
+const dicts: Record<Lang, Record<string, any>> = { en, hi, mr };
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
@@ -25,7 +27,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         try {
             const stored = localStorage.getItem('bb_lang');
-            if (stored === 'hi') setLang('hi');
+            // Accept any configured language code (en/hi/mr/…).
+            if (stored && stored !== 'en' && LANG_CODES.includes(stored)) setLang(stored as Lang);
             // Mirror to a cookie so SERVER components (e.g. /pass/[id]) can read the
             // chosen language — localStorage isn't visible server-side.
             if (stored) document.cookie = `bb_lang=${stored};path=/;max-age=31536000;samesite=lax`;
@@ -41,7 +44,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         } catch { /* ignore */ }
     };
 
-    const toggle = () => setLanguage(lang === 'en' ? 'hi' : 'en');
+    // Cycle through the configured languages (used by the compact toggle).
+    const toggle = () => {
+        const codes = LANG_CODES as Lang[];
+        const idx = codes.indexOf(lang);
+        setLanguage(codes[(idx + 1) % codes.length]);
+    };
 
     const t = (key: string, ...args: unknown[]): string => {
         const val = dicts[lang]?.[key] ?? dicts['en']?.[key] ?? key;

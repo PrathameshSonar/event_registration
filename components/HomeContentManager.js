@@ -8,6 +8,11 @@ import { useState, useEffect, useCallback } from "react";
 import { Plus, Trash2, Save, Clock, Sparkles, Phone, CalendarClock, Image as ImageIcon, HelpCircle, BellRing, Star } from "lucide-react";
 import { toast } from "@/lib/uiStore";
 import ImageUpload from "@/components/ImageUpload";
+import TranslatableField from "@/components/admin/TranslatableField";
+import { buildTranslations } from "@/lib/i18n";
+
+// Update one { hi:{field:v}, mr:{…} } translation map — used by every add-form here.
+const mkSetTr = (setTr) => (lang, field, v) => setTr((p) => ({ ...p, [lang]: { ...(p[lang] || {}), [field]: v } }));
 
 export default function HomeContentManager(props) {
   const events = props.events || [];
@@ -30,29 +35,29 @@ export default function HomeContentManager(props) {
   const [reminders, setReminders] = useState([]);
   const [busy, setBusy] = useState(false);
 
-  // New guest
+  // New guest (English base + a `tr` map for other languages)
   const [gName, setGName] = useState("");
   const [gRole, setGRole] = useState("");
   const [gPhoto, setGPhoto] = useState("");
   const [gBio, setGBio] = useState("");
+  const [gTr, setGTr] = useState({});
 
   // New FAQ
   const [fq, setFq] = useState("");
-  const [fqHi, setFqHi] = useState("");
   const [fa, setFa] = useState("");
-  const [faHi, setFaHi] = useState("");
+  const [fTr, setFTr] = useState({});
 
   // New schedule row
   const [sTime, setSTime] = useState("");
   const [sTitle, setSTitle] = useState("");
-  const [sTitleHi, setSTitleHi] = useState("");
   const [sDay, setSDay] = useState("");
+  const [sTr, setSTr] = useState({});
 
   // New highlight
   const [hIcon, setHIcon] = useState("🪔");
   const [hTitle, setHTitle] = useState("");
-  const [hTitleHi, setHTitleHi] = useState("");
   const [hDesc, setHDesc] = useState("");
+  const [hTr, setHTr] = useState({});
 
   // datetime-local wants "YYYY-MM-DDTHH:mm"
   const toLocalInput = (iso) => {
@@ -83,13 +88,18 @@ export default function HomeContentManager(props) {
     e.preventDefault();
     if (!gName.trim()) return;
     setBusy(true);
+    const hi = gTr.hi || {};
     const res = await fetch("/api/admin/guests", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event_id: eventId, name: gName, role: gRole, photo_url: gPhoto, bio: gBio }),
+      body: JSON.stringify({
+        event_id: eventId, name: gName, role: gRole, photo_url: gPhoto, bio: gBio,
+        name_hi: hi.name || null, role_hi: hi.role || null, bio_hi: hi.bio || null,
+        translations: buildTranslations(gTr),
+      }),
     });
     setBusy(false);
     if (!res.ok) { toast.error("Could not add guest."); return; }
-    setGName(""); setGRole(""); setGPhoto(""); setGBio("");
+    setGName(""); setGRole(""); setGPhoto(""); setGBio(""); setGTr({});
     await loadLists(eventId);
   };
   const delGuest = async (id) => {
@@ -134,9 +144,9 @@ export default function HomeContentManager(props) {
     await fetch("/api/admin/schedule", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event_id: eventId, time_label: sTime, title: sTitle, title_hi: sTitleHi, day_label: sDay }),
+      body: JSON.stringify({ event_id: eventId, time_label: sTime, title: sTitle, title_hi: sTr.hi?.title || null, day_label: sDay, translations: buildTranslations(sTr) }),
     });
-    setSTime(""); setSTitle(""); setSTitleHi(""); setSDay("");
+    setSTime(""); setSTitle(""); setSDay(""); setSTr({});
     await loadLists(eventId);
     setBusy(false);
   };
@@ -155,9 +165,9 @@ export default function HomeContentManager(props) {
     await fetch("/api/admin/highlights", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event_id: eventId, icon: hIcon, title: hTitle, title_hi: hTitleHi, description: hDesc }),
+      body: JSON.stringify({ event_id: eventId, icon: hIcon, title: hTitle, title_hi: hTr.hi?.title || null, description: hDesc, description_hi: hTr.hi?.description || null, translations: buildTranslations(hTr) }),
     });
-    setHIcon("🪔"); setHTitle(""); setHTitleHi(""); setHDesc("");
+    setHIcon("🪔"); setHTitle(""); setHDesc(""); setHTr({});
     await loadLists(eventId);
     setBusy(false);
   };
@@ -176,9 +186,9 @@ export default function HomeContentManager(props) {
     await fetch("/api/admin/faqs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event_id: eventId, question: fq, question_hi: fqHi, answer: fa, answer_hi: faHi }),
+      body: JSON.stringify({ event_id: eventId, question: fq, question_hi: fTr.hi?.question || null, answer: fa, answer_hi: fTr.hi?.answer || null, translations: buildTranslations(fTr) }),
     });
-    setFq(""); setFqHi(""); setFa(""); setFaHi("");
+    setFq(""); setFa(""); setFTr({});
     await loadLists(eventId);
     setBusy(false);
   };
@@ -210,7 +220,6 @@ export default function HomeContentManager(props) {
   }
 
   const inputCls = "w-full px-3 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600 text-sm";
-  const inputHiCls = "w-full px-3 py-2 border border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm";
 
   return (
     <div className="max-w-3xl">
@@ -277,8 +286,7 @@ export default function HomeContentManager(props) {
         <form onSubmit={addSchedule} className="bg-neutral-50 border border-neutral-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
           <input type="text" placeholder="Time (e.g. 6:00 PM)" value={sTime} onChange={(e) => setSTime(e.target.value)} className={inputCls} />
           <input type="text" placeholder="Day (e.g. Day 1)" value={sDay} onChange={(e) => setSDay(e.target.value)} className={inputCls} />
-          <input type="text" placeholder="Title (English)" value={sTitle} onChange={(e) => setSTitle(e.target.value)} className={inputCls} required />
-          <input type="text" placeholder="शीर्षक (हिंदी)" value={sTitleHi} onChange={(e) => setSTitleHi(e.target.value)} className={inputHiCls} />
+          <div className="md:col-span-2"><TranslatableField label="Title" field="title" value={sTitle} onValue={setSTitle} tr={sTr} onTr={mkSetTr(setSTr)} placeholder="Title" /></div>
           <button type="submit" disabled={busy || !sTitle.trim()} className="md:col-span-2 flex items-center justify-center gap-2 bg-neutral-900 hover:bg-orange-600 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-lg text-sm transition"><Plus className="w-4 h-4" /> Add Schedule Item</button>
         </form>
       </div>
@@ -303,13 +311,13 @@ export default function HomeContentManager(props) {
           ))}
         </div>
         <form onSubmit={addGuest} className="bg-neutral-50 border border-neutral-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-          <input type="text" placeholder="Name" value={gName} onChange={(e) => setGName(e.target.value)} className={inputCls} required />
-          <input type="text" placeholder="Role / title (e.g. Kathavachak, Singer)" value={gRole} onChange={(e) => setGRole(e.target.value)} className={inputCls} />
+          <div><TranslatableField label="Name" field="name" value={gName} onValue={setGName} tr={gTr} onTr={mkSetTr(setGTr)} placeholder="Name" /></div>
+          <div><TranslatableField label="Role / title" field="role" value={gRole} onValue={setGRole} tr={gTr} onTr={mkSetTr(setGTr)} placeholder="e.g. Kathavachak, Singer" /></div>
           <div className="md:col-span-2 flex gap-2">
             <input type="url" placeholder="Photo URL — paste a link or upload →" value={gPhoto} onChange={(e) => setGPhoto(e.target.value)} className={`${inputCls} flex-1`} />
             <ImageUpload onUploaded={(url) => setGPhoto(url)} />
           </div>
-          <input type="text" placeholder="Short bio (optional)" value={gBio} onChange={(e) => setGBio(e.target.value)} className={`${inputCls} md:col-span-2`} />
+          <div className="md:col-span-2"><TranslatableField label="Short bio" field="bio" value={gBio} onValue={setGBio} tr={gTr} onTr={mkSetTr(setGTr)} multiline rows={2} placeholder="Short bio (optional)" /></div>
           <button type="submit" disabled={busy || !gName.trim()} className="md:col-span-2 flex items-center justify-center gap-2 bg-neutral-900 hover:bg-orange-600 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-lg text-sm transition"><Plus className="w-4 h-4" /> Add Guest</button>
         </form>
       </div>
@@ -331,10 +339,9 @@ export default function HomeContentManager(props) {
           ))}
         </div>
         <form onSubmit={addHighlight} className="bg-neutral-50 border border-neutral-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-          <input type="text" placeholder="Icon emoji (🔥 🪔 🌺 🍲)" value={hIcon} onChange={(e) => setHIcon(e.target.value)} className={inputCls} maxLength={4} />
-          <input type="text" placeholder="Title (English)" value={hTitle} onChange={(e) => setHTitle(e.target.value)} className={inputCls} required />
-          <input type="text" placeholder="शीर्षक (हिंदी)" value={hTitleHi} onChange={(e) => setHTitleHi(e.target.value)} className={inputHiCls} />
-          <input type="text" placeholder="Short description (English)" value={hDesc} onChange={(e) => setHDesc(e.target.value)} className={inputCls} />
+          <input type="text" placeholder="Icon emoji (🔥 🪔 🌺 🍲)" value={hIcon} onChange={(e) => setHIcon(e.target.value)} className={`${inputCls} md:col-span-2`} maxLength={4} />
+          <div><TranslatableField label="Title" field="title" value={hTitle} onValue={setHTitle} tr={hTr} onTr={mkSetTr(setHTr)} placeholder="Title" /></div>
+          <div><TranslatableField label="Short description" field="description" value={hDesc} onValue={setHDesc} tr={hTr} onTr={mkSetTr(setHTr)} placeholder="Short description" /></div>
           <button type="submit" disabled={busy || !hTitle.trim()} className="md:col-span-2 flex items-center justify-center gap-2 bg-neutral-900 hover:bg-orange-600 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-lg text-sm transition"><Plus className="w-4 h-4" /> Add Highlight</button>
         </form>
       </div>
@@ -355,10 +362,8 @@ export default function HomeContentManager(props) {
           ))}
         </div>
         <form onSubmit={addFaq} className="bg-neutral-50 border border-neutral-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-          <input type="text" placeholder="Question (English)" value={fq} onChange={(e) => setFq(e.target.value)} className={inputCls} required />
-          <input type="text" placeholder="प्रश्न (हिंदी)" value={fqHi} onChange={(e) => setFqHi(e.target.value)} className={inputHiCls} />
-          <textarea placeholder="Answer (English)" value={fa} onChange={(e) => setFa(e.target.value)} className={`${inputCls} resize-none h-20`} required />
-          <textarea placeholder="उत्तर (हिंदी)" value={faHi} onChange={(e) => setFaHi(e.target.value)} className={`${inputHiCls} resize-none h-20`} />
+          <div><TranslatableField label="Question" field="question" value={fq} onValue={setFq} tr={fTr} onTr={mkSetTr(setFTr)} placeholder="Question" /></div>
+          <div><TranslatableField label="Answer" field="answer" value={fa} onValue={setFa} tr={fTr} onTr={mkSetTr(setFTr)} multiline rows={3} placeholder="Answer" /></div>
           <button type="submit" disabled={busy || !fq.trim() || !fa.trim()} className="md:col-span-2 flex items-center justify-center gap-2 bg-neutral-900 hover:bg-orange-600 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-lg text-sm transition"><Plus className="w-4 h-4" /> Add FAQ</button>
         </form>
       </div>

@@ -547,6 +547,58 @@ GRANT ALL ON event_faqs TO service_role;
 GRANT ALL ON event_reminders TO service_role;
 
 
+-- 9b) ── Multilingual content: translations JSONB (Phase 1) ──────────────────
+-- One `translations` JSONB per row: { "hi": { "title": … }, "mr": { … } }.
+-- English stays in the base columns (the fallback). Backfill is a no-op on a
+-- fresh DB (no existing rows). Idempotent.
+ALTER TABLE events           ADD COLUMN IF NOT EXISTS translations JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE categories       ADD COLUMN IF NOT EXISTS translations JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE event_schedule   ADD COLUMN IF NOT EXISTS translations JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE event_highlights ADD COLUMN IF NOT EXISTS translations JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE event_guests     ADD COLUMN IF NOT EXISTS translations JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE event_faqs       ADD COLUMN IF NOT EXISTS translations JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE form_fields      ADD COLUMN IF NOT EXISTS translations JSONB DEFAULT '{}'::jsonb;
+
+UPDATE events SET translations = jsonb_set(COALESCE(translations, '{}'::jsonb), '{hi}',
+    jsonb_strip_nulls(jsonb_build_object(
+        'title', title_hi, 'short_description', short_description_hi, 'long_description', long_description_hi,
+        'date_time', date_time_hi, 'venue', venue_hi, 'travel_info', travel_info_hi)))
+WHERE translations->'hi' IS NULL
+  AND (title_hi IS NOT NULL OR short_description_hi IS NOT NULL OR long_description_hi IS NOT NULL
+       OR date_time_hi IS NOT NULL OR venue_hi IS NOT NULL OR travel_info_hi IS NOT NULL);
+
+UPDATE categories SET translations = jsonb_set(COALESCE(translations, '{}'::jsonb), '{hi}',
+    jsonb_strip_nulls(jsonb_build_object(
+        'title', title_hi, 'description', description_hi, 'detailed_description', detailed_description_hi)))
+WHERE translations->'hi' IS NULL
+  AND (title_hi IS NOT NULL OR description_hi IS NOT NULL OR detailed_description_hi IS NOT NULL);
+
+UPDATE event_schedule SET translations = jsonb_set(COALESCE(translations, '{}'::jsonb), '{hi}',
+    jsonb_strip_nulls(jsonb_build_object('day_label', day_label_hi, 'title', title_hi)))
+WHERE translations->'hi' IS NULL
+  AND (day_label_hi IS NOT NULL OR title_hi IS NOT NULL);
+
+UPDATE event_highlights SET translations = jsonb_set(COALESCE(translations, '{}'::jsonb), '{hi}',
+    jsonb_strip_nulls(jsonb_build_object('title', title_hi, 'description', description_hi)))
+WHERE translations->'hi' IS NULL
+  AND (title_hi IS NOT NULL OR description_hi IS NOT NULL);
+
+UPDATE event_guests SET translations = jsonb_set(COALESCE(translations, '{}'::jsonb), '{hi}',
+    jsonb_strip_nulls(jsonb_build_object('name', name_hi, 'role', role_hi, 'bio', bio_hi)))
+WHERE translations->'hi' IS NULL
+  AND (name_hi IS NOT NULL OR role_hi IS NOT NULL OR bio_hi IS NOT NULL);
+
+UPDATE event_faqs SET translations = jsonb_set(COALESCE(translations, '{}'::jsonb), '{hi}',
+    jsonb_strip_nulls(jsonb_build_object('question', question_hi, 'answer', answer_hi)))
+WHERE translations->'hi' IS NULL
+  AND (question_hi IS NOT NULL OR answer_hi IS NOT NULL);
+
+UPDATE form_fields SET translations = jsonb_set(COALESCE(translations, '{}'::jsonb), '{hi}',
+    jsonb_strip_nulls(jsonb_build_object('label', label_hi)))
+WHERE translations->'hi' IS NULL
+  AND label_hi IS NOT NULL;
+
+
 -- 10) ── Row Level Security ──────────────────────────────────────────────────
 -- registrations + profiles hold PII: RLS on, NO anon policy (service role bypasses).
 ALTER TABLE public.registrations ENABLE ROW LEVEL SECURITY;

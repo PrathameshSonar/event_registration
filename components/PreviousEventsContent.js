@@ -8,17 +8,13 @@ import { useLanguage } from './LanguageProvider';
 import LangToggle from './LangToggle';
 import Footer from './Footer';
 import YouTubeEmbed from './YouTubeEmbed';
+import { pick } from '@/lib/i18n';
 
 export default function PreviousEventsContent({ pastEvents, allMedia }) {
     const { t, lang } = useLanguage();
 
-    const getEventTitle = (ev) => lang === 'hi' ? (ev.title_hi || ev.title) : ev.title;
-    const getEventDesc = (ev) => {
-        if (lang === 'hi') {
-            return ev.long_description_hi || ev.short_description_hi || ev.long_description || ev.short_description || '';
-        }
-        return ev.long_description || ev.short_description || '';
-    };
+    const getEventTitle = (ev) => pick(ev, 'title', lang);
+    const getEventDesc = (ev) => pick(ev, 'long_description', lang) || pick(ev, 'short_description', lang);
 
     return (
         <main className="min-h-screen bg-neutral-50 text-neutral-900 font-sans selection:bg-orange-100">

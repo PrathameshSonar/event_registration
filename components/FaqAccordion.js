@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { useLanguage } from "./LanguageProvider";
+import { pick } from "@/lib/i18n";
 
 export default function FaqAccordion({ faqs }) {
   const { t, lang } = useLanguage();
@@ -19,8 +20,8 @@ export default function FaqAccordion({ faqs }) {
         </div>
         <div className="space-y-3">
           {faqs.map((f, i) => {
-            const q = lang === "hi" ? (f.question_hi || f.question) : f.question;
-            const a = lang === "hi" ? (f.answer_hi || f.answer) : f.answer;
+            const q = pick(f, "question", lang);
+            const a = pick(f, "answer", lang);
             const isOpen = open === i;
             return (
               <div key={f.id} className="border border-neutral-200 rounded-xl overflow-hidden bg-white">

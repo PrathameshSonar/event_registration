@@ -6,6 +6,7 @@ import { Fragment } from 'react';
 import { Calendar, MapPin, Image as ImageIcon, Video, AlertCircle, Clock, Phone } from 'lucide-react';
 import Link from 'next/link';
 import { useLanguage } from './LanguageProvider';
+import { pick } from '@/lib/i18n';
 import LangToggle from './LangToggle';
 import Footer from './Footer';
 import YouTubeEmbed from './YouTubeEmbed';
@@ -31,13 +32,15 @@ const YoutubeIcon = (props) => (
 );
 
 // Shown when the admin hasn't added ritual highlights yet — keeps the page rich out of the box.
+// Curated fallback ritual cards (shown when the admin hasn't added any).
+// title/desc are keyed by language code so a new language just needs its entry.
 const DEFAULT_HIGHLIGHTS = [
-    { icon: '🔥', en: 'Havan & Yagna', hi: 'हवन एवं यज्ञ', enD: 'Sacred fire rituals for purification and blessings', hiD: 'शुद्धि एवं आशीर्वाद हेतु पावन अग्नि अनुष्ठान' },
-    { icon: '🪔', en: 'Maha Aarti', hi: 'महा आरती', enD: 'Grand evening aarti with lamps and devotional chants', hiD: 'दीपों एवं भक्ति गीतों के साथ भव्य संध्या आरती' },
-    { icon: '🌺', en: 'Abhishekam', hi: 'अभिषेकम्', enD: 'Ceremonial bathing of the deity with sacred offerings', hiD: 'पावन सामग्री से देव का अभिषेक' },
-    { icon: '🍲', en: 'Annadān (Bhandara)', hi: 'अन्नदान (भंडारा)', enD: 'Community feast — prasad served to all devotees', hiD: 'सामुदायिक भोज — सभी भक्तों हेतु प्रसाद' },
-    { icon: '🎶', en: 'Bhajan Sandhya', hi: 'भजन संध्या', enD: 'An evening of soul-stirring devotional music', hiD: 'मनमोहक भक्ति संगीत की संध्या' },
-    { icon: '📿', en: 'Pravachan', hi: 'प्रवचन', enD: 'Spiritual discourses by revered saints', hiD: 'पूज्य संतों द्वारा आध्यात्मिक प्रवचन' },
+    { icon: '🔥', title: { en: 'Havan & Yagna', hi: 'हवन एवं यज्ञ', mr: 'हवन व यज्ञ' }, desc: { en: 'Sacred fire rituals for purification and blessings', hi: 'शुद्धि एवं आशीर्वाद हेतु पावन अग्नि अनुष्ठान', mr: 'शुद्धी व आशीर्वादासाठी पवित्र अग्नी विधी' } },
+    { icon: '🪔', title: { en: 'Maha Aarti', hi: 'महा आरती', mr: 'महा आरती' }, desc: { en: 'Grand evening aarti with lamps and devotional chants', hi: 'दीपों एवं भक्ति गीतों के साथ भव्य संध्या आरती', mr: 'दीप व भक्तिगीतांसह भव्य संध्या आरती' } },
+    { icon: '🌺', title: { en: 'Abhishekam', hi: 'अभिषेकम्', mr: 'अभिषेक' }, desc: { en: 'Ceremonial bathing of the deity with sacred offerings', hi: 'पावन सामग्री से देव का अभिषेक', mr: 'पवित्र सामग्रीने देवाचा अभिषेक' } },
+    { icon: '🍲', title: { en: 'Annadān (Bhandara)', hi: 'अन्नदान (भंडारा)', mr: 'अन्नदान (भंडारा)' }, desc: { en: 'Community feast — prasad served to all devotees', hi: 'सामुदायिक भोज — सभी भक्तों हेतु प्रसाद', mr: 'सामुदायिक भोजन — सर्व भक्तांसाठी प्रसाद' } },
+    { icon: '🎶', title: { en: 'Bhajan Sandhya', hi: 'भजन संध्या', mr: 'भजन संध्या' }, desc: { en: 'An evening of soul-stirring devotional music', hi: 'मनमोहक भक्ति संगीत की संध्या', mr: 'मनमोहक भक्तिसंगीताची संध्या' } },
+    { icon: '📿', title: { en: 'Pravachan', hi: 'प्रवचन', mr: 'प्रवचन' }, desc: { en: 'Spiritual discourses by revered saints', hi: 'पूज्य संतों द्वारा आध्यात्मिक प्रवचन', mr: 'पूज्य संतांकडून आध्यात्मिक प्रवचन' } },
 ];
 
 export default function HomeContent({ pageData, categories, mediaItems, seatsTaken, schedule, highlights, faqs, guests, registeredCount }) {
@@ -48,26 +51,13 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
     const { t, lang } = useLanguage();
     const [waitlistCat, setWaitlistCat] = useState(null);
 
-    const eventTitle = lang === 'hi'
-        ? (pageData?.title_hi || pageData?.title || t('hero_event_fallback'))
-        : (pageData?.title || t('hero_event_fallback'));
-
-    const eventDesc = lang === 'hi'
-        ? (pageData?.short_description_hi || pageData?.short_description || t('hero_desc_fallback'))
-        : (pageData?.short_description || t('hero_desc_fallback'));
-
-    const displayDate = lang === 'hi'
-        ? (pageData?.date_time_hi || pageData?.date_time || t('hero_dates'))
-        : (pageData?.date_time || t('hero_dates'));
-
-    const displayVenue = lang === 'hi'
-        ? (pageData?.venue_hi || pageData?.venue || t('hero_venue'))
-        : (pageData?.venue || t('hero_venue'));
+    const eventTitle = pick(pageData, 'title', lang) || t('hero_event_fallback');
+    const eventDesc = pick(pageData, 'short_description', lang) || t('hero_desc_fallback');
+    const displayDate = pick(pageData, 'date_time', lang) || t('hero_dates');
+    const displayVenue = pick(pageData, 'venue', lang) || t('hero_venue');
 
     const mapUrl = pageData?.map_url || null;
-    const travelInfo = lang === 'hi'
-        ? (pageData?.travel_info_hi || pageData?.travel_info || '')
-        : (pageData?.travel_info || '');
+    const travelInfo = pick(pageData, 'travel_info', lang);
 
     const socialLinks = [
         { key: 'instagram', href: pageData?.instagram_url, label: 'Instagram', Icon: InstagramIcon },
@@ -77,28 +67,26 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
     ].filter((s) => s.href);
     const hasSocials = socialLinks.length > 0;
 
-    const getCatTitle = (cat) => lang === 'hi' ? (cat.title_hi || cat.title) : cat.title;
-    const getCatDesc = (cat) => lang === 'hi' ? (cat.description_hi || cat.description) : cat.description;
+    const getCatTitle = (cat) => pick(cat, 'title', lang);
+    const getCatDesc = (cat) => pick(cat, 'description', lang);
 
     const galleryImages = mediaItems?.filter(item => item.media_type === 'image') || [];
     const youtubeVideos = mediaItems?.filter(item => item.media_type === 'youtube') || [];
 
     const hasCategories = Array.isArray(categories) && categories.length > 0;
-    const aboutText = lang === 'hi'
-        ? (pageData?.long_description_hi || pageData?.long_description || '')
-        : (pageData?.long_description || '');
+    const aboutText = pick(pageData, 'long_description', lang);
 
     // Ritual highlights: admin-defined if present, otherwise a curated default set.
     const hl = (highlights && highlights.length)
         ? highlights.map(h => ({
             icon: h.icon || '🪔',
-            title: lang === 'hi' ? (h.title_hi || h.title) : h.title,
-            desc: lang === 'hi' ? (h.description_hi || h.description) : h.description,
+            title: pick(h, 'title', lang),
+            desc: pick(h, 'description', lang),
           }))
         : DEFAULT_HIGHLIGHTS.map(h => ({
             icon: h.icon,
-            title: lang === 'hi' ? h.hi : h.en,
-            desc: lang === 'hi' ? h.hiD : h.enD,
+            title: h.title[lang] || h.title.en,
+            desc: h.desc[lang] || h.desc.en,
           }));
 
     return (
@@ -252,9 +240,9 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
                             {guests.map((g) => {
-                                const gName = lang === 'hi' ? (g.name_hi || g.name) : g.name;
-                                const gRole = lang === 'hi' ? (g.role_hi || g.role) : g.role;
-                                const gBio = lang === 'hi' ? (g.bio_hi || g.bio) : g.bio;
+                                const gName = pick(g, 'name', lang);
+                                const gRole = pick(g, 'role', lang);
+                                const gBio = pick(g, 'bio', lang);
                                 return (
                                     <div key={g.id} className="text-center">
                                         {g.photo_url ? (
@@ -289,8 +277,8 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                             {(() => {
                                 let lastDay = null;
                                 return schedule.map((s) => {
-                                    const sTitle = lang === 'hi' ? (s.title_hi || s.title) : s.title;
-                                    const sDay = lang === 'hi' ? (s.day_label_hi || s.day_label) : s.day_label;
+                                    const sTitle = pick(s, 'title', lang);
+                                    const sDay = pick(s, 'day_label', lang);
                                     const showDay = sDay && sDay !== lastDay;
                                     lastDay = sDay;
                                     return (
@@ -514,9 +502,9 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                 <Reveal>
                 <section className="bg-white py-10 md:py-14 border-t border-gold-100/70">
                     <div className="max-w-lg mx-auto px-4 text-center">
-                        <h3 className="font-serif text-xl md:text-2xl font-bold tracking-tight text-neutral-900">{lang === 'hi' ? 'संपर्क करें' : 'Contact Us'}</h3>
+                        <h3 className="font-serif text-xl md:text-2xl font-bold tracking-tight text-neutral-900">{t('contact_us_title')}</h3>
                         <div className="gold-divider"><span /></div>
-                        <p className="text-neutral-500 text-sm mt-3 mb-6">{lang === 'hi' ? 'किसी भी प्रश्न के लिए हमसे जुड़ें।' : 'Have a question? Reach out to us — we’re happy to help.'}</p>
+                        <p className="text-neutral-500 text-sm mt-3 mb-6">{t('contact_us_desc')}</p>
 
                         {pageData?.contact_phone && (
                             <a href={`tel:${pageData.contact_phone}`} className="inline-flex items-center gap-2 bg-neutral-900 hover:bg-orange-600 text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition mb-6">

@@ -8,12 +8,13 @@ import CheckoutForm from './CheckoutForm';
 import { useLanguage } from './LanguageProvider';
 import LangToggle from './LangToggle';
 import Footer from './Footer';
+import { pick } from '@/lib/i18n';
 
 export default function RegisterPageContent({ category, paymentSettings = null }) {
     const { t, lang } = useLanguage();
 
-    const catTitle = lang === 'hi' ? (category.title_hi || category.title) : category.title;
-    const catDesc = lang === 'hi' ? (category.description_hi || category.description) : category.description;
+    const catTitle = pick(category, 'title', lang);
+    const catDesc = pick(category, 'description', lang);
     const isEnquiry = category.is_enquiry_only === true;
 
     return (

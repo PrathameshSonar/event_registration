@@ -45,6 +45,7 @@ export interface Category {
     allow_enquiry: boolean;
     min_age: number | null;
     max_age: number | null;
+    translations: Record<string, Record<string, string>> | null;
 }
 
 export interface EventItem {
@@ -64,6 +65,7 @@ export interface EventItem {
     youtube_url: string | null;
     travel_info: string | null;
     travel_info_hi: string | null;
+    translations: Record<string, Record<string, string>> | null;
 }
 
 export interface MediaItem {

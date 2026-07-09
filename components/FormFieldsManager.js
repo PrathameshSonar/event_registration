@@ -7,6 +7,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Eye, EyeOff, Trash2, Plus, Lock, ArrowUp, ArrowDown, Save } from "lucide-react";
 import { toast, confirmDialog } from "@/lib/uiStore";
+import TranslatableField from "@/components/admin/TranslatableField";
+import { buildTranslations } from "@/lib/i18n";
 
 const TYPE_LABELS = {
   text: "Text",
@@ -29,7 +31,7 @@ export default function FormFieldsManager({ categories = [] }) {
 
   // New custom field form
   const [label, setLabel] = useState("");
-  const [labelHi, setLabelHi] = useState("");
+  const [labelTr, setLabelTr] = useState({});
   const [type, setType] = useState("text");
   const [optionsText, setOptionsText] = useState("");
 
@@ -102,7 +104,8 @@ export default function FormFieldsManager({ categories = [] }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         label: label.trim(),
-        label_hi: labelHi.trim() || null,
+        label_hi: labelTr.hi?.label?.trim() || null,
+        translations: buildTranslations(labelTr),
         field_type: type,
         options:
           type === "select"
@@ -112,7 +115,7 @@ export default function FormFieldsManager({ categories = [] }) {
     });
     if (res.ok) {
       setLabel("");
-      setLabelHi("");
+      setLabelTr({});
       setType("text");
       setOptionsText("");
       await load(categoryId);
@@ -266,10 +269,7 @@ export default function FormFieldsManager({ categories = [] }) {
       <form onSubmit={create} className="bg-neutral-50 border border-neutral-200 rounded-xl p-6 space-y-4">
         <h3 className="font-bold text-sm uppercase tracking-wider text-neutral-700">Add a Custom Field</h3>
         <p className="text-xs text-neutral-400 -mt-2">New fields are added to the catalog and start hidden. Enable them per category above, then Save.</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <input type="text" placeholder="Field label (e.g. T-shirt Size)" value={label} onChange={(e) => setLabel(e.target.value)} className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600 text-sm" required />
-          <input type="text" placeholder="हिंदी लेबल (optional)" value={labelHi} onChange={(e) => setLabelHi(e.target.value)} className="w-full px-3 py-2 border border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm" />
-        </div>
+        <TranslatableField label="Field label" field="label" value={label} onValue={setLabel} tr={labelTr} onTr={(lang, field, v) => setLabelTr((p) => ({ ...p, [lang]: { ...(p[lang] || {}), [field]: v } }))} placeholder="e.g. T-shirt Size" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <select value={type} onChange={(e) => setType(e.target.value)} className="w-full px-3 py-2 border border-neutral-200 rounded-lg bg-white focus:outline-none focus:border-orange-600 text-sm cursor-pointer">
             <option value="text">Text</option>

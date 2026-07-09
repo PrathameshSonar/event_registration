@@ -25,6 +25,7 @@ import {
   FormControlLabel,
 } from "@mui/material";
 import { useLanguage } from "./LanguageProvider";
+import { pick } from "@/lib/i18n";
 import { BUILTIN_FIELDS, CORE_KEYS } from "@/lib/formFields";
 import { ageError, ageLimitLabel } from "@/lib/age";
 
@@ -264,8 +265,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
     if (serverFields === null) return !!BUILTIN_DEFAULT_REQUIRED[key];
     return !!builtinByKey[key]?.is_required;
   };
-  const customLabel = (f) =>
-    lang === "hi" && f.label_hi ? f.label_hi : f.label;
+  const customLabel = (f) => pick(f, "label", lang);
 
   // `isEnquiry` = the tier is ENQUIRY-ONLY (no direct pay, no price shown).
   // `showEnquireBtn` = also offer "Enquire Now" next to "Pay" on a payable tier.

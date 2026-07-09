@@ -6,16 +6,18 @@
 import { useState } from 'react';
 import { Trash2, Users, Save } from 'lucide-react';
 import ImageUpload from '@/components/ImageUpload';
+import TranslatableField from '@/components/admin/TranslatableField';
+import { buildTranslations } from '@/lib/i18n';
 import type { Category } from '@/app/admin/types';
+
+type Tr = Record<string, Record<string, string>>;
+const TR_FIELDS = ['title', 'description', 'detailed_description'];
 
 export default function CategoryRow({ category, onUpdate, onDelete }: { category: Category, onUpdate: (id: string, updates: Partial<Category>) => void, onDelete: (id: string, title: string) => void }) {
     const [price, setPrice] = useState(category.price);
-    const [titleHi, setTitleHi] = useState(category.title_hi || '');
     const [mediaUrl, setMediaUrl] = useState(category.media_url || '');
     const [desc, setDesc] = useState(category.description || '');
     const [detailedDesc, setDetailedDesc] = useState(category.detailed_description || '');
-    const [descHi, setDescHi] = useState(category.description_hi || '');
-    const [detailedDescHi, setDetailedDescHi] = useState(category.detailed_description_hi || '');
     const [isFull, setIsFull] = useState(category.is_full);
     const [isEnquiry, setIsEnquiry] = useState(category.is_enquiry_only || false);
     const [capacity, setCapacity] = useState(category.max_capacity || 0);
@@ -29,16 +31,34 @@ export default function CategoryRow({ category, onUpdate, onDelete }: { category
     const [maxAge, setMaxAge] = useState<string>(category.max_age ? String(category.max_age) : '');
     const [isChanged, setIsChanged] = useState(false);
 
+    // Non-English translations, seeded from translations JSONB with legacy _hi
+    // columns filled in where translations.hi is missing (so existing Hindi shows).
+    const [tr, setTr] = useState<Tr>(() => {
+        const t: Tr = { hi: { ...(category.translations as Tr)?.hi }, mr: { ...(category.translations as Tr)?.mr } };
+        const legacyHi: Record<string, string | null> = {
+            title: category.title_hi, description: category.description_hi, detailed_description: category.detailed_description_hi,
+        };
+        for (const f of TR_FIELDS) if (!t.hi[f] && legacyHi[f]) t.hi[f] = legacyHi[f] as string;
+        return t;
+    });
+    const setTrField = (lang: string, field: string, v: string) => {
+        setTr((p) => ({ ...p, [lang]: { ...p[lang], [field]: v } }));
+        setIsChanged(true);
+    };
+
     const handleUpdateClick = () => {
+        const hi = tr.hi || {};
         onUpdate(category.id, {
-            title_hi: titleHi || null,
+            // Mirror Hindi into the legacy _hi columns so pick()'s fallback stays in sync.
+            title_hi: hi.title || null,
+            description_hi: hi.description || null, detailed_description_hi: hi.detailed_description || null,
             price, media_url: mediaUrl, description: desc, detailed_description: detailedDesc,
-            description_hi: descHi || null, detailed_description_hi: detailedDescHi || null,
             is_full: isFull, is_enquiry_only: isEnquiry, max_capacity: capacity, show_availability: showAvail,
             max_attendees_per_reg: maxPerReg,
             show_emi_badge: showEmi, allow_part_payment: allowPart, advance_percent: advancePct,
             allow_enquiry: allowEnquiry,
             min_age: minAge ? Number(minAge) : null, max_age: maxAge ? Number(maxAge) : null,
+            translations: buildTranslations(tr) as Record<string, Record<string, string>>,
         });
         setIsChanged(false);
     };
@@ -58,8 +78,7 @@ export default function CategoryRow({ category, onUpdate, onDelete }: { category
                 </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-                <div className="md:col-span-2"><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Tier Title (EN)</label><input type="text" value={category.title} readOnly className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-100 text-neutral-500 cursor-not-allowed" /></div>
-                <div className="md:col-span-2"><label className="block text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1">टियर शीर्षक (HI)</label><input type="text" value={titleHi} onChange={(e) => { setTitleHi(e.target.value); setIsChanged(true); }} className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg bg-blue-50/30 focus:outline-none focus:border-blue-500 focus:bg-white transition" /></div>
+                <div className="md:col-span-4"><TranslatableField label="Tier Title" field="title" value={category.title} onValue={() => { }} tr={tr} onTr={setTrField} readOnlyBase /></div>
                 <div className="md:col-span-1"><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Fee (₹)</label><input type="number" value={price} onChange={(e) => { setPrice(Number(e.target.value)); setIsChanged(true); }} disabled={isEnquiry} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition disabled:opacity-50" /></div>
                 <div className="md:col-span-1"><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1"><Users className="w-3 h-3 inline" /> Max Total Seats</label><input type="number" min="0" value={capacity} onChange={(e) => { setCapacity(Number(e.target.value)); setIsChanged(true); }} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
                 <div className="md:col-span-1"><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1"><Users className="w-3 h-3 inline" /> Max per Registration</label><input type="number" min="1" max="20" value={maxPerReg} onChange={(e) => { setMaxPerReg(Math.max(1, Number(e.target.value))); setIsChanged(true); }} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
@@ -71,10 +90,8 @@ export default function CategoryRow({ category, onUpdate, onDelete }: { category
                         <ImageUpload onUploaded={(url) => { setMediaUrl(url); setIsChanged(true); }} />
                     </div>
                 </div>
-                <div className="md:col-span-2"><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Short Summary (EN)</label><input type="text" value={desc} onChange={(e) => { setDesc(e.target.value); setIsChanged(true); }} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
-                <div className="md:col-span-2"><label className="block text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1">संक्षिप्त विवरण (HI)</label><input type="text" value={descHi} onChange={(e) => { setDescHi(e.target.value); setIsChanged(true); }} className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg bg-blue-50/30 focus:outline-none focus:border-blue-500 focus:bg-white transition" /></div>
-                <div className="md:col-span-2"><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Detailed Perks (EN)</label><textarea value={detailedDesc} onChange={(e) => { setDetailedDesc(e.target.value); setIsChanged(true); }} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition h-16 resize-none" /></div>
-                <div className="md:col-span-2"><label className="block text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1">विस्तृत विवरण (HI)</label><textarea value={detailedDescHi} onChange={(e) => { setDetailedDescHi(e.target.value); setIsChanged(true); }} className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg bg-blue-50/30 focus:outline-none focus:border-blue-500 focus:bg-white transition h-16 resize-none" /></div>
+                <div className="md:col-span-2"><TranslatableField label="Short Summary" field="description" value={desc} onValue={(v) => { setDesc(v); setIsChanged(true); }} tr={tr} onTr={setTrField} /></div>
+                <div className="md:col-span-2"><TranslatableField label="Detailed Perks" field="detailed_description" value={detailedDesc} onValue={(v) => { setDetailedDesc(v); setIsChanged(true); }} tr={tr} onTr={setTrField} multiline rows={2} /></div>
             </div>
 
             {/* Payment options */}
