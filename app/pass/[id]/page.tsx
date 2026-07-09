@@ -6,10 +6,24 @@
 // UUID, so the page isn't discoverable.
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { notFound } from 'next/navigation';
+import { cookies } from 'next/headers';
 import QRCode from 'qrcode';
 import Link from 'next/link';
+import en from '@/lib/lang/en';
+import hi from '@/lib/lang/hi';
 
 export const dynamic = 'force-dynamic';
+
+// Server-side i18n: read the language the visitor chose (mirrored into a cookie by
+// LanguageProvider), then resolve keys from the same dictionaries the client uses.
+async function getT() {
+    const lang = (await cookies()).get('bb_lang')?.value === 'hi' ? 'hi' : 'en';
+    const dict = (lang === 'hi' ? hi : en) as Record<string, unknown>;
+    return (key: string, ...args: unknown[]): string => {
+        const val = dict[key] ?? (en as Record<string, unknown>)[key] ?? key;
+        return typeof val === 'function' ? val(...args) : String(val);
+    };
+}
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
     || (process.env.NEXT_PUBLIC_VERCEL_URL ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` : 'http://localhost:3000');
@@ -24,6 +38,7 @@ export default async function PassPage({ params }: { params: Promise<{ id: strin
 
     if (!reg) notFound();
 
+    const t = await getT();
     const isPaid = reg.payment_status === 'completed';
     const fullName = [reg.salutation, reg.first_name, reg.last_name].filter(Boolean).join(' ');
     const category = (reg as { categories?: { title?: string } }).categories?.title || '—';
@@ -37,8 +52,8 @@ export default async function PassPage({ params }: { params: Promise<{ id: strin
             <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full overflow-hidden border border-gold-100">
                 <div className={`p-5 text-center ${isPaid ? 'bg-gradient-to-b from-orange-700 to-amber-700' : 'bg-neutral-800'} text-white`}>
                     <p className="text-white/80 text-[11px] font-bold uppercase tracking-widest">BaglaBhairav Mahotsav</p>
-                    <p className="font-serif text-2xl font-black mt-1">{isPaid ? 'Entry Pass' : 'Registration'}</p>
-                    <p className="text-white/70 text-xs mt-1">{isPaid ? '✓ Paid — show this at the gate' : `Status: ${reg.payment_status.replace('_', ' ')}`}</p>
+                    <p className="font-serif text-2xl font-black mt-1">{isPaid ? t('pass_entry_pass') : t('pass_registration')}</p>
+                    <p className="text-white/70 text-xs mt-1">{isPaid ? t('pass_paid_note') : t('pass_status', reg.payment_status.replace('_', ' '))}</p>
                 </div>
 
                 <div className="p-6">
@@ -46,7 +61,7 @@ export default async function PassPage({ params }: { params: Promise<{ id: strin
                         <div className="text-center mb-5">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={qrDataUrl} alt="Entry QR code" className="w-56 h-56 mx-auto rounded-xl border-2 border-dashed border-neutral-200 p-2" />
-                            <p className="text-xs text-neutral-400 mt-2">Our team will scan this to admit you.</p>
+                            <p className="text-xs text-neutral-400 mt-2">{t('pass_scan_note')}</p>
                         </div>
                     )}
 
@@ -55,19 +70,19 @@ export default async function PassPage({ params }: { params: Promise<{ id: strin
                         {reg.gotra && <p className="text-sm text-neutral-500 mt-0.5">Gotra: {reg.gotra}</p>}
                     </div>
                     <div className="grid grid-cols-2 gap-4 text-sm mt-4">
-                        <div><p className="text-xs text-neutral-400 uppercase font-bold mb-0.5">Tier</p><p className="font-semibold text-neutral-900">{category}</p></div>
-                        <div><p className="text-xs text-neutral-400 uppercase font-bold mb-0.5">Attendees</p><p className="font-semibold text-neutral-900">{reg.attendees_count} Person(s)</p></div>
+                        <div><p className="text-xs text-neutral-400 uppercase font-bold mb-0.5">{t('pass_tier')}</p><p className="font-semibold text-neutral-900">{category}</p></div>
+                        <div><p className="text-xs text-neutral-400 uppercase font-bold mb-0.5">{t('pass_attendees')}</p><p className="font-semibold text-neutral-900">{t('pass_persons', reg.attendees_count)}</p></div>
                     </div>
 
                     {!isPaid && (
                         <div className="mt-5 bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
                             <p className="text-sm text-amber-900 mb-3">
                                 {Number(reg.amount_due) > 0
-                                    ? `A payment of ₹${Number(reg.amount_due).toLocaleString('en-IN')} is pending to confirm your registration.`
-                                    : 'Your registration is not yet confirmed.'}
+                                    ? t('pass_pending', Number(reg.amount_due).toLocaleString('en-IN'))
+                                    : t('pass_not_confirmed')}
                             </p>
                             {reg.balance_link_url && (
-                                <a href={reg.balance_link_url} className="inline-block bg-orange-600 hover:bg-orange-700 text-white font-bold px-5 py-2.5 rounded-lg text-sm transition">Complete payment</a>
+                                <a href={reg.balance_link_url} className="inline-block bg-orange-600 hover:bg-orange-700 text-white font-bold px-5 py-2.5 rounded-lg text-sm transition">{t('pass_complete_payment')}</a>
                             )}
                         </div>
                     )}

@@ -26,13 +26,19 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         try {
             const stored = localStorage.getItem('bb_lang');
             if (stored === 'hi') setLang('hi');
+            // Mirror to a cookie so SERVER components (e.g. /pass/[id]) can read the
+            // chosen language — localStorage isn't visible server-side.
+            if (stored) document.cookie = `bb_lang=${stored};path=/;max-age=31536000;samesite=lax`;
         } catch { /* localStorage not available */ }
     }, []);
 
     const setLanguage = (next: Lang) => {
         setLang(next);
         document.documentElement.lang = next;
-        try { localStorage.setItem('bb_lang', next); } catch { /* ignore */ }
+        try {
+            localStorage.setItem('bb_lang', next);
+            document.cookie = `bb_lang=${next};path=/;max-age=31536000;samesite=lax`;
+        } catch { /* ignore */ }
     };
 
     const toggle = () => setLanguage(lang === 'en' ? 'hi' : 'en');
