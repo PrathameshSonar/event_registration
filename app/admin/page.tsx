@@ -5,8 +5,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     Lock, Download, Users, IndianRupee, Activity, Eye, X, Settings, ListFilter,
     Trash2, Plus, Image as ImageIcon, Video, CalendarDays,
-    Ticket, Calendar as CalendarIcon, Search, LogOut, QrCode, Copy, Check,
-    LayoutDashboard, ScrollText, RefreshCw, MessageSquare, Pencil, Mail, Undo2, Send, UserPlus, Megaphone
+    Ticket, Calendar as CalendarIcon, Search, LogOut, QrCode, Check,
+    LayoutDashboard, ScrollText, RefreshCw, MessageSquare, Send, UserPlus, Megaphone
 } from 'lucide-react';
 import { youtubeThumbnail } from '@/lib/youtube';
 import FormFieldsManager from '@/components/FormFieldsManager';
@@ -22,7 +22,6 @@ import ScanLogPanel from '@/components/ScanLogPanel';
 import Toaster from '@/components/Toaster';
 import EditRegistrationModal from '@/components/EditRegistrationModal';
 import DashboardAnalytics from '@/components/DashboardAnalytics';
-import RegistrationActivity from '@/components/RegistrationActivity';
 import AddRegistrationModal from '@/components/AddRegistrationModal';
 import EventOpsPanel from '@/components/EventOpsPanel';
 import HealthPanel from '@/components/HealthPanel';
@@ -31,7 +30,9 @@ import BroadcastModal from '@/components/BroadcastModal';
 import ImageUpload from '@/components/ImageUpload';
 import CategoryRow from '@/components/admin/CategoryRow';
 import EventRow from '@/components/admin/EventRow';
+import RegistrationDetailModal from '@/components/admin/RegistrationDetailModal';
 import { toast, confirmDialog, promptDialog } from '@/lib/uiStore';
+import { downloadRegistrationsCsv, downloadRegistrationsExcel, printReceiptsPdf, downloadFinancialStatement } from '@/lib/adminExports';
 
 import type { Role, Registration, Category, EventItem, MediaItem } from './types';
 import { TERMINAL_STATUSES, STATUS_LABEL, PAYMENT_MODE_LABEL, ENQUIRY_STATUSES, REGISTRATION_SECTIONS, statusClasses } from './constants';
@@ -591,90 +592,11 @@ export default function AdminDashboard() {
         return acc;
     }, {} as Record<string, number>);
 
-    const downloadCSV = () => {
-        const headers = ["Date", "Status", "Title", "First Name", "Last Name", "Gotra", "Gender", "DOB", "Phone", "Email", "Pincode", "Taluka", "State", "Category", "Attendees", "Donation", "Total Paid", "Issue/Samasya", "Razorpay ID"];
-        const csvData = filteredRegistrations.map(reg => [
-            new Date(reg.created_at).toLocaleDateString(), reg.payment_status.toUpperCase(), reg.salutation || '', reg.first_name || '', reg.last_name || '', reg.gotra || '', reg.gender || '', reg.date_of_birth || '', reg.phone || '', reg.email || '', reg.pincode || '', reg.taluka || '', reg.state || '', reg.categories?.title || 'Deleted Tier', reg.attendees_count || 1, reg.donation_amount || 0, reg.total_amount || 0, `"${(reg.problem_samasya || '').replace(/"/g, '""')}"`, reg.razorpay_payment_id || 'N/A'
-        ]);
-        const csvContent = [headers.join(","), ...csvData.map(row => row.join(","))].join("\n");
-        const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `BaglaBhairav_Registrations_${new Date().toISOString().split('T')[0]}.csv`; link.click();
-    };
-
-    // Excel export — a real .xls (Excel-native HTML table) with the same filtered
-    // rows, no extra dependency. Includes payment mode + reference.
-    const downloadExcel = () => {
-        const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const headers = ["Date", "Status", "Title", "First Name", "Last Name", "Gotra", "Gender", "DOB", "Phone", "Email", "Pincode", "Taluka", "State", "Category", "Attendees", "Donation", "Total", "Payment Mode", "Reference", "Issue/Samasya", "Razorpay ID"];
-        const rows = filteredRegistrations.map(reg => [
-            new Date(reg.created_at).toLocaleString('en-IN'), STATUS_LABEL[reg.payment_status], reg.salutation || '', reg.first_name || '', reg.last_name || '', reg.gotra || '', reg.gender || '', reg.date_of_birth || '', reg.phone || '', reg.email || '', reg.pincode || '', reg.taluka || '', reg.state || '', reg.categories?.title || 'Deleted Tier', reg.attendees_count || 1, reg.donation_amount || 0, reg.total_amount || 0, PAYMENT_MODE_LABEL[reg.payment_method || 'razorpay'] || 'Online', reg.offline_reference || '', reg.problem_samasya || '', reg.razorpay_payment_id || '',
-        ]);
-        const table = `<table border="1"><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
-        const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body>${table}</body></html>`;
-        const blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel' });
-        const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `BaglaBhairav_Registrations_${new Date().toISOString().split('T')[0]}.xls`; link.click();
-    };
-
-    // Stable receipt number from the created date + short id.
-    const invoiceNo = (reg: Registration) => `RCPT-${new Date(reg.created_at).toISOString().slice(0, 10).replace(/-/g, '')}-${reg.id.split('-')[0].toUpperCase()}`;
-
-    // Combined receipts (PDF) — opens a print-friendly window of all PAID rows in
-    // the current filter (one per page); the admin saves it as a single PDF.
-    const printReceipts = () => {
-        const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const paid = filteredRegistrations.filter(r => r.payment_status === 'completed');
-        if (paid.length === 0) { toast.error('No paid registrations in the current filter.'); return; }
-        const eventName = activeEvent?.title || '';
-        const row = (l: string, v: string) => `<tr><td style="padding:6px 0;color:#6b7280;">${l}</td><td style="padding:6px 0;font-weight:700;color:#111827;text-align:right;">${v}</td></tr>`;
-        const receipts = paid.map(reg => {
-            const mode = PAYMENT_MODE_LABEL[reg.payment_method || 'razorpay'] || 'Online';
-            const ref = reg.razorpay_payment_id || reg.offline_reference || '';
-            return `<div class="rcpt">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #171717;padding-bottom:12px;margin-bottom:16px;">
-                    <div><div style="font-size:22px;font-weight:800;">BaglaBhairav</div><div style="font-size:12px;color:#6b7280;">${esc(eventName)}</div></div>
-                    <div style="text-align:right;"><div style="font-size:11px;letter-spacing:.08em;color:#6b7280;text-transform:uppercase;">Payment Receipt</div><div style="font-size:13px;font-weight:700;color:#ea580c;">${invoiceNo(reg)}</div><div style="font-size:11px;color:#9ca3af;">${new Date(reg.created_at).toLocaleDateString('en-IN')}</div></div>
-                </div>
-                <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                    ${row('Name', esc([reg.salutation, reg.first_name, reg.last_name].filter(Boolean).join(' ')))}
-                    ${row('Phone', esc(reg.phone))}
-                    ${row('Email', esc(reg.email))}
-                    ${reg.gotra ? row('Gotra', esc(reg.gotra)) : ''}
-                    ${row('Category', esc(reg.categories?.title || '—'))}
-                    ${row('Attendees', `${reg.attendees_count || 1}`)}
-                    ${row('Payment Mode', esc(mode))}
-                    ${ref ? row('Reference', esc(ref)) : ''}
-                    <tr><td style="padding:12px 0 0;border-top:1px solid #e5e7eb;font-weight:700;">Amount Paid</td><td style="padding:12px 0 0;border-top:1px solid #e5e7eb;text-align:right;font-weight:800;color:#16a34a;font-size:18px;">₹${Number(reg.total_amount || 0).toLocaleString('en-IN')}</td></tr>
-                </table>
-                <div style="margin-top:14px;font-size:11px;color:#9ca3af;">This is a computer-generated payment receipt. No-refund registration.</div>
-            </div>`;
-        }).join('');
-        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Receipts</title><style>
-            @page{margin:16mm} body{font-family:Arial,sans-serif;color:#111827;margin:0;}
-            .rcpt{page-break-after:always;padding:8px;} .rcpt:last-child{page-break-after:auto;}
-        </style></head><body>${receipts}</body></html>`;
-        const w = window.open('', '_blank');
-        if (!w) { toast.error('Allow pop-ups to generate the receipts PDF.'); return; }
-        w.document.write(html); w.document.close(); w.focus();
-        setTimeout(() => w.print(), 400);
-    };
-
-    // Financial statement (Excel) — PAID rows only, financial columns + totals.
-    const downloadFinancialExcel = () => {
-        const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const paid = filteredRegistrations.filter(r => r.payment_status === 'completed');
-        if (paid.length === 0) { toast.error('No paid registrations in the current filter.'); return; }
-        const headers = ['Receipt No', 'Date', 'Name', 'Phone', 'Email', 'Category', 'Attendees', 'Donation', 'Amount', 'Payment Mode', 'Reference'];
-        const rows = paid.map(reg => [
-            invoiceNo(reg), new Date(reg.created_at).toLocaleDateString('en-IN'), `${reg.salutation || ''} ${reg.first_name} ${reg.last_name}`.trim(), reg.phone || '', reg.email || '', reg.categories?.title || 'Deleted Tier', reg.attendees_count || 1, reg.donation_amount || 0, reg.total_amount || 0, PAYMENT_MODE_LABEL[reg.payment_method || 'razorpay'] || 'Online', reg.razorpay_payment_id || reg.offline_reference || '',
-        ]);
-        const total = paid.reduce((s, r) => s + Number(r.total_amount || 0), 0);
-        const body = rows.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('');
-        const totalRow = `<tr><td colspan="8" style="font-weight:bold;text-align:right;">Total</td><td style="font-weight:bold;">${total}</td><td></td><td></td></tr>`;
-        const table = `<table border="1"><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${body}${totalRow}</tbody></table>`;
-        const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><h3>BaglaBhairav — Financial Statement</h3>${table}</body></html>`;
-        const blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel' });
-        const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `BaglaBhairav_Financial_${new Date().toISOString().split('T')[0]}.xls`; link.click();
-    };
+    // Export handlers — thin wrappers over the pure builders in lib/adminExports.
+    const downloadCSV = () => downloadRegistrationsCsv(filteredRegistrations);
+    const downloadExcel = () => downloadRegistrationsExcel(filteredRegistrations);
+    const printReceipts = () => printReceiptsPdf(filteredRegistrations, activeEvent?.title || '');
+    const downloadFinancialExcel = () => downloadFinancialStatement(filteredRegistrations);
 
     // Shared between the desktop table row and the mobile card so both stay in sync.
     const renderStatusControl = (reg: Registration) => {
@@ -873,124 +795,22 @@ export default function AdminDashboard() {
             )}
 
             {selectedRegistration && (
-                <div className="fixed inset-0 bg-neutral-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-                        <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center bg-neutral-50">
-                            <h2 className="text-xl font-bold text-neutral-900">Registration Details</h2>
-                            <button onClick={() => setSelectedRegistration(null)} className="p-2 text-neutral-400 hover:text-red-600 transition rounded-full hover:bg-red-50"><X className="w-5 h-5" /></button>
-                        </div>
-                        <div className="p-6 overflow-y-auto space-y-6 text-sm">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                                <div>
-                                    <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2 border-b pb-1">Profile Info</h3>
-                                    <p><span className="text-neutral-500 block text-xs">Name</span><span className="font-semibold">{selectedRegistration.salutation} {selectedRegistration.first_name} {selectedRegistration.last_name}</span></p>
-                                    <p className="mt-3"><span className="text-neutral-500 block text-xs">Gotra</span><span className="font-semibold">{selectedRegistration.gotra || 'Not provided'}</span></p>
-                                    <p className="mt-3"><span className="text-neutral-500 block text-xs">DOB / Gender</span><span>{selectedRegistration.date_of_birth} ({selectedRegistration.gender})</span></p>
-                                    <p className="mt-3"><span className="text-neutral-500 block text-xs">Total Attendees</span><span className="font-bold">{selectedRegistration.attendees_count} Person(s)</span></p>
-                                    {Array.isArray(selectedRegistration.attendees) && selectedRegistration.attendees.length > 0 && (
-                                        <div className="mt-3"><span className="text-neutral-500 block text-xs mb-1">Attendee Names</span><ol className="list-decimal ml-4 text-sm text-neutral-800 space-y-0.5">{selectedRegistration.attendees.map((a, i) => <li key={i}>{a.name}</li>)}</ol></div>
-                                    )}
-                                </div>
-                                <div>
-                                    <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2 border-b pb-1">Communications</h3>
-                                    <p><span className="text-neutral-500 block text-xs">Contact Info</span><span className="font-semibold block">{selectedRegistration.phone}</span><span className="text-xs text-neutral-600">{selectedRegistration.email}</span></p>
-                                    <p className="mt-3"><span className="text-neutral-500 block text-xs">Address</span><span>{selectedRegistration.taluka}, {selectedRegistration.state} - {selectedRegistration.pincode}</span></p>
-                                </div>
-                                <div className="col-span-1 md:col-span-2">
-                                    <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2 border-b pb-1">Payment</h3>
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-start">
-                                        <p>
-                                            <span className="text-neutral-500 block text-xs mb-1">Status</span>
-                                            <span className={`inline-flex items-center py-1 px-2.5 rounded-full text-xs font-semibold border ${statusClasses(selectedRegistration.payment_status)}`}>{STATUS_LABEL[selectedRegistration.payment_status]}</span>
-                                        </p>
-                                        <p><span className="text-neutral-500 block text-xs">Total</span><span className="font-bold">₹{selectedRegistration.total_amount}</span></p>
-                                        {selectedRegistration.payment_status === 'advance_paid' ? (
-                                            <>
-                                                <p><span className="text-neutral-500 block text-xs">Paid</span><span className="font-bold text-green-700">₹{selectedRegistration.amount_paid}</span></p>
-                                                <p><span className="text-neutral-500 block text-xs">Balance Due</span><span className="font-bold text-amber-700">₹{selectedRegistration.amount_due}</span></p>
-                                            </>
-                                        ) : (
-                                            <p><span className="text-neutral-500 block text-xs">Plan</span><span className="font-semibold capitalize">{selectedRegistration.payment_plan || 'full'}</span></p>
-                                        )}
-                                    </div>
-                                    {selectedRegistration.razorpay_payment_id && (
-                                        <p className="mt-3"><span className="text-neutral-500 block text-xs">Payment Ref</span><span className="font-mono text-xs text-neutral-600 break-all">{selectedRegistration.razorpay_payment_id}</span></p>
-                                    )}
-                                    {selectedRegistration.payment_method && selectedRegistration.payment_method !== 'razorpay' && (
-                                        <div className="mt-3 space-y-1">
-                                            <p><span className="text-neutral-500 block text-xs">Payment Method</span><span className="font-semibold capitalize">{selectedRegistration.payment_method.replace('_', ' ')}</span></p>
-                                            {selectedRegistration.offline_reference && <p><span className="text-neutral-500 block text-xs">Reference</span><span className="font-mono text-xs text-neutral-600 break-all">{selectedRegistration.offline_reference}</span></p>}
-                                            <div className="flex flex-wrap gap-2 mt-2">
-                                                {selectedRegistration.offline_proof_path && (
-                                                    <button type="button" onClick={() => viewProof(selectedRegistration.id)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs font-semibold text-neutral-700 hover:bg-neutral-100 transition"><ImageIcon className="w-3.5 h-3.5" /> View proof</button>
-                                                )}
-                                                {can('payments:verify') && selectedRegistration.payment_status === 'completed' && (
-                                                    <button type="button" onClick={() => handleVerifyPayment(selectedRegistration, 'reverse')} disabled={verifyingId === selectedRegistration.id} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-rose-200 rounded-lg text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 transition disabled:opacity-50"><X className="w-3.5 h-3.5" /> Reverse payment</button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-                                    {selectedRegistration.payment_status === 'advance_paid' && (
-                                        <div className="mt-2">
-                                            {selectedRegistration.balance_link_url && (
-                                                <a href={selectedRegistration.balance_link_url} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-orange-600 hover:underline break-all">Balance payment link →</a>
-                                            )}
-                                            <div className="flex flex-wrap items-center gap-2 mt-2">
-                                                {selectedRegistration.balance_link_url && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleCopyLink(selectedRegistration.balance_link_url!)}
-                                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs font-semibold text-neutral-700 hover:bg-neutral-100 transition"
-                                                        title="Copy balance payment link to clipboard"
-                                                    >
-                                                        {copiedLink ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
-                                                        {copiedLink ? 'Copied!' : 'Copy link'}
-                                                    </button>
-                                                )}
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleSyncBalance(selectedRegistration.id)}
-                                                    disabled={syncingId === selectedRegistration.id}
-                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-green-300 rounded-lg text-xs font-semibold text-green-700 bg-green-50 hover:bg-green-100 transition disabled:opacity-50"
-                                                    title="Check Razorpay and mark as paid if the balance is cleared"
-                                                >
-                                                    <RefreshCw className={`w-3.5 h-3.5 ${syncingId === selectedRegistration.id ? 'animate-spin' : ''}`} />
-                                                    {syncingId === selectedRegistration.id ? 'Syncing…' : 'Sync payment'}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="col-span-1 md:col-span-2 bg-orange-50 border border-orange-100 p-4 rounded-xl">
-                                    <span className="text-xs uppercase tracking-wider font-bold text-orange-800 block mb-1">Issue/Samasya Provided</span>
-                                    <p className="text-neutral-900 whitespace-pre-wrap">{selectedRegistration.problem_samasya || "None declared."}</p>
-                                </div>
-                                {selectedRegistration.custom_fields && Object.keys(selectedRegistration.custom_fields).length > 0 && (
-                                    <div className="col-span-1 md:col-span-2">
-                                        <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2 border-b pb-1">Additional Fields</h3>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                            {Object.entries(selectedRegistration.custom_fields).map(([key, value]) => (
-                                                <p key={key}><span className="text-neutral-500 block text-xs">{key.replace(/^custom_/, '').replace(/_[a-z0-9]{5}$/, '').replace(/_/g, ' ')}</span><span className="font-semibold">{value}</span></p>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                                <RegistrationActivity registrationId={selectedRegistration.id} />
-                            </div>
-                        </div>
-                        {(can('registrations:manage') || can('payments:refund')) && (
-                            <div className="px-6 py-4 border-t border-neutral-200 bg-neutral-50 flex flex-wrap gap-2 justify-end">
-                                {can('registrations:manage') && <button onClick={() => setEditingReg(selectedRegistration)} className="inline-flex items-center gap-1.5 px-3 py-2 border border-neutral-300 rounded-lg text-sm font-semibold text-neutral-700 hover:bg-neutral-100 transition"><Pencil className="w-4 h-4" /> Edit details</button>}
-                                {selectedRegistration.payment_status === 'completed' && (
-                                    <>
-                                        {can('registrations:manage') && <button onClick={() => handleResendConfirmation(selectedRegistration)} disabled={managingId === selectedRegistration.id} className="inline-flex items-center gap-1.5 px-3 py-2 border border-neutral-300 rounded-lg text-sm font-semibold text-neutral-700 hover:bg-neutral-100 transition disabled:opacity-50"><Mail className="w-4 h-4" /> Resend confirmation</button>}
-                                        {can('payments:refund') && <button onClick={() => handleRefund(selectedRegistration)} disabled={managingId === selectedRegistration.id} className="inline-flex items-center gap-1.5 px-3 py-2 border border-rose-200 rounded-lg text-sm font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 transition disabled:opacity-50"><Undo2 className="w-4 h-4" /> Refund</button>}
-                                    </>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                </div>
+                <RegistrationDetailModal
+                    reg={selectedRegistration}
+                    onClose={() => setSelectedRegistration(null)}
+                    can={can}
+                    verifyingId={verifyingId}
+                    syncingId={syncingId}
+                    managingId={managingId}
+                    copiedLink={copiedLink}
+                    onViewProof={viewProof}
+                    onVerify={handleVerifyPayment}
+                    onCopyLink={handleCopyLink}
+                    onSyncBalance={handleSyncBalance}
+                    onEdit={setEditingReg}
+                    onResendConfirmation={handleResendConfirmation}
+                    onRefund={handleRefund}
+                />
             )}
 
             {editingReg && (
