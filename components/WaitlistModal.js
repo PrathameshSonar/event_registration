@@ -5,10 +5,11 @@
 
 import { useState } from "react";
 import { useLanguage } from "./LanguageProvider";
+import { pick } from "@/lib/i18n";
 
 export default function WaitlistModal({ category, onClose }) {
     const { t, lang } = useLanguage();
-    const tierTitle = lang === "hi" ? (category.title_hi || category.title) : category.title;
+    const tierTitle = pick(category, "title", lang) || category.title;
     const [name, setName] = useState("");
     const [phone, setPhone] = useState("");
     const [email, setEmail] = useState("");
