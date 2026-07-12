@@ -3,7 +3,7 @@
 // all state + handlers are passed in from the admin dashboard. Extracted from page.tsx.
 "use client";
 
-import { X, Image as ImageIcon, RefreshCw, Check, Copy, Pencil, Mail, Undo2 } from 'lucide-react';
+import { X, Image as ImageIcon, RefreshCw, Check, Copy, Pencil, Mail, Undo2, Ban } from 'lucide-react';
 import RegistrationActivity from '@/components/RegistrationActivity';
 import { STATUS_LABEL, statusClasses } from '@/app/admin/constants';
 import type { Registration } from '@/app/admin/types';
@@ -12,6 +12,8 @@ interface Props {
     reg: Registration;
     onClose: () => void;
     can: (perm: string) => boolean;
+    /** Cancel is admin-only — no volunteer permission grants it. */
+    isAdmin: boolean;
     verifyingId: string | null;
     syncingId: string | null;
     managingId: string | null;
@@ -23,12 +25,18 @@ interface Props {
     onEdit: (reg: Registration) => void;
     onResendConfirmation: (reg: Registration) => void;
     onRefund: (reg: Registration) => void;
+    onCancel: (reg: Registration) => void;
 }
 
+// Already-ended registrations have nothing left to cancel. Mirrors NOT_CANCELLABLE
+// in app/api/admin/cancel-registration/route.js — the server is the real guard.
+const NOT_CANCELLABLE = ['cancelled', 'refunded', 'failed', 'closed'];
+
 export default function RegistrationDetailModal({
-    reg, onClose, can, verifyingId, syncingId, managingId, copiedLink,
-    onViewProof, onVerify, onCopyLink, onSyncBalance, onEdit, onResendConfirmation, onRefund,
+    reg, onClose, can, isAdmin, verifyingId, syncingId, managingId, copiedLink,
+    onViewProof, onVerify, onCopyLink, onSyncBalance, onEdit, onResendConfirmation, onRefund, onCancel,
 }: Props) {
+    const cancellable = isAdmin && !NOT_CANCELLABLE.includes(reg.payment_status);
     return (
         <div className="fixed inset-0 bg-neutral-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -37,6 +45,15 @@ export default function RegistrationDetailModal({
                     <button onClick={onClose} className="p-2 text-neutral-400 hover:text-red-600 transition rounded-full hover:bg-red-50"><X className="w-5 h-5" /></button>
                 </div>
                 <div className="p-6 overflow-y-auto space-y-6 text-sm">
+                    {reg.payment_status === 'cancelled' && (
+                        <div className="bg-neutral-900 text-white p-4 rounded-xl">
+                            <div className="flex items-center gap-2 mb-1"><Ban className="w-4 h-4" /><span className="text-xs uppercase tracking-wider font-bold">Cancelled{reg.cancelled_at ? ` on ${new Date(reg.cancelled_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}</span></div>
+                            <p className="text-sm text-neutral-200">{reg.cancellation_reason || 'No reason recorded.'}</p>
+                            {Number(reg.amount_paid || 0) > 0 && (
+                                <p className="text-xs text-amber-300 mt-2">₹{Number(reg.amount_paid).toLocaleString('en-IN')} was paid and has <strong>not</strong> been refunded — cancelling never returns money.</p>
+                            )}
+                        </div>
+                    )}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                         <div>
                             <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2 border-b pb-1">Profile Info</h3>
@@ -135,7 +152,7 @@ export default function RegistrationDetailModal({
                         <RegistrationActivity registrationId={reg.id} />
                     </div>
                 </div>
-                {(can('registrations:manage') || can('payments:refund')) && (
+                {(can('registrations:manage') || can('payments:refund') || cancellable) && (
                     <div className="px-6 py-4 border-t border-neutral-200 bg-neutral-50 flex flex-wrap gap-2 justify-end">
                         {can('registrations:manage') && <button onClick={() => onEdit(reg)} className="inline-flex items-center gap-1.5 px-3 py-2 border border-neutral-300 rounded-lg text-sm font-semibold text-neutral-700 hover:bg-neutral-100 transition"><Pencil className="w-4 h-4" /> Edit details</button>}
                         {reg.payment_status === 'completed' && (
@@ -143,6 +160,16 @@ export default function RegistrationDetailModal({
                                 {can('registrations:manage') && <button onClick={() => onResendConfirmation(reg)} disabled={managingId === reg.id} className="inline-flex items-center gap-1.5 px-3 py-2 border border-neutral-300 rounded-lg text-sm font-semibold text-neutral-700 hover:bg-neutral-100 transition disabled:opacity-50"><Mail className="w-4 h-4" /> Resend confirmation</button>}
                                 {can('payments:refund') && <button onClick={() => onRefund(reg)} disabled={managingId === reg.id} className="inline-flex items-center gap-1.5 px-3 py-2 border border-rose-200 rounded-lg text-sm font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 transition disabled:opacity-50"><Undo2 className="w-4 h-4" /> Refund</button>}
                             </>
+                        )}
+                        {cancellable && (
+                            <button
+                                onClick={() => onCancel(reg)}
+                                disabled={managingId === reg.id}
+                                title="Cancel this registration — releases the seat, voids the pass. Does not refund."
+                                className="inline-flex items-center gap-1.5 px-3 py-2 border border-neutral-800 rounded-lg text-sm font-semibold text-white bg-neutral-800 hover:bg-black transition disabled:opacity-50"
+                            >
+                                <Ban className="w-4 h-4" /> Cancel registration
+                            </button>
                         )}
                     </div>
                 )}

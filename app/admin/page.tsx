@@ -6,7 +6,8 @@ import {
     Lock, Download, Users, IndianRupee, Activity, Eye, X, Settings, ListFilter,
     Trash2, Plus, Image as ImageIcon, Video, CalendarDays,
     Ticket, Calendar as CalendarIcon, Search, LogOut, QrCode, Check,
-    LayoutDashboard, ScrollText, RefreshCw, MessageSquare, Send, UserPlus, Megaphone
+    LayoutDashboard, ScrollText, RefreshCw, MessageSquare, Send, UserPlus, Megaphone,
+    Gift, UserCheck
 } from 'lucide-react';
 import { youtubeThumbnail } from '@/lib/youtube';
 import { buildTranslations } from '@/lib/i18n';
@@ -35,7 +36,7 @@ import RegistrationDetailModal from '@/components/admin/RegistrationDetailModal'
 import { toast, confirmDialog, promptDialog } from '@/lib/uiStore';
 import { downloadRegistrationsCsv, downloadRegistrationsExcel, printReceiptsPdf, downloadFinancialStatement } from '@/lib/adminExports';
 
-import type { Role, Registration, Category, EventItem, MediaItem } from './types';
+import type { Role, Registration, Category, EventItem, MediaItem, AdminStats } from './types';
 import { TERMINAL_STATUSES, STATUS_LABEL, PAYMENT_MODE_LABEL, ENQUIRY_STATUSES, REGISTRATION_SECTIONS, statusClasses } from './constants';
 
 export default function AdminDashboard() {
@@ -62,6 +63,9 @@ export default function AdminDashboard() {
     const [categoriesList, setCategoriesList] = useState<Category[]>([]);
     const [mediaList, setMediaList] = useState<MediaItem[]>([]);
     const [eventsList, setEventsList] = useState<EventItem[]>([]);
+    // Figures that don't live on the registrations rows (donations + check-ins).
+    // Null members mean "this role can't see it" — the tile is hidden.
+    const [stats, setStats] = useState<AdminStats>({ donations: null, donationsTotal: null, checkedInRegs: null });
 
     const activeEvent = eventsList.find(e => e.is_active);
 
@@ -168,6 +172,7 @@ export default function AdminDashboard() {
             setCategoriesList(data.categories || []);
             setEventsList(data.events || []);
             setMediaList(data.media || []);
+            if (data.stats) setStats(data.stats);
             const activeEv = (data.events || []).find((ev: EventItem) => ev.is_active);
             if (activeEv) setMediaEventId(activeEv.id);
             if (cpRes.ok) { const cpData = await cpRes.json(); setCheckpointsList(cpData.checkpoints || []); }
@@ -187,6 +192,7 @@ export default function AdminDashboard() {
             if (res.status === 401) { setRole(null); return; }
             const data = await res.json();
             setRegistrations(data.registrations || []);
+            if (data.stats) setStats(data.stats);
             setLastUpdated(new Date());
         } catch {
             // transient network error — keep showing the last good data
@@ -359,6 +365,42 @@ export default function AdminDashboard() {
         setSelectedRegistration(null);
         await fetchAllData();
     };
+    // Cancel — admin only, always with a reason, and never a refund. The second
+    // dialog spells the no-refund part out because it's the one thing an operator
+    // could wrongly assume this button does.
+    const handleCancel = async (reg: Registration) => {
+        const reason = await promptDialog({
+            title: 'Cancel registration',
+            message: `Why is ${reg.first_name} ${reg.last_name}'s registration being cancelled? (recorded in the audit log and sent to them)`,
+            placeholder: 'e.g. Duplicate booking / requested by attendee',
+            required: true,
+            confirmLabel: 'Continue',
+        });
+        if (reason === null) return;
+
+        const paid = Number(reg.amount_paid || 0) > 0;
+        const lines = [
+            `Cancel this registration? The seat is released immediately and any entry pass already issued stops being valid.`,
+            paid ? `\n⚠️ This does NOT refund the ₹${Number(reg.amount_paid).toLocaleString('en-IN')} already paid — the payment record is kept as-is. To return the money, use Refund (online) or Reverse (offline) separately.` : '',
+            `\n${reg.first_name} ${reg.last_name} will be notified by email & WhatsApp.`,
+        ].filter(Boolean);
+        if (!(await confirmDialog({ title: 'Confirm cancellation', message: lines.join('\n'), danger: true, confirmLabel: 'Cancel registration' }))) return;
+
+        setManagingId(reg.id);
+        const { ok, data } = await mutate('/api/admin/cancel-registration', 'POST', { id: reg.id, reason });
+        setManagingId(null);
+        if (!ok) { toast.error(data.error || 'Could not cancel.'); return; }
+
+        toast.success('Registration cancelled — the seat has been released.');
+        // A seat just freed. Point the admin at the people waiting for it.
+        const waiting = (data.waitlist || []).length;
+        if (waiting > 0) {
+            toast.info(`${waiting} ${waiting === 1 ? 'person is' : 'people are'} on the waitlist for ${data.tier || 'this tier'} — open Settings → Waitlist to notify the next one.`);
+        }
+        setSelectedRegistration(null);
+        await fetchAllData();
+    };
+
     const handleResendConfirmation = async (reg: Registration) => {
         setManagingId(reg.id);
         const { ok, data } = await mutate('/api/admin/resend-confirmation', 'POST', { id: reg.id });
@@ -588,6 +630,12 @@ export default function AdminDashboard() {
     const globalCompleted = registrations.filter(r => r.payment_status === 'completed').length;
     const globalRevenue = registrations.filter(r => r.payment_status === 'completed').reduce((s, r) => s + Number(r.total_amount || 0), 0);
     const globalTotal = registrations.length;
+    // "Today" = local midnight onward, so it matches what the operator sees on a wall clock.
+    const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+    const todayRegs = registrations.filter(r => new Date(r.created_at) >= startOfToday);
+    const todayCount = todayRegs.length;
+    const todayPaid = todayRegs.filter(r => r.payment_status === 'completed').length;
+    const todayRevenue = todayRegs.filter(r => r.payment_status === 'completed').reduce((s, r) => s + Number(r.total_amount || 0), 0);
     const globalToVerify = registrations.filter(r => r.payment_status === 'payment_review' || r.payment_status === 'cheque_received').length;
     const globalNewEnquiries = registrations.filter(r => r.payment_status === 'enquired').length;
     const globalCategoryMetrics = registrations.reduce((acc, reg) => {
@@ -805,6 +853,7 @@ export default function AdminDashboard() {
                     reg={selectedRegistration}
                     onClose={() => setSelectedRegistration(null)}
                     can={can}
+                    isAdmin={isAdmin}
                     verifyingId={verifyingId}
                     syncingId={syncingId}
                     managingId={managingId}
@@ -816,6 +865,7 @@ export default function AdminDashboard() {
                     onEdit={setEditingReg}
                     onResendConfirmation={handleResendConfirmation}
                     onRefund={handleRefund}
+                    onCancel={handleCancel}
                 />
             )}
 
@@ -863,15 +913,25 @@ export default function AdminDashboard() {
                 {effectiveTab === 'dashboard' && (
                     <div className="space-y-6">
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                            <div className="bg-white border border-neutral-200 p-5 md:p-6 rounded-xl flex items-center gap-4 shadow-sm"><div className="p-4 bg-amber-100 text-amber-600 rounded-lg"><CalendarDays className="w-6 h-6" /></div><div><p className="text-sm font-medium text-neutral-500">Today&rsquo;s Registrations</p><p className="text-2xl font-bold">{todayCount}</p><p className="text-xs text-neutral-400 mt-0.5">{todayPaid} paid · ₹{todayRevenue.toLocaleString('en-IN')}</p></div></div>
                             <div className="bg-white border border-neutral-200 p-5 md:p-6 rounded-xl flex items-center gap-4 shadow-sm"><div className="p-4 bg-orange-100 text-orange-600 rounded-lg"><Users className="w-6 h-6" /></div><div><p className="text-sm font-medium text-neutral-500">Confirmed Attendees</p><p className="text-2xl font-bold">{globalCompleted}</p></div></div>
                             <div className="bg-white border border-neutral-200 p-5 md:p-6 rounded-xl flex items-center gap-4 shadow-sm"><div className="p-4 bg-green-100 text-green-600 rounded-lg"><IndianRupee className="w-6 h-6" /></div><div><p className="text-sm font-medium text-neutral-500">Total Revenue (Paid)</p><p className="text-2xl font-bold">₹{globalRevenue.toLocaleString('en-IN')}</p></div></div>
                             <div className="bg-white border border-neutral-200 p-5 md:p-6 rounded-xl flex items-center gap-4 shadow-sm"><div className="p-4 bg-blue-100 text-blue-600 rounded-lg"><Activity className="w-6 h-6" /></div><div><p className="text-sm font-medium text-neutral-500">Total Registrations</p><p className="text-2xl font-bold">{globalTotal}</p></div></div>
                             <button onClick={() => { setActiveTab('registrations'); setStatusFilter('payment_review'); }} className={`bg-white border p-5 md:p-6 rounded-xl flex items-center gap-4 shadow-sm text-left transition ${globalToVerify > 0 ? 'border-indigo-300 hover:bg-indigo-50' : 'border-neutral-200'}`}><div className="p-4 bg-indigo-100 text-indigo-600 rounded-lg"><IndianRupee className="w-6 h-6" /></div><div><p className="text-sm font-medium text-neutral-500">Payments to Verify</p><p className="text-2xl font-bold">{globalToVerify}</p></div></button>
+
+                            {/* Donations + check-ins come from their own tables, and only for
+                                roles that can already reach those panels. */}
+                            {stats.donationsTotal !== null && (
+                                <button onClick={() => { setActiveTab('settings'); setSettingsSubTab('donations'); }} className="bg-white border border-neutral-200 p-5 md:p-6 rounded-xl flex items-center gap-4 shadow-sm text-left hover:bg-rose-50 hover:border-rose-200 transition"><div className="p-4 bg-rose-100 text-rose-600 rounded-lg"><Gift className="w-6 h-6" /></div><div><p className="text-sm font-medium text-neutral-500">Seva Raised</p><p className="text-2xl font-bold">₹{stats.donationsTotal.toLocaleString('en-IN')}</p><p className="text-xs text-neutral-400 mt-0.5">{stats.donations?.length || 0} contribution{(stats.donations?.length || 0) === 1 ? '' : 's'}</p></div></button>
+                            )}
+                            {stats.checkedInRegs !== null && (
+                                <button onClick={() => setActiveTab('scanlog')} className="bg-white border border-neutral-200 p-5 md:p-6 rounded-xl flex items-center gap-4 shadow-sm text-left hover:bg-teal-50 hover:border-teal-200 transition"><div className="p-4 bg-teal-100 text-teal-600 rounded-lg"><UserCheck className="w-6 h-6" /></div><div><p className="text-sm font-medium text-neutral-500">Checked In</p><p className="text-2xl font-bold">{stats.checkedInRegs}</p><p className="text-xs text-neutral-400 mt-0.5">of {globalCompleted} paid{globalCompleted > 0 ? ` · ${Math.round((stats.checkedInRegs / globalCompleted) * 100)}%` : ''}</p></div></button>
+                            )}
                         </div>
 
                         {isAdmin && <HealthPanel />}
 
-                        <DashboardAnalytics registrations={registrations} categories={categoriesList} />
+                        <DashboardAnalytics registrations={registrations} categories={categoriesList} donations={stats.donations} />
 
                         {/* Sales per category */}
                         {categorySales.length > 0 && (

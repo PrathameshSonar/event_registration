@@ -7,7 +7,15 @@ export type Role = 'admin' | 'volunteer';
 export type PaymentStatus =
     | 'pending' | 'completed' | 'failed' | 'refunded' | 'enquired' | 'contacted'
     | 'amount_mismatch' | 'advance_paid' | 'awaiting_payment' | 'closed'
-    | 'payment_review' | 'cheque_received' | 'payment_rejected';
+    | 'payment_review' | 'cheque_received' | 'payment_rejected' | 'cancelled';
+
+// Dashboard figures that aren't derivable from the registrations array. A null
+// member means the current role isn't allowed to see it, so the tile is hidden.
+export interface AdminStats {
+    donations: { amount: number; created_at: string }[] | null;
+    donationsTotal: number | null;
+    checkedInRegs: number | null;
+}
 
 export interface Registration {
     id: string; created_at: string;
@@ -27,6 +35,7 @@ export interface Registration {
     qr_sent_at: string | null;
     payment_method: string | null; offline_reference: string | null; offline_proof_path: string | null;
     verified_by: string | null; verified_at: string | null;
+    cancelled_at: string | null; cancellation_reason: string | null;
 }
 
 export interface Category {

@@ -1,11 +1,11 @@
 // components/DashboardAnalytics.js
 // Client-side analytics computed from the already-loaded registrations — daily
-// registrations + revenue (14 days), payment conversion, enquiry pipeline, and
-// per-tier fill. No chart dependency: simple on-brand CSS/SVG bars.
+// registrations + revenue + seva (14 days), payment conversion, enquiry pipeline,
+// and per-tier fill. No chart dependency: simple on-brand CSS/SVG bars.
 "use client";
 
 import { useMemo } from "react";
-import { TrendingUp, IndianRupee, Users, Percent } from "lucide-react";
+import { TrendingUp, IndianRupee, Users, Percent, Gift } from "lucide-react";
 
 const DAYS = 14;
 const dayKey = (d) => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
@@ -28,9 +28,13 @@ function Bars({ series, max, color, fmt }) {
 }
 
 /**
- * @param {{ registrations?: any[], categories?: any[] }} props
+ * `donations` are the standalone Seva contributions (the `donations` table), not
+ * the donation add-on inside a registration. Null = this role can't see them, so
+ * the card is skipped entirely.
+ *
+ * @param {{ registrations?: any[], categories?: any[], donations?: any[] | null }} props
  */
-export default function DashboardAnalytics({ registrations = [], categories = [] }) {
+export default function DashboardAnalytics({ registrations = [], categories = [], donations = null }) {
     const a = useMemo(() => {
         // ── daily buckets (last 14 days) ──
         const days = [];
@@ -45,6 +49,17 @@ export default function DashboardAnalytics({ registrations = [], categories = []
         }
         const regSeries = days.map((k) => ({ k, v: regByDay[k] }));
         const revSeries = days.map((k) => ({ k, v: revByDay[k] }));
+
+        // ── seva / standalone donations (already filtered to completed server-side) ──
+        const sevaByDay = Object.fromEntries(days.map((k) => [k, 0]));
+        let sevaTotal = 0;
+        for (const d of donations || []) {
+            const k = dayKey(d.created_at);
+            const amt = Number(d.amount || 0);
+            sevaTotal += amt;
+            if (k in sevaByDay) sevaByDay[k] += amt;
+        }
+        const sevaSeries = days.map((k) => ({ k, v: sevaByDay[k] }));
 
         // ── payment conversion (excludes the enquiry world) ──
         const count = (s) => registrations.filter((r) => r.payment_status === s).length;
@@ -72,16 +87,18 @@ export default function DashboardAnalytics({ registrations = [], categories = []
             })
             .sort((x, y) => y.pct - x.pct);
 
-        return { regSeries, revSeries, conversion, paid, attempts, funnel, enquiryTotal, tierFill };
-    }, [registrations, categories]);
+        return { regSeries, revSeries, sevaSeries, sevaTotal, conversion, paid, attempts, funnel, enquiryTotal, tierFill };
+    }, [registrations, categories, donations]);
 
     const maxReg = Math.max(1, ...a.regSeries.map((d) => d.v));
     const maxRev = Math.max(1, ...a.revSeries.map((d) => d.v));
+    const maxSeva = Math.max(1, ...a.sevaSeries.map((d) => d.v));
+    const showSeva = donations !== null;
 
     return (
         <div className="space-y-6">
             {/* Trends */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className={`grid grid-cols-1 gap-6 ${showSeva ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
                 <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
                     <div className="flex items-center gap-2 mb-1"><TrendingUp className="w-4 h-4 text-orange-600" /><h3 className="text-sm font-bold uppercase tracking-wider text-neutral-500">Registrations · last {DAYS} days</h3></div>
                     <p className="text-xs text-neutral-400 mb-4">Sign-ups created each day (all statuses — paid, pending & partial). Hover a bar for the count.</p>
@@ -92,6 +109,13 @@ export default function DashboardAnalytics({ registrations = [], categories = []
                     <p className="text-xs text-neutral-400 mb-4">Money actually collected each day (only fully-paid registrations). Hover a bar for the amount.</p>
                     <Bars series={a.revSeries} max={maxRev} color="bg-green-500" fmt={(v) => `₹${v.toLocaleString("en-IN")}`} />
                 </div>
+                {showSeva && (
+                    <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
+                        <div className="flex items-center gap-2 mb-1"><Gift className="w-4 h-4 text-rose-600" /><h3 className="text-sm font-bold uppercase tracking-wider text-neutral-500">Seva · last {DAYS} days</h3></div>
+                        <p className="text-xs text-neutral-400 mb-4">Standalone donations from the Seva page (not the donation add-on inside a registration). Total raised all-time: <strong className="text-neutral-600">₹{a.sevaTotal.toLocaleString("en-IN")}</strong>.</p>
+                        <Bars series={a.sevaSeries} max={maxSeva} color="bg-rose-500" fmt={(v) => `₹${v.toLocaleString("en-IN")}`} />
+                    </div>
+                )}
             </div>
 
             {/* Conversion + enquiry pipeline */}

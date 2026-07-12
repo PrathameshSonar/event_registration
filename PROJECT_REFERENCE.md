@@ -4,7 +4,7 @@
 >
 > **⚠️ KEEP THIS UPDATED.** Whenever a feature, route, column, env var, or flow changes, update the relevant section **and** the Changelog at the bottom. This file is meant to stay accurate.
 >
-> Last updated: 2026-06-28.
+> Last updated: 2026-07-13.
 
 ---
 
@@ -121,7 +121,8 @@ app/
     admin/
       login/ logout/           Session create/destroy
       data/route.js            GET: all dashboard data (registrations/categories/events/media)
-      registrations/route.js   PATCH: change status (locked for terminal states)
+      registrations/route.js   PATCH: change status (locked for terminal states) / edit fields
+      cancel-registration/route.js POST: cancel a registration (ADMIN ONLY, reason required, never refunds)
       categories/route.js      POST/PATCH/DELETE: ticket tiers
       events/route.js          POST/PATCH/DELETE: events (+ set active)
       media/ highlights/ faqs/ schedule/  CRUD for event content
@@ -159,8 +160,9 @@ Active-event model. Columns: `id, title, title_hi, short_description(+_hi), long
 - **Part-payment ledger:** `amount_paid, amount_due, payment_plan ('full'|'partial'), balance_link_url, balance_link_id (Razorpay plink_xxx)`
 - Razorpay: `razorpay_order_id, razorpay_payment_id`
 - QR: `qr_sent_at (NULL = never sent)`
+- Cancellation: `cancelled_at, cancellation_reason` (admin cancel; money columns deliberately untouched — see §11)
 - Status: `payment_status` (see §20), `created_at`
-- CHECK constraint allows: `pending, completed, failed, refunded, enquired, contacted, amount_mismatch, advance_paid`
+- CHECK constraint allows: `pending, completed, failed, refunded, enquired, contacted, amount_mismatch, advance_paid, awaiting_payment, closed, payment_review, cheque_received, payment_rejected, cancelled`
 
 ### `profiles` (canonical user, keyed by E.164 phone)
 `id, phone UNIQUE, email, salutation, first_name, last_name, full_name, gotra, gender, date_of_birth, pincode, taluka, state, verified_at, created_at, updated_at`. Upserted on every registration; registrations link via `profile_id`.
@@ -275,23 +277,37 @@ Goal: DB matches Razorpay's reality; no silent under-recording or underpayment.
 
 ## 11. Admin dashboard
 
-[app/admin/page.tsx](app/admin/page.tsx). Login at `/admin` (password → `admin` or `viewer`). Viewers are read-only and only see Dashboard + Registrations.
+[app/admin/page.tsx](app/admin/page.tsx). Login at `/admin` — either a named `admin_users` account (username + password) or the shared env password (→ `admin`). Roles are **`admin`** (full access, always) and **`volunteer`** (exactly the permissions an admin ticks; see the RBAC entry in §23). The old read-only `viewer` role was removed.
 
 **Auto-refresh:** the registrations list silently re-fetches every 30s while on the Dashboard or Registrations tab (paused while a detail modal is open, or when toggled off via the **Auto ON/OFF** chip in the header). A manual **Refresh** button + "Updated HH:MM:SS" sit in the top header. So new registrations appear without reloading the page. (`refreshRegistrations()` updates only the registrations array — no loading flicker, no Settings disruption.)
 
-**Top nav (5 tabs — Dashboard, Registrations, Enquiries, Settings, Audit — horizontally scrollable on mobile):**
+**Top nav (6 tabs — Dashboard, Registrations, Enquiries, Scan Log, Settings, Audit — horizontally scrollable on mobile):**
 
 ### Dashboard (everyone)
-Global overview: 3 stat cards (Confirmed Attendees, Total Revenue (Paid), Total Registrations — all **global**, not filtered), "Sales by Category" table, and per-category "Sales & Enquiries" chips.
+Global overview (all figures **global**, never tied to the Registrations filter bar):
+- **Stat tiles:** Today's Registrations (local-midnight onward, with a "N paid · ₹X" sub-line), Confirmed Attendees, Total Revenue (Paid), Total Registrations, Payments to Verify (clicks through to the verification queue), **Seva Raised** (→ Settings → Donations) and **Checked In** (→ Scan Log, with a % of paid).
+- Seva + Checked In come from their own tables via the `stats` block on `/api/admin/data`, which is **permission-scoped** (`settings:manage` and `scanlog:view` respectively). A role without the permission gets `null` and the tile is hidden — it never leaks a total the role couldn't already reach via its own panel.
+- Then: Data Health & Launch Check (admin only), [DashboardAnalytics](components/DashboardAnalytics.js) (14-day registrations / revenue / **Seva** bars, payment conversion, enquiry funnel, tier fill), the "Sales by Category" table, and per-category "Sales & Enquiries" chips.
+- ⚠️ **Two different "donations"**: `registrations.donation_amount` is the add-on inside a registration (shown in Sales by Category); the `donations` table is the standalone Seva page. The Seva tile + chart mean the latter.
 
 ### Registrations (everyone) — the ledger workspace
 - **Filters:** search (name/gotra/phone), date range, event, category.
-- **Section tabs** (saved views by status, with live counts respecting other filters): Master List, Enquired, Contacted, Advance Paid, Paid, Pending, **Amount Mismatch**, Failed, Refunded. Keys map to `payment_status` (RBAC-ready).
+- **Section tabs** (saved views by status, with live counts respecting other filters): Master List, To Verify, Cheque Pending, Advance Paid, Paid, Pending, **Amount Mismatch**, Rejected, Failed, **Cancelled**, Refunded. Keys map to `payment_status` (RBAC-ready).
 - **Desktop table / mobile cards** (no horizontal scroll on mobile). Shared render helpers keep both in sync.
-- **Row actions:** view details (modal), download QR (Paid only), **Sync payment** ↻ (advance_paid + amount_mismatch), re-send balance link (advance_paid). Inline status dropdown for admins (locked for terminal states).
+- **Row actions:** view details (modal), download QR (Paid only), **Sync payment** ↻ (advance_paid + amount_mismatch), re-send balance link (advance_paid), offline verify/reject/record. Inline status dropdown (locked for terminal states).
 - **Bulk:** select rows → **Send QR** (smart, see §10), with sticky bar on mobile.
-- **Detail modal:** full profile/payment/custom fields; balance link with **Copy link** + **Sync payment** buttons.
-- **Export CSV** of the filtered set.
+- **Detail modal:** full profile/payment/custom fields + per-person activity timeline; balance link with **Copy link** + **Sync payment**; **Edit details**, **Resend confirmation**, **Refund**, **Cancel registration**.
+- **Export:** CSV, Excel, Receipts PDF, Financial statement — all over the filtered set ([lib/adminExports.ts](lib/adminExports.ts)).
+
+### Cancelling a registration (admin only) — [app/api/admin/cancel-registration/route.js](app/api/admin/cancel-registration/route.js)
+**Cancel is not a refund, and it is not delegable.**
+- **`authorize({ requireAdmin: true })`** — no volunteer permission grants it, not even `registrations:manage`. Cancelling destroys a seat-hold and voids an entry pass, so it belongs to a named admin.
+- **A reason is mandatory** (server 400s without one). It's stored on the row (`cancellation_reason`), written to the audit log (`registration.cancel`), and sent to the registrant.
+- **The money is untouched.** `amount_paid` / `amount_due` / `razorpay_payment_id` / `offline_reference` are all left exactly as they were, so the payment record survives and the books still balance. If money genuinely has to go back, that stays a separate, deliberate **Refund** (online) or **Reverse** (offline). The confirm dialog, the email, and the detail-modal banner all say this in as many words.
+- **The seat releases itself.** Every capacity count in the app is an *allowlist* of statuses (`['completed','advance_paid']` for the hold in [app/api/razorpay/route.js](app/api/razorpay/route.js), plus the enquiry states on the public page), and `cancelled` is in none of them. ⚠️ If you ever add a new capacity count, keep it an allowlist — a denylist would silently start holding seats for cancelled rows.
+- **Not cancellable:** `cancelled, refunded, failed, closed` (already ended). `cancelled` is a **terminal/locked** status — it can't be set from the status dropdown, only through this route.
+- On success the route returns the **waitlist** for that tier (oldest-first `waiting` entries), and the UI nudges the admin to Settings → Waitlist to notify the next person, since a seat just freed.
+- Notification is **best-effort** ([notifyCancelled](lib/notify.js)): a mail/WhatsApp failure is logged but never leaves the row half-cancelled.
 
 ### Settings (admin only) — sidebar sub-tabs
 Event Setup, Ticket Tiers, Media Gallery, Entry Checkpoints, Form Fields ([components/FormFieldsManager.js](components/FormFieldsManager.js)), Home Page Content ([components/HomeContentManager.js](components/HomeContentManager.js) — schedule/highlights/faqs/hero/contact). Destructive deletes (events/tiers/media) require **re-entering the admin password**.
@@ -381,8 +397,9 @@ A second, human-verified completion path alongside online Razorpay.
 
 **Admin (session required; most `requireAdmin: true`):**
 - `POST /api/admin/login`, `POST /api/admin/logout`.
-- `GET /api/admin/data` — dashboard data (any role).
+- `GET /api/admin/data` — dashboard data (any role). Also returns a **`stats`** block (`donations`, `donationsTotal`, `checkedInRegs`) for the Dashboard tiles; each member is `null` unless the session holds `settings:manage` / `scanlog:view` respectively.
 - `PATCH /api/admin/registrations` — change status (`{id,status}`, rejects terminal/locked) OR edit personal/contact/custom fields (`{id,updates}`, allowed on any row).
+- `POST /api/admin/cancel-registration` — **admin only.** `{id, reason}` (reason required) → `cancelled`. Releases the seat, notifies the registrant, returns the tier's waitlist. **Never refunds** — see §11.
 - `POST /api/admin/refund` — Razorpay refund (full/partial); full → `refunded`.
 - `POST /api/admin/resend-confirmation` — re-send the confirmation email/WhatsApp for a completed reg.
 - `POST|PATCH|DELETE /api/admin/categories` — tiers (DELETE needs password).
@@ -446,6 +463,9 @@ pending ──capture(advance)► advance_paid ──balance paid──► compl
 pending ──fail──────────► failed
    any ──shortfall───────► amount_mismatch   (locked; heal via Sync/cron if not a real shortfall)
 completed ──refund───────► refunded
+
+   any ──admin Cancel────► cancelled         (seat released, pass void, NO refund, money row intact)
+   (not cancellable: cancelled / refunded / failed / closed)
 ```
 
 Offline pipeline (verified by admins, in the Registrations tab):
@@ -455,9 +475,9 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
                              └─ reject → payment_rejected (resubmit) ; completed → reverse → refunded
 ```
 
-- **Terminal/locked (not editable from the status dropdown):** `completed, failed, refunded, amount_mismatch, advance_paid, awaiting_payment, payment_review, cheque_received`.
+- **Terminal/locked (not editable from the status dropdown):** `completed, failed, refunded, amount_mismatch, advance_paid, awaiting_payment, payment_review, cheque_received, cancelled`.
 - **QR eligibility:** `completed` only.
-- **Capacity held by:** `completed` + `advance_paid` only (Paid + Partial Paid). Open enquiries and offline-pending (`payment_review/cheque_received/payment_rejected`) do NOT reserve seats.
+- **Capacity held by:** `completed` + `advance_paid` only (Paid + Partial Paid). Open enquiries, offline-pending (`payment_review/cheque_received/payment_rejected`) and `cancelled` do NOT reserve seats. **Every capacity count is an allowlist of statuses — keep it that way**, so a new "ended" status never accidentally holds a seat.
 - `amount_paid + amount_due` always equals `total_amount` (advance recorded; balance/enquiry link clears `amount_due` to 0).
 
 ---
@@ -490,6 +510,10 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
 
 Keep newest first. Add an entry for every meaningful change.
 
+- **2026-07-13**
+  - **Dashboard completion — Today's Registrations, Seva, Check-ins.** Three new stat tiles: **Today's Registrations** (local-midnight onward, with a `N paid · ₹X` sub-line; computed client-side from the already-loaded rows), **Seva Raised** (standalone `donations` total + count, clicks through to Settings → Donations) and **Checked In** (unique registrations scanned, as a % of paid, clicks through to Scan Log). The latter two need data outside the registrations array, so `GET /api/admin/data` now returns a **`stats`** block — and it is **permission-scoped**: `donations`/`donationsTotal` only for `settings:manage`, `checkedInRegs` only for `scanlog:view`. A role without the permission gets `null` and the tile is hidden, so the tile can't leak a total the role couldn't already reach through its own panel. `DashboardAnalytics` gained a third trend card, **Seva · last 14 days** (the grid goes 2-col → 3-col when donations are visible). ⚠️ Note the two distinct "donations": `registrations.donation_amount` (the add-on inside a registration, already in Sales by Category) vs. the `donations` table (the standalone Seva page) — the new tile and chart mean the latter, and the copy says so.
+  - **Cancel a registration (admin only, never a refund).** New `POST /api/admin/cancel-registration` + a **Cancel registration** button in the detail modal, new terminal status **`cancelled`**, a **🚫 Cancelled** section tab, and new `registrations.cancelled_at` / `cancellation_reason` columns. Design decisions, all deliberate: (1) **`requireAdmin: true`** — no volunteer permission grants it, not even `registrations:manage`, because cancelling destroys a seat-hold and voids a pass; (2) **a reason is mandatory** (server 400s without one) and lands on the row, in the audit log (`registration.cancel`), and in the customer's email; (3) **it never touches money** — `amount_paid`/`amount_due`/`razorpay_payment_id`/`offline_reference` are left as-is so the payment record survives, and returning money stays a separate explicit Refund/Reverse. The confirm dialog, the email ([notifyCancelled](lib/notify.js), which links the no-refund policy) and a banner on the cancelled row all state the no-refund fact plainly, since "cancel = my money comes back" is the one thing an operator or customer would wrongly assume. (4) **The seat releases itself** — every capacity count in the app is an *allowlist* of statuses and `cancelled` is in none of them, so **zero** capacity code changed. Keep future capacity counts allowlist-shaped. (5) On success the route hands back that tier's oldest-first `waiting` waitlist entries and the UI nudges the admin to notify the next person — previously the waitlist was a dead-end list with nothing to trigger it. Cancelling an already-ended row (`cancelled/refunded/failed/closed`) is rejected. **Action required:** re-run `supabase/run_all.sql` (adds the two columns + the new CHECK value).
+  - Fixed two stale facts in this doc: the admin nav is **6 tabs** (Scan Log was promoted long ago), and the read-only **`viewer` role no longer exists** — it's `admin` / `volunteer` with per-permission RBAC.
 - **2026-07-10 (later)**
   - **Retired the legacy `_hi` columns — `translations` JSONB is now the sole model.** With every read (`pick()`) and write (all editors) on the JSONB model, the old per-column `_hi` fields are dead weight, so they've been removed end-to-end. **SQL:** new **section 9c** in both `run_all.sql` + `schema.sql` `DROP COLUMN IF EXISTS` every `_hi` column across `events`, `categories`, `event_schedule`, `event_highlights`, `event_guests`, `event_faqs`, `form_fields`, and `page_content` — it runs **after** the 9b backfill (which already copied Hindi into `translations.hi`), so it's lossless and idempotent (the `ADD COLUMN`s earlier in the script briefly re-create them each run; 9b skips already-migrated rows; 9c drops them again). **Code:** stopped writing `_hi` everywhere — event/category/schedule/highlight/faq/guest/form-field routes (removed from whitelists/COLS), the four `HomeContentManager` add-forms, `FormFieldsManager`, `EventRow`/`CategoryRow` (dropped the legacy seed + mirror), and the admin **create-event** form (now sends Hindi via `translations.hi` built with `buildTranslations`). Removed the `_hi` fields from `app/admin/types.ts`, the `label_hi` output from `lib/formFieldsServer.js`, and the one admin-list preview that read `s.title_hi` (now `s.translations.hi.title`). `pick()`'s generic legacy fallback is kept as a harmless no-op. **Action required:** re-run `supabase/run_all.sql` on the live DB to perform the drop (safe to run anytime — it backfills first). Verified `tsc` clean + production build.
   - **Language switcher is now a dropdown** (`LangToggle` → a `<select>` driven by `LANGUAGES`) instead of the inline button group.

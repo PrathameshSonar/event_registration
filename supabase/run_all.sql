@@ -13,26 +13,16 @@
 -- 0a) ── Event date / venue columns ─────────────────────────────────────────
 ALTER TABLE events
     ADD COLUMN IF NOT EXISTS date_time    TEXT,
-    ADD COLUMN IF NOT EXISTS date_time_hi TEXT,
     ADD COLUMN IF NOT EXISTS venue        TEXT,
-    ADD COLUMN IF NOT EXISTS venue_hi     TEXT,
     ADD COLUMN IF NOT EXISTS map_url      TEXT;
 
 
--- 0b) ── Hindi language columns ─────────────────────────────────────────────
-ALTER TABLE page_content
-    ADD COLUMN IF NOT EXISTS title_hi TEXT,
-    ADD COLUMN IF NOT EXISTS description_text_hi TEXT;
-
-ALTER TABLE events
-    ADD COLUMN IF NOT EXISTS title_hi TEXT,
-    ADD COLUMN IF NOT EXISTS short_description_hi TEXT,
-    ADD COLUMN IF NOT EXISTS long_description_hi TEXT;
-
-ALTER TABLE categories
-    ADD COLUMN IF NOT EXISTS title_hi TEXT,
-    ADD COLUMN IF NOT EXISTS description_hi TEXT,
-    ADD COLUMN IF NOT EXISTS detailed_description_hi TEXT;
+-- 0b) ── (retired) Hindi "_hi" columns ──────────────────────────────────────
+-- Hindi (and every other language) now lives in the `translations` JSONB — see
+-- 9b/9c. We deliberately do NOT re-create the legacy "_hi" columns here: 9c drops
+-- them, so adding them back each run would just add-then-drop the same dead
+-- columns forever. A pre-migration DB still has its "_hi" columns with data, and
+-- 9b detects that and backfills before 9c drops them.
 
 
 -- 1) ── Per-category attendee cap ───────────────────────────────────────────
@@ -182,6 +172,13 @@ BEGIN
     ALTER TABLE admin_users ADD CONSTRAINT admin_users_role_check CHECK (role IN ('admin', 'volunteer'));
 END $$;
 
+-- Admin cancellation. Cancelling is deliberately NOT a refund: the money columns
+-- (amount_paid / razorpay ids) are left untouched so the payment record survives,
+-- and a refund — if one is ever owed — stays a separate, explicit action.
+ALTER TABLE registrations
+    ADD COLUMN IF NOT EXISTS cancelled_at         TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS cancellation_reason  TEXT;
+
 -- registrations.payment_status uses a new value 'advance_paid'. If a CHECK
 -- constraint limits the allowed values, this rebuilds it to include the full
 -- set. (No-op safe: drops the named constraint only if it exists, then adds it.)
@@ -198,7 +195,9 @@ BEGIN
             -- Enquiry pipeline: link sent & awaiting payment, and closed/lost lead.
             'awaiting_payment', 'closed',
             -- Offline payments: proof submitted / cheque in hand / proof rejected.
-            'payment_review', 'cheque_received', 'payment_rejected'
+            'payment_review', 'cheque_received', 'payment_rejected',
+            -- Admin-cancelled (seat released, money record preserved, no refund).
+            'cancelled'
         ));
 EXCEPTION
     -- If existing rows hold a status outside this set, skip rather than fail
@@ -386,7 +385,6 @@ CREATE TABLE IF NOT EXISTS form_fields (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     field_key   TEXT NOT NULL UNIQUE,
     label       TEXT NOT NULL,
-    label_hi    TEXT,
     field_type  TEXT NOT NULL DEFAULT 'text',
     options     JSONB,
     is_custom   BOOLEAN DEFAULT false,
@@ -433,10 +431,8 @@ CREATE TABLE IF NOT EXISTS event_schedule (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_id     UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     day_label    TEXT,
-    day_label_hi TEXT,
     time_label   TEXT,
     title        TEXT NOT NULL,
-    title_hi     TEXT,
     sort_order   INTEGER DEFAULT 0,
     created_at   TIMESTAMPTZ DEFAULT now()
 );
@@ -447,9 +443,7 @@ CREATE TABLE IF NOT EXISTS event_highlights (
     event_id       UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     icon           TEXT DEFAULT '🪔',
     title          TEXT NOT NULL,
-    title_hi       TEXT,
     description    TEXT,
-    description_hi TEXT,
     sort_order     INTEGER DEFAULT 0,
     created_at     TIMESTAMPTZ DEFAULT now()
 );
@@ -463,12 +457,9 @@ CREATE TABLE IF NOT EXISTS event_guests (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_id   UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     name       TEXT NOT NULL,
-    name_hi    TEXT,
     role       TEXT,
-    role_hi    TEXT,
     photo_url  TEXT,
     bio        TEXT,
-    bio_hi     TEXT,
     sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT now()
 );
@@ -481,10 +472,9 @@ ALTER TABLE events
     ADD COLUMN IF NOT EXISTS hero_image_url TEXT;
 
 -- "Plan Your Visit" — how to reach / parking / accommodation, shown on the
--- homepage near the venue map. Optional, bilingual.
+-- homepage near the venue map. Optional; translated via `translations`.
 ALTER TABLE events
-    ADD COLUMN IF NOT EXISTS travel_info    TEXT,
-    ADD COLUMN IF NOT EXISTS travel_info_hi TEXT;
+    ADD COLUMN IF NOT EXISTS travel_info    TEXT;
 
 
 -- 9) ── FAQ accordion + reminder opt-ins ────────────────────────────────────
@@ -492,9 +482,7 @@ CREATE TABLE IF NOT EXISTS event_faqs (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_id    UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     question    TEXT NOT NULL,
-    question_hi TEXT,
     answer      TEXT NOT NULL,
-    answer_hi   TEXT,
     sort_order  INTEGER DEFAULT 0,
     created_at  TIMESTAMPTZ DEFAULT now()
 );
@@ -529,44 +517,88 @@ ALTER TABLE event_guests     ADD COLUMN IF NOT EXISTS translations JSONB DEFAULT
 ALTER TABLE event_faqs       ADD COLUMN IF NOT EXISTS translations JSONB DEFAULT '{}'::jsonb;
 ALTER TABLE form_fields      ADD COLUMN IF NOT EXISTS translations JSONB DEFAULT '{}'::jsonb;
 
-UPDATE events SET translations = jsonb_set(COALESCE(translations, '{}'::jsonb), '{hi}',
-    jsonb_strip_nulls(jsonb_build_object(
-        'title', title_hi, 'short_description', short_description_hi, 'long_description', long_description_hi,
-        'date_time', date_time_hi, 'venue', venue_hi, 'travel_info', travel_info_hi)))
-WHERE translations->'hi' IS NULL
-  AND (title_hi IS NOT NULL OR short_description_hi IS NOT NULL OR long_description_hi IS NOT NULL
-       OR date_time_hi IS NOT NULL OR venue_hi IS NOT NULL OR travel_info_hi IS NOT NULL);
-
-UPDATE categories SET translations = jsonb_set(COALESCE(translations, '{}'::jsonb), '{hi}',
-    jsonb_strip_nulls(jsonb_build_object(
-        'title', title_hi, 'description', description_hi, 'detailed_description', detailed_description_hi)))
-WHERE translations->'hi' IS NULL
-  AND (title_hi IS NOT NULL OR description_hi IS NOT NULL OR detailed_description_hi IS NOT NULL);
-
-UPDATE event_schedule SET translations = jsonb_set(COALESCE(translations, '{}'::jsonb), '{hi}',
-    jsonb_strip_nulls(jsonb_build_object('day_label', day_label_hi, 'title', title_hi)))
-WHERE translations->'hi' IS NULL
-  AND (day_label_hi IS NOT NULL OR title_hi IS NOT NULL);
-
-UPDATE event_highlights SET translations = jsonb_set(COALESCE(translations, '{}'::jsonb), '{hi}',
-    jsonb_strip_nulls(jsonb_build_object('title', title_hi, 'description', description_hi)))
-WHERE translations->'hi' IS NULL
-  AND (title_hi IS NOT NULL OR description_hi IS NOT NULL);
-
-UPDATE event_guests SET translations = jsonb_set(COALESCE(translations, '{}'::jsonb), '{hi}',
-    jsonb_strip_nulls(jsonb_build_object('name', name_hi, 'role', role_hi, 'bio', bio_hi)))
-WHERE translations->'hi' IS NULL
-  AND (name_hi IS NOT NULL OR role_hi IS NOT NULL OR bio_hi IS NOT NULL);
-
-UPDATE event_faqs SET translations = jsonb_set(COALESCE(translations, '{}'::jsonb), '{hi}',
-    jsonb_strip_nulls(jsonb_build_object('question', question_hi, 'answer', answer_hi)))
-WHERE translations->'hi' IS NULL
-  AND (question_hi IS NOT NULL OR answer_hi IS NOT NULL);
-
-UPDATE form_fields SET translations = jsonb_set(COALESCE(translations, '{}'::jsonb), '{hi}',
-    jsonb_strip_nulls(jsonb_build_object('label', label_hi)))
-WHERE translations->'hi' IS NULL
-  AND label_hi IS NOT NULL;
+-- ⚠️ These backfills MUST be guarded on the legacy column still existing.
+-- Section 9c below DROPs the "_hi" columns, and only events/categories/page_content
+-- get theirs re-created by an ADD COLUMN IF NOT EXISTS earlier in this script — the
+-- other five tables declare theirs inside CREATE TABLE IF NOT EXISTS, which is a
+-- no-op once the table exists. So on a second run those columns are gone for good,
+-- and an unguarded `UPDATE ... SET x = day_label_hi` fails to even parse.
+-- Each table's "_hi" columns are dropped together in one ALTER, so checking one
+-- representative column per table is enough. Runs the backfill on a pre-migration
+-- DB, skips silently on an already-migrated one.
+DO $mig$
+DECLARE
+    legacy CONSTANT jsonb := jsonb_build_object(
+        'events',           'title_hi',
+        'categories',       'title_hi',
+        'event_schedule',   'day_label_hi',
+        'event_highlights', 'title_hi',
+        'event_guests',     'name_hi',
+        'event_faqs',       'question_hi',
+        'form_fields',      'label_hi'
+    );
+    backfill CONSTANT jsonb := jsonb_build_object(
+        'events', $sql$
+            UPDATE events SET translations = jsonb_set(COALESCE(translations, '{}'::jsonb), '{hi}',
+                jsonb_strip_nulls(jsonb_build_object(
+                    'title', title_hi, 'short_description', short_description_hi, 'long_description', long_description_hi,
+                    'date_time', date_time_hi, 'venue', venue_hi, 'travel_info', travel_info_hi)))
+            WHERE translations->'hi' IS NULL
+              AND (title_hi IS NOT NULL OR short_description_hi IS NOT NULL OR long_description_hi IS NOT NULL
+                   OR date_time_hi IS NOT NULL OR venue_hi IS NOT NULL OR travel_info_hi IS NOT NULL)
+        $sql$,
+        'categories', $sql$
+            UPDATE categories SET translations = jsonb_set(COALESCE(translations, '{}'::jsonb), '{hi}',
+                jsonb_strip_nulls(jsonb_build_object(
+                    'title', title_hi, 'description', description_hi, 'detailed_description', detailed_description_hi)))
+            WHERE translations->'hi' IS NULL
+              AND (title_hi IS NOT NULL OR description_hi IS NOT NULL OR detailed_description_hi IS NOT NULL)
+        $sql$,
+        'event_schedule', $sql$
+            UPDATE event_schedule SET translations = jsonb_set(COALESCE(translations, '{}'::jsonb), '{hi}',
+                jsonb_strip_nulls(jsonb_build_object('day_label', day_label_hi, 'title', title_hi)))
+            WHERE translations->'hi' IS NULL
+              AND (day_label_hi IS NOT NULL OR title_hi IS NOT NULL)
+        $sql$,
+        'event_highlights', $sql$
+            UPDATE event_highlights SET translations = jsonb_set(COALESCE(translations, '{}'::jsonb), '{hi}',
+                jsonb_strip_nulls(jsonb_build_object('title', title_hi, 'description', description_hi)))
+            WHERE translations->'hi' IS NULL
+              AND (title_hi IS NOT NULL OR description_hi IS NOT NULL)
+        $sql$,
+        'event_guests', $sql$
+            UPDATE event_guests SET translations = jsonb_set(COALESCE(translations, '{}'::jsonb), '{hi}',
+                jsonb_strip_nulls(jsonb_build_object('name', name_hi, 'role', role_hi, 'bio', bio_hi)))
+            WHERE translations->'hi' IS NULL
+              AND (name_hi IS NOT NULL OR role_hi IS NOT NULL OR bio_hi IS NOT NULL)
+        $sql$,
+        'event_faqs', $sql$
+            UPDATE event_faqs SET translations = jsonb_set(COALESCE(translations, '{}'::jsonb), '{hi}',
+                jsonb_strip_nulls(jsonb_build_object('question', question_hi, 'answer', answer_hi)))
+            WHERE translations->'hi' IS NULL
+              AND (question_hi IS NOT NULL OR answer_hi IS NOT NULL)
+        $sql$,
+        'form_fields', $sql$
+            UPDATE form_fields SET translations = jsonb_set(COALESCE(translations, '{}'::jsonb), '{hi}',
+                jsonb_strip_nulls(jsonb_build_object('label', label_hi)))
+            WHERE translations->'hi' IS NULL
+              AND label_hi IS NOT NULL
+        $sql$
+    );
+    tbl TEXT;
+BEGIN
+    FOR tbl IN SELECT k FROM jsonb_object_keys(legacy) AS k LOOP
+        IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name   = tbl
+              AND column_name  = legacy->>tbl
+        ) THEN
+            EXECUTE backfill->>tbl;
+            RAISE NOTICE 'Backfilled translations.hi from the legacy _hi columns on %', tbl;
+        END IF;
+    END LOOP;
+END $mig$;
 
 -- 9c) ── Retire the legacy "_hi" columns ─────────────────────────────────────
 -- The app now reads/writes Hindi (and every other language) exclusively via the

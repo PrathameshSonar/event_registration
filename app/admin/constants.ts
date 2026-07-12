@@ -3,13 +3,16 @@
 import type { PaymentStatus } from './types';
 
 // Money-terminal states are locked: they cannot be edited from the dashboard.
-export const TERMINAL_STATUSES: PaymentStatus[] = ['completed', 'failed', 'refunded', 'amount_mismatch', 'advance_paid', 'awaiting_payment', 'payment_review', 'cheque_received'];
+// 'cancelled' is locked too — it's only reachable via the admin-only Cancel
+// action, which demands a reason and notifies the registrant.
+export const TERMINAL_STATUSES: PaymentStatus[] = ['completed', 'failed', 'refunded', 'amount_mismatch', 'advance_paid', 'awaiting_payment', 'payment_review', 'cheque_received', 'cancelled'];
 
 export const STATUS_LABEL: Record<PaymentStatus, string> = {
     completed: '✔ Paid', enquired: '💬 Enquired', contacted: '📞 Contacted',
     pending: '⏳ Pending', failed: '✖ Failed', refunded: '⏪ Refunded', amount_mismatch: '⚠ Amount Mismatch',
     advance_paid: '◐ Advance Paid', awaiting_payment: '⌛ Payment Link Sent', closed: '⊘ Closed/Lost',
     payment_review: '🔎 To Verify', cheque_received: '🧾 Cheque Pending', payment_rejected: '⛔ Rejected',
+    cancelled: '🚫 Cancelled',
 };
 
 // Short labels for the payment mode shown on each row (online rows have no
@@ -34,6 +37,7 @@ export const REGISTRATION_SECTIONS: { key: string; label: string }[] = [
     { key: 'amount_mismatch', label: '⚠ Amount Mismatch' },
     { key: 'payment_rejected', label: '⛔ Rejected' },
     { key: 'failed', label: '✖ Failed' },
+    { key: 'cancelled', label: '🚫 Cancelled' },
     { key: 'refunded', label: '⏪ Refunded' },
 ];
 
@@ -51,6 +55,7 @@ export function statusClasses(status: PaymentStatus) {
         case 'payment_review': return 'bg-indigo-100 text-indigo-700 border-indigo-200';
         case 'cheque_received': return 'bg-cyan-100 text-cyan-700 border-cyan-200';
         case 'payment_rejected': return 'bg-rose-100 text-rose-700 border-rose-200';
+        case 'cancelled': return 'bg-neutral-800 text-white border-neutral-800';
         default: return 'bg-neutral-200 text-neutral-700 border-neutral-300';
     }
 }
