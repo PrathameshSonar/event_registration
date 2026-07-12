@@ -34,6 +34,7 @@ import BroadcastModal from '@/components/BroadcastModal';
 import ImageUpload from '@/components/ImageUpload';
 import CategoryRow from '@/components/admin/CategoryRow';
 import EventRow from '@/components/admin/EventRow';
+import TranslatableField from '@/components/admin/TranslatableField';
 import RegistrationDetailModal from '@/components/admin/RegistrationDetailModal';
 import { toast, confirmDialog, promptDialog } from '@/lib/uiStore';
 import { downloadRegistrationsCsv, downloadRegistrationsExcel, printReceiptsPdf, downloadFinancialStatement } from '@/lib/adminExports';
@@ -74,14 +75,16 @@ export default function AdminDashboard() {
     const [newEventTitle, setNewEventTitle] = useState('');
     const [newEventShort, setNewEventShort] = useState('');
     const [newEventLong, setNewEventLong] = useState('');
-    const [newEventTitleHi, setNewEventTitleHi] = useState('');
-    const [newEventShortHi, setNewEventShortHi] = useState('');
-    const [newEventLongHi, setNewEventLongHi] = useState('');
     const [newEventDate, setNewEventDate] = useState('');
-    const [newEventDateHi, setNewEventDateHi] = useState('');
     const [newEventVenue, setNewEventVenue] = useState('');
-    const [newEventVenueHi, setNewEventVenueHi] = useState('');
     const [newEventMapUrl, setNewEventMapUrl] = useState('');
+    // Every non-English language at once, keyed { [lang]: { [field]: value } } —
+    // driven by LANGUAGES in lib/i18n, so adding a language grows this form on its
+    // own. (It used to hardcode Hindi-only fields, which is why a new event could
+    // never be given Marathi without re-opening it to edit.)
+    const [newEventTr, setNewEventTr] = useState<Record<string, Record<string, string>>>({});
+    const setEventTr = (lang: string, field: string, v: string) =>
+        setNewEventTr(prev => ({ ...prev, [lang]: { ...(prev[lang] || {}), [field]: v } }));
     const [mediaUrl, setMediaUrl] = useState('');
     const [mediaType, setMediaType] = useState<'image' | 'youtube'>('image');
     const [mediaCaption, setMediaCaption] = useState('');
@@ -244,27 +247,28 @@ export default function AdminDashboard() {
 
     // ----- Events -----
     const handleCreateEvent = async (e: React.FormEvent) => {
-        e.preventDefault(); setSaving(true);
+        e.preventDefault();
+        // TranslatableField has no `required` prop, so the English base fields
+        // (which the old raw inputs marked required) are validated here instead.
+        if (!newEventTitle.trim() || !newEventShort.trim() || !newEventLong.trim()) {
+            toast.error('Event title, short description and long description are required (in English).');
+            return;
+        }
+        setSaving(true);
         const { ok, data } = await mutate('/api/admin/events', 'POST', {
             title: newEventTitle, short_description: newEventShort, long_description: newEventLong,
             date_time: newEventDate || null, venue: newEventVenue || null,
             map_url: newEventMapUrl || null,
-            // Hindi entered at create time goes straight into the translations JSONB.
-            translations: buildTranslations({
-                hi: {
-                    title: newEventTitleHi, short_description: newEventShortHi, long_description: newEventLongHi,
-                    date_time: newEventDateHi, venue: newEventVenueHi,
-                },
-            }),
+            // Every non-English language entered at create time goes straight into
+            // the translations JSONB (buildTranslations drops blank fields).
+            translations: buildTranslations(newEventTr),
             makeActive: eventsList.length === 0,
         });
         if (!ok) toast.error(data.error || 'Failed to create event.');
         else {
             setNewEventTitle(''); setNewEventShort(''); setNewEventLong('');
-            setNewEventTitleHi(''); setNewEventShortHi(''); setNewEventLongHi('');
-            setNewEventDate(''); setNewEventDateHi('');
-            setNewEventVenue(''); setNewEventVenueHi('');
-            setNewEventMapUrl('');
+            setNewEventDate(''); setNewEventVenue(''); setNewEventMapUrl('');
+            setNewEventTr({});
             await fetchAllData();
         }
         setSaving(false);
@@ -1204,26 +1208,16 @@ export default function AdminDashboard() {
                                     <h2 className="text-2xl font-bold mb-6 border-b border-neutral-200 pb-4 text-neutral-900">Yearly Event Management</h2>
                                     <form onSubmit={handleCreateEvent} className="bg-neutral-50 p-6 rounded-xl border border-neutral-200 mb-8 space-y-4">
                                         <h3 className="font-bold text-sm uppercase tracking-wider text-neutral-700 mb-2">Create New Event</h3>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                            <input type="text" placeholder="Event Title (English)" value={newEventTitle} onChange={(e) => setNewEventTitle(e.target.value)} className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600 text-sm" required />
-                                            <input type="text" placeholder="कार्यक्रम शीर्षक (हिंदी)" value={newEventTitleHi} onChange={(e) => setNewEventTitleHi(e.target.value)} className="w-full px-4 py-2 border border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm" />
+                                        {/* Config-driven: TranslatableField renders the English input plus one
+                                            per non-English language in LANGUAGES (lib/i18n) — so Marathi (and any
+                                            future language) appears here automatically, exactly as in the edit row. */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <TranslatableField label="Event Title" field="title" value={newEventTitle} onValue={setNewEventTitle} tr={newEventTr} onTr={setEventTr} placeholder="e.g. BaglaBhairav Mahotsav 2027" />
+                                            <TranslatableField label="Venue" field="venue" value={newEventVenue} onValue={setNewEventVenue} tr={newEventTr} onTr={setEventTr} placeholder="e.g. Nashik, Maharashtra" />
                                         </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                            <textarea placeholder="Short Description (English)" value={newEventShort} onChange={(e) => setNewEventShort(e.target.value)} className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600 resize-none text-sm" rows={2} required />
-                                            <textarea placeholder="संक्षिप्त विवरण (हिंदी)" value={newEventShortHi} onChange={(e) => setNewEventShortHi(e.target.value)} className="w-full px-4 py-2 border border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 resize-none text-sm" rows={2} />
-                                        </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                            <textarea placeholder="Long Description (English)" value={newEventLong} onChange={(e) => setNewEventLong(e.target.value)} className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600 resize-none text-sm h-24" required />
-                                            <textarea placeholder="विस्तृत विवरण (हिंदी)" value={newEventLongHi} onChange={(e) => setNewEventLongHi(e.target.value)} className="w-full px-4 py-2 border border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 resize-none text-sm h-24" />
-                                        </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                            <input type="text" placeholder="Event Date / Duration (e.g. March 15-17, 2026)" value={newEventDate} onChange={(e) => setNewEventDate(e.target.value)} className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600 text-sm" />
-                                            <input type="text" placeholder="तारीख / अवधि (हिंदी)" value={newEventDateHi} onChange={(e) => setNewEventDateHi(e.target.value)} className="w-full px-4 py-2 border border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm" />
-                                        </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                            <input type="text" placeholder="Venue (e.g. Nashik, Maharashtra)" value={newEventVenue} onChange={(e) => setNewEventVenue(e.target.value)} className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600 text-sm" />
-                                            <input type="text" placeholder="स्थान (हिंदी)" value={newEventVenueHi} onChange={(e) => setNewEventVenueHi(e.target.value)} className="w-full px-4 py-2 border border-blue-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm" />
-                                        </div>
+                                        <TranslatableField label="Short Description" field="short_description" value={newEventShort} onValue={setNewEventShort} tr={newEventTr} onTr={setEventTr} multiline rows={2} />
+                                        <TranslatableField label="Long Description" field="long_description" value={newEventLong} onValue={setNewEventLong} tr={newEventTr} onTr={setEventTr} multiline rows={4} />
+                                        <TranslatableField label="Event Date / Duration" field="date_time" value={newEventDate} onValue={setNewEventDate} tr={newEventTr} onTr={setEventTr} placeholder="e.g. March 15-17, 2027" />
                                         <input type="url" placeholder="Google Maps Link (optional)" value={newEventMapUrl} onChange={(e) => setNewEventMapUrl(e.target.value)} className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600 text-sm" />
                                         <button type="submit" disabled={saving} className="bg-neutral-900 hover:bg-orange-600 text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition">Deploy Event</button>
                                     </form>

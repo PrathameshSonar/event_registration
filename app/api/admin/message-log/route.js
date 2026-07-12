@@ -122,7 +122,7 @@ export async function POST(request) {
     });
 
     if (!ok) {
-        return NextResponse.json({ error: 'The message failed again. Check the channel config (Resend / WhatsApp) and the recipient.' }, { status: 502 });
+        return NextResponse.json({ error: 'The message failed again. Check the email / WhatsApp configuration and the recipient address.' }, { status: 502 });
     }
     return NextResponse.json({ ok: true });
 }

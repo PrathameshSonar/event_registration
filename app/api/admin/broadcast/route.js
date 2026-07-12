@@ -3,7 +3,7 @@
 // Requires the reminders:send permission (admin always passes).
 //   POST { segment, categoryId?, channels:{email,whatsapp}, subject, body }
 //   segment ∈ paid | tier | advance | enquiries | not_arrived
-// Email is free-form (Resend). WhatsApp requires a pre-approved template (Meta
+// Email is free-form. WhatsApp requires a pre-approved template (Meta
 // policy forbids free-form broadcasts); we use the WHATSAPP_ANNOUNCE_TEMPLATE
 // template with the body as its single parameter — if it isn't configured/approved
 // those sends fail gracefully and are counted, while email still goes out.

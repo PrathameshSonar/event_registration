@@ -85,7 +85,7 @@ All in `.env.example`. `NEXT_PUBLIC_*` are exposed to the browser; everything el
 | `SUPABASE_SERVICE_ROLE_KEY` | **Server-only.** Full DB access, bypasses RLS |
 | `NEXT_PUBLIC_RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Razorpay API |
 | `RAZORPAY_WEBHOOK_SECRET` | Verifies webhook HMAC signature |
-| `RESEND_API_KEY` / `RESEND_FROM` | Email sending (verified domain) |
+| `EMAIL_API_KEY` / `EMAIL_FROM` | Email sending (verified domain sender). **Provider-neutral** — the provider itself is isolated in [lib/email.js](lib/email.js). Legacy `RESEND_API_KEY` / `RESEND_FROM` still work as a fallback. |
 | `WHATSAPP_API_URL` / `WHATSAPP_ACCESS_TOKEN` | WhatsApp Cloud API (optional) |
 | `SCANNER_PIN` | PIN for `/scan` staff |
 | `SESSION_SECRET` | Signs admin session JWT (`openssl rand -base64 32`) |
@@ -459,6 +459,8 @@ Every admin route uses `authorize()` from [lib/adminGuard.js](lib/adminGuard.js)
 | `adminGuard.js` | `authorize({requireAdmin})`, `verifyAdminPassword()` |
 | `razorpayClient.js` | Shared lazy Razorpay client singleton |
 | `payments.js` | **Money transitions + reconciliation** (see §8–9) |
+| `email.js` | Central email: `sendEmail()`, `emailShell()`, `EMAIL_FROM`, `emailConfigured()`. **The ONLY file that knows the email provider** — see the swap note below. |
+| `whatsapp.js` | Central WhatsApp: template registry + `sendWhatsAppTemplate/Text/Image`, `waConfigured()` |
 | `ticket.js` | `dispatchTicket()` confirmation email + WhatsApp |
 | `auditLog.js` | `logAudit()` fire-and-forget writer |
 | `messageLog.js` | `logMessage()` fire-and-forget outbound-message writer (**server-only** — imports supabaseAdmin) |
@@ -468,7 +470,17 @@ Every admin route uses `authorize()` from [lib/adminGuard.js](lib/adminGuard.js)
 | `formFields.js` | Built-in field metadata (client+server safe) |
 | `formFieldsServer.js` | Resolve/validate fields per category (server) |
 | `youtube.js` | YouTube thumbnail/embed helpers |
-| `lang/en.js`, `lang/hi.js` | Translations |
+| `lang/en.js`, `lang/hi.js`, `lang/mr.js` | Translations (EN / HI / MR) |
+
+### Swapping the email provider
+
+Email is **fully centralised**: the `resend` SDK is imported in exactly one file, and all 11 callers go through `sendEmail({ to, subject, html })`. To move to SES / Postmark / SendGrid / anything else:
+
+1. Rewrite **`deliver()`** in [lib/email.js](lib/email.js) — the single provider-specific function. It takes `{ to, subject, html }` and returns `{ ok, error }`.
+2. Swap the SDK import at the top of that file, and the dependency in `package.json`.
+3. Point `EMAIL_API_KEY` / `EMAIL_FROM` at the new provider.
+
+**No call site changes.** `sendEmail()`'s signature, its boolean return, `emailShell()`, and the `message_log` write are all provider-neutral — and **no email in this app uses attachments, cc, bcc, or reply-to**, which are the fields where provider APIs actually diverge. The env vars are provider-neutral too, and the Data Health launch check asks `emailConfigured()` rather than naming a vendor, so it can't go falsely red after a swap.
 
 ---
 
@@ -539,6 +551,8 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
 Keep newest first. Add an entry for every meaningful change.
 
 - **2026-07-13 (later)**
+  - **🐛 Fixed: the Create New Event form was Hindi-only — new events could never be given Marathi.** Every other admin editor (`EventRow`, `CategoryRow`, `HomeContentManager`, `FormFieldsManager`) already used the config-driven [TranslatableField](components/admin/TranslatableField.tsx), which renders one input per non-English entry in `LANGUAGES`. The **create-event** form in `app/admin/page.tsx` was the one straggler: it hardcoded five Hindi-only fields (`newEventTitleHi`, `newEventShortHi`, …) with `(हिंदी)` placeholders, so a newly-created event had to be re-opened and edited before Marathi could be entered at all. It now uses `TranslatableField` over a single `newEventTr` state (`{ [lang]: { [field]: value } }`) fed straight to `buildTranslations()`. **Marathi — and any future language — now appears automatically, everywhere.** (English title/short/long were `required` on the old raw inputs; `TranslatableField` has no `required` prop, so that validation moved into `handleCreateEvent`.) Verified: no hardcoded `_hi` inputs remain anywhere in `app/` or `components/`.
+  - **Email is now provider-neutral (one-file swap).** The `resend` SDK is imported in exactly ONE place and all 11 callers go through `sendEmail({to,subject,html})`, so switching provider is a one-file change — but three incidental spots still *named* Resend and would have rotted after a swap. Fixed: the provider call is isolated into a single **`deliver()`** function in [lib/email.js](lib/email.js) (takes `{to,subject,html}` → `{ok,error}`); env vars are now **`EMAIL_API_KEY` / `EMAIL_FROM`**, with the legacy `RESEND_*` names still honoured as a fallback so existing deployments keep working untouched; and the Data Health launch check now asks `emailConfigured()` instead of reading `process.env.RESEND_API_KEY` by name (it would otherwise have gone falsely red after a swap). Vendor names are out of user-facing strings too. See the swap runbook in §18. Notably **no email uses attachments / cc / bcc / reply-to** — the fields where provider APIs actually diverge — so there is no provider-specific shape to port.
   - **🐛 Fixed: `run_all.sql` was not idempotent — a second run crashed** with `ERROR: column "day_label_hi" does not exist`. The 2026-07-10 entry below claimed "the `ADD COLUMN`s earlier in the script briefly re-create [the `_hi` columns] each run" — **that was only true for 3 of the 8 tables.** `events`/`categories`/`page_content` get their `_hi` columns back from an `ADD COLUMN IF NOT EXISTS` in sections 0a/0b, but `event_schedule`, `event_highlights`, `event_guests`, `event_faqs` and `form_fields` declared theirs **inside `CREATE TABLE IF NOT EXISTS`**, which is a **no-op once the table exists**. So after section 9c dropped them on the first run, they were gone for good, and 9b's unguarded `UPDATE … SET x = day_label_hi` failed to even parse on the next run. **Fix:** 9b's backfills are now wrapped in a `DO $mig$` block that checks `information_schema.columns` and only `EXECUTE`s the backfill for tables whose legacy column still exists (each table's `_hi` columns are dropped together in one `ALTER`, so one representative column per table is a sound check). It backfills on a pre-migration DB and skips silently on a migrated one. Also removed the dead add-then-drop churn: the `_hi` columns are no longer created in 0a/0b or in the `CREATE TABLE`s, so a fresh DB never makes them just to drop them. Same fix mirrored in `schema.sql`. **Lesson: `CREATE TABLE IF NOT EXISTS` does NOT add columns to an existing table — never rely on it to re-create one.**
   - **Phase 6 — Sponsors, anonymous donations, message log.**
     - **Sponsors** — new `sponsors` table + `GET|POST|PATCH|DELETE /api/admin/sponsors` (`settings:manage`) + Settings → **Sponsors** ([components/SponsorsManager.js](components/SponsorsManager.js)): name, tier (Title/Gold/…), amount, logo (URL or upload), contact, notes, with a total-committed tile. Deliberately **admin-recorded only** — no public sponsor form, no Razorpay (a company committing a large sponsorship does not self-serve through a checkout) — and **not shown on the public site**.
