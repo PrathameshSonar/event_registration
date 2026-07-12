@@ -26,7 +26,8 @@ export default function DonationsManager() {
     const exportCsv = () => {
         const completed = data.donations.filter((d) => d.status === "completed");
         const head = ["Name", "Phone", "Email", "Amount", "Message", "Date"];
-        const rows = completed.map((d) => [d.name, d.phone || "", d.email || "", d.amount, (d.message || "").replace(/"/g, "'"), fmt(d.created_at)]);
+        // An anonymous donor's name was never stored, so there is nothing to export.
+        const rows = completed.map((d) => [d.is_anonymous ? "Anonymous" : (d.name || ""), d.phone || "", d.email || "", d.amount, (d.message || "").replace(/"/g, "'"), fmt(d.created_at)]);
         const csv = [head, ...rows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
         const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
         const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `BaglaBhairav_Seva_${new Date().toISOString().split("T")[0]}.csv`; a.click();
@@ -59,7 +60,12 @@ export default function DonationsManager() {
                             <tr><td colSpan={5} className="px-4 py-8 text-center text-neutral-400">No donations yet.</td></tr>
                         ) : data.donations.map((d) => (
                             <tr key={d.id} className="hover:bg-neutral-50">
-                                <td className="px-4 py-2.5"><span className="font-semibold text-neutral-900">{d.name}</span><span className="block text-xs text-neutral-400">{d.phone}{d.email ? ` · ${d.email}` : ""}</span></td>
+                                <td className="px-4 py-2.5">
+                                    {d.is_anonymous
+                                        ? <span className="font-semibold text-neutral-500 italic">🕶️ Anonymous</span>
+                                        : <span className="font-semibold text-neutral-900">{d.name || "—"}</span>}
+                                    <span className="block text-xs text-neutral-400">{d.phone}{d.email ? ` · ${d.email}` : ""}</span>
+                                </td>
                                 <td className="px-4 py-2.5 font-bold text-neutral-900">₹{Number(d.amount).toLocaleString("en-IN")}</td>
                                 <td className="px-4 py-2.5 text-neutral-500 text-xs max-w-[200px] truncate">{d.message || "—"}</td>
                                 <td className="px-4 py-2.5">

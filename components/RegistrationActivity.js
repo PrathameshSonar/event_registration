@@ -1,8 +1,9 @@
 // components/RegistrationActivity.js
 // A merged, newest-first timeline for a single registration: every admin action
-// (from the audit log) plus every contact note. Shown inside the detail modal so
-// you can see one person's whole story — payment, edits, QR sends, notes — in one
-// place. Read-only; loads on mount.
+// (from the audit log), every contact note, and every outbound message we sent
+// them. Shown inside the detail modal so you can see one person's whole story —
+// payment, edits, QR sends, notes, and whether their email/WhatsApp actually
+// landed — in one place. Read-only; loads on mount.
 "use client";
 
 import { useEffect, useState } from "react";
@@ -10,6 +11,10 @@ import { Clock, RefreshCw } from "lucide-react";
 
 const ACTION_DOT = (action) => {
     if (action === "note") return "bg-blue-400";
+    // A failed delivery should read as loudly as a destructive action.
+    if (action === "message.failed") return "bg-rose-500";
+    if (action === "message.sent") return "bg-sky-400";
+    if (action === "cancel" || action.includes("cancel")) return "bg-neutral-800";
     if (action.startsWith("payment") || action.includes("refund") || action.includes("balance")) return "bg-green-500";
     if (action.includes("status")) return "bg-amber-500";
     if (action.includes("reminder")) return "bg-orange-500";

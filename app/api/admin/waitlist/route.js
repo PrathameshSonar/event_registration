@@ -60,11 +60,12 @@ export async function POST(request) {
                 <p><a href="${link}" style="display:inline-block;background:#ea580c;color:#fff;font-weight:700;padding:12px 24px;border-radius:8px;text-decoration:none;">Register now</a></p>
                 <p style="font-size:12px;color:#9ca3af;">This spot is first-come — the link may stop working once seats fill.</p>
             `),
+            log: { kind: 'waitlist' },
         });
     }
     if (row.phone) {
         // Params: [name, tier, registerLink]
-        waSent = await sendWhatsAppTemplate(row.phone, WHATSAPP_TEMPLATES.waitlistOpen, [row.name, tier, link]);
+        waSent = await sendWhatsAppTemplate(row.phone, WHATSAPP_TEMPLATES.waitlistOpen, [row.name, tier, link], { kind: 'waitlist' });
     }
 
     await supabaseAdmin.from('waitlist').update({ status: 'notified', notified_at: new Date().toISOString() }).eq('id', id);

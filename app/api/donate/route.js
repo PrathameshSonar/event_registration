@@ -17,10 +17,14 @@ export async function POST(request) {
         return NextResponse.json({ error: 'Payment gateway not configured.' }, { status: 500 });
     }
 
-    const { name, phone, email, amount, message } = await request.json().catch(() => ({}));
-    const cleanName = String(name || '').replace(/<[^>]*>/g, '').trim();
+    const { name, phone, email, amount, message, isAnonymous } = await request.json().catch(() => ({}));
+    // An anonymous donor gives without their name being recorded at all — so the
+    // name isn't just hidden, it's never stored. Contact details are still kept
+    // (and still optional) so the receipt can be emailed.
+    const anonymous = isAnonymous === true;
+    const cleanName = anonymous ? null : String(name || '').replace(/<[^>]*>/g, '').trim();
     const amt = Math.floor(Number(amount) || 0);
-    if (!cleanName) return bad('Please enter your name.');
+    if (!anonymous && !cleanName) return bad('Please enter your name, or choose to give anonymously.');
     if (!(amt >= MIN) || amt > MAX) return bad(`Enter an amount between ₹${MIN} and ₹${MAX.toLocaleString('en-IN')}.`);
     const cleanEmail = String(email || '').toLowerCase().trim();
     if (cleanEmail && !/^\S+@\S+\.\S+$/.test(cleanEmail)) return bad('Enter a valid email address.');
@@ -40,6 +44,7 @@ export async function POST(request) {
     const { data: row, error } = await supabaseAdmin.from('donations').insert({
         name: cleanName, phone: cleanPhone || null, email: cleanEmail || null,
         amount: amt, message: cleanMsg || null, razorpay_order_id: order.id,
+        is_anonymous: anonymous,
     }).select('id').single();
     if (error) {
         console.error('Donation insert failed:', error.message);

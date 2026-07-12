@@ -33,7 +33,7 @@ export async function POST(request) {
 
     const link = `${siteUrl()}/feedback`;
     const { data: regs } = await supabaseAdmin
-        .from('registrations').select('first_name, last_name, email, phone')
+        .from('registrations').select('id, first_name, last_name, email, phone')
         .eq('payment_status', 'completed').limit(MAX_BATCH + 1);
 
     // Dedupe by phone.
@@ -58,11 +58,12 @@ export async function POST(request) {
                     <p style="font-size:14px;color:#6b7280;line-height:1.6;">We'd love to hear how it was for you. It takes less than a minute:</p>
                     <p><a href="${link}" style="display:inline-block;background:#ea580c;color:#fff;font-weight:700;padding:12px 24px;border-radius:8px;text-decoration:none;">Share your feedback</a></p>
                 `),
+                log: { kind: 'feedback', registrationId: r.id },
             });
             if (ok) emailSent++;
         }
         if (r.phone) {
-            const ok = await sendWhatsAppText(r.phone, `🙏 *BaglaBhairav Mahotsav* — thank you for joining us! We'd love your feedback (under a minute):\n${link}`);
+            const ok = await sendWhatsAppText(r.phone, `🙏 *BaglaBhairav Mahotsav* — thank you for joining us! We'd love your feedback (under a minute):\n${link}`, true, { kind: 'feedback', registrationId: r.id });
             if (ok) waSent++;
         }
     }

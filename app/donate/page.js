@@ -27,6 +27,7 @@ export default function DonatePage() {
     const [phone, setPhone] = useState("");
     const [email, setEmail] = useState("");
     const [message, setMessage] = useState("");
+    const [anonymous, setAnonymous] = useState(false);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
     const [done, setDone] = useState(null);
@@ -36,14 +37,15 @@ export default function DonatePage() {
     const donate = async (e) => {
         e.preventDefault();
         setError("");
-        if (!name.trim()) { setError(t("donate_err_name")); return; }
+        // An anonymous donor's name is never collected, so don't demand one.
+        if (!anonymous && !name.trim()) { setError(t("donate_err_name")); return; }
         if (!(effectiveAmount >= 1)) { setError(t("donate_err_amount")); return; }
         if (email && !/^\S+@\S+\.\S+$/.test(email)) { setError(t("donate_err_email")); return; }
         setBusy(true);
         try {
             const res = await fetch("/api/donate", {
                 method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name, phone, email, amount: effectiveAmount, message }),
+                body: JSON.stringify({ name, phone, email, amount: effectiveAmount, message, isAnonymous: anonymous }),
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) { setError(data.error || t("donate_err_start")); setBusy(false); return; }
@@ -83,7 +85,7 @@ export default function DonatePage() {
             <main className="min-h-screen bg-ivory flex items-center justify-center p-4 [color-scheme:light]">
                 <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8 text-center border border-gold-100">
                     <div className="text-5xl mb-3">🙏</div>
-                    <h1 className="font-serif text-2xl font-bold text-neutral-900 mb-1">{t("donate_thank_title", done.name)}</h1>
+                    <h1 className="font-serif text-2xl font-bold text-neutral-900 mb-1">{t("donate_thank_title", done.name || t("donate_anon_donor"))}</h1>
                     <p className="text-neutral-600 text-sm mb-6">{t("donate_thank_desc", Number(done.amount).toLocaleString("en-IN"))} {email ? t("donate_thank_email") : ""}</p>
                     <Link href="/" className="inline-block bg-neutral-900 text-white font-semibold px-6 py-3 rounded-xl hover:bg-orange-600 transition text-sm">{t("donate_back_home")}</Link>
                 </div>
@@ -127,11 +129,30 @@ export default function DonatePage() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <input className={input} value={name} onChange={(e) => setName(e.target.value)} placeholder={t("donate_name_ph")} />
+                        <input
+                            className={`${input} ${anonymous ? "bg-neutral-100 text-neutral-400" : ""}`}
+                            value={anonymous ? "" : name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder={anonymous ? t("donate_anon_donor") : t("donate_name_ph")}
+                            disabled={anonymous}
+                        />
                         <input className={input} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t("donate_phone_ph")} inputMode="numeric" />
                     </div>
                     <input className={input} value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t("donate_email_ph")} />
                     <textarea className={input} value={message} onChange={(e) => setMessage(e.target.value)} rows={2} placeholder={t("donate_message_ph")} />
+
+                    <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                        <input
+                            type="checkbox"
+                            checked={anonymous}
+                            onChange={(e) => setAnonymous(e.target.checked)}
+                            className="mt-0.5 w-4 h-4 rounded border-neutral-300 text-orange-600 focus:ring-orange-500"
+                        />
+                        <span>
+                            <span className="text-sm font-medium text-neutral-700 block">{t("donate_anonymous")}</span>
+                            <span className="text-xs text-neutral-400">{t("donate_anonymous_hint")}</span>
+                        </span>
+                    </label>
 
                     {error && <p className="text-rose-600 text-sm">{error}</p>}
                     <button type="submit" disabled={busy} className="w-full bg-neutral-900 hover:bg-orange-600 text-white font-bold py-3.5 rounded-xl transition disabled:opacity-50 text-sm">

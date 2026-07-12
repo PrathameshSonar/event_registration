@@ -79,13 +79,15 @@ export async function POST(request) {
                     </div>`).join('')}
                 <p style="font-size:12px;color:#9ca3af;">Didn't request this? You can ignore this email.</p>
             `),
+            // The email lists every matched registration, so it's only tied to one when there is one.
+            log: matched.length === 1 ? { kind: 'self_service', registrationId: matched[0].id } : { kind: 'self_service' },
         });
     }
 
     // WhatsApp — free-form to the number on file (best-effort; delivers inside the
     // 24h window). Email is the guaranteed channel.
     const waText = `🙏 *BaglaBhairav* — here ${rows.length > 1 ? 'are your registrations' : 'is your registration'}:\n\n${rows.map((r) => `*${r.tier}* — ${r.label}\n${r.link}`).join('\n\n')}`;
-    await sendWhatsAppText(matched[0].phone, waText);
+    await sendWhatsAppText(matched[0].phone, waText, true, { kind: 'self_service' });
 
     return generic;
 }

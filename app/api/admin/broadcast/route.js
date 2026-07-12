@@ -74,11 +74,12 @@ export async function POST(request) {
                 to: r.email,
                 subject: String(subject).trim(),
                 html: emailShell(`<p style="color:#404040;font-size:14px;line-height:1.7;margin:0;">Namaste ${escapeHtml(r.first_name || '')},<br><br>${htmlBody}</p>`),
+                log: { kind: 'broadcast', registrationId: r.id },
             });
             if (ok) emailSent++;
         }
         if (channels.whatsapp && r.phone && waConfigured()) {
-            if (await sendWhatsAppTemplate(r.phone, WHATSAPP_TEMPLATES.announcement, [text])) waSent++;
+            if (await sendWhatsAppTemplate(r.phone, WHATSAPP_TEMPLATES.announcement, [text], { kind: 'broadcast', registrationId: r.id })) waSent++;
         }
     }
 

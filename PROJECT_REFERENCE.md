@@ -179,6 +179,12 @@ Homepage content per event (programme, ritual cards, **guest/artist lineup**, FA
 ### `registration_notes`
 Contact-history log for the enquiry pipeline: `id, registration_id→registrations (cascade), note, actor_role, created_at`. One row per note. Needs `GRANT ALL ... TO service_role`.
 
+### `sponsors`
+Admin-recorded sponsorship deals: `id, event_id→events, name, tier (free text: Title/Gold/…), amount, logo_url, contact_name, contact_phone, contact_email, notes, sort_order, created_at`. Negotiated **offline** — no public form, no Razorpay — and **not rendered on the public site**. Needs `GRANT ALL ... TO service_role`.
+
+### `message_log`
+Delivery trail for every outbound email + WhatsApp: `id BIGSERIAL, created_at, channel ('email'|'whatsapp'), kind, recipient, subject, body, template, template_params jsonb, image_url, status ('sent'|'failed'), error, registration_id→registrations, metadata jsonb`. See §12b. **Needs `GRANT ALL ... TO service_role` + the sequence grant** (BIGSERIAL).
+
 ### `app_settings`
 Global key/value config: `key (PK), value jsonb, updated_at`. Currently the `bank_details` row (offline payment account/UPI/payee/instructions + enabled methods). Needs `GRANT ALL ... TO service_role`. Registrations also gained offline columns: `payment_method, offline_reference, offline_proof_path, offline_meta, verified_by, verified_at`. Proof files live in the private **`payment-proofs`** storage bucket.
 
@@ -309,8 +315,12 @@ Global overview (all figures **global**, never tied to the Registrations filter 
 - On success the route returns the **waitlist** for that tier (oldest-first `waiting` entries), and the UI nudges the admin to Settings → Waitlist to notify the next person, since a seat just freed.
 - Notification is **best-effort** ([notifyCancelled](lib/notify.js)): a mail/WhatsApp failure is logged but never leaves the row half-cancelled.
 
-### Settings (admin only) — sidebar sub-tabs
-Event Setup, Ticket Tiers, Media Gallery, Entry Checkpoints, Form Fields ([components/FormFieldsManager.js](components/FormFieldsManager.js)), Home Page Content ([components/HomeContentManager.js](components/HomeContentManager.js) — schedule/highlights/faqs/hero/contact). Destructive deletes (events/tiers/media) require **re-entering the admin password**.
+### Settings (admin / `settings:manage`) — sidebar sub-tabs
+Event Setup, Ticket Tiers, Media Gallery, Entry Checkpoints, Form Fields ([components/FormFieldsManager.js](components/FormFieldsManager.js)), Home Page Content ([components/HomeContentManager.js](components/HomeContentManager.js) — schedule/guests/highlights/faqs/hero/contact), Payment Details, Admin Users, Waitlist, Donations, **Sponsors**, **Message Log**, Feedback. Destructive deletes (events/tiers/media) require **re-entering the admin password**.
+
+- **Sponsors** ([components/SponsorsManager.js](components/SponsorsManager.js)) — sponsorship deals are negotiated **offline** and recorded by an admin (name, tier, amount, logo, contact, notes). There is deliberately **no public sponsor form and no Razorpay flow** — a company committing a large sponsorship doesn't self-serve through a checkout — and sponsors are **not rendered on the public site**. Shows total committed + sponsor count.
+- **Message Log** — see §12b. Gated on `audit:view`, so the sub-tab hides for a volunteer who has `settings:manage` but not `audit:view`.
+- **Donations** — Seva contributions. A donor may give **anonymously**: their name is then *never stored* (not merely hidden), so `donations.name` is nullable and `is_anonymous` marks the row; the list and CSV show "Anonymous", and the receipt email greets them generically. Contact details are still optional-but-kept so a receipt can be emailed.
 
 ### Offline payments (bank transfer / cheque / cash / DD)
 A second, human-verified completion path alongside online Razorpay.
@@ -340,6 +350,20 @@ A second, human-verified completion path alongside online Razorpay.
 - **Read — [app/api/admin/audit-logs/route.js](app/api/admin/audit-logs/route.js):** admin-only; filters `entity`, `action`, `q` (summary ilike), `limit` (default 200, max 500).
 - **Action naming:** `<entity>.<verb>` e.g. `registration.status_change`, `qr.send`, `balance.reconcile`, `event.create`, `category.delete`, `reconcile.cron`.
 - **⚠ Requires** the `admin_audit_logs` table **and** its `GRANT ALL ... TO service_role` + sequence grant (BIGSERIAL). Missing grant = silent write failures + 500 on read.
+
+---
+
+## 12b. Message log (outbound delivery trail)
+
+Answers the question an operator asks constantly: **"did they actually get it?"**
+
+- **Written centrally.** [lib/messageLog.js](lib/messageLog.js) `logMessage()` is called from inside [lib/email.js](lib/email.js) `sendEmail()` and the `post()` helper in [lib/whatsapp.js](lib/whatsapp.js) — **not** at the ~15 call sites. The log is therefore **complete by construction**: a new send site is recorded automatically and cannot forget to log. Fire-and-forget, like `logAudit` — a logging failure never changes the send's return value.
+- **Context** comes from an optional `log: { kind, registrationId }` argument threaded through each sender (ticket, QR, balance/payment link, cancellation, offline notices, waitlist, broadcast, feedback, donation receipt, self-service). A send without it still logs, just with a null `kind`.
+- ⚠️ **`sendWhatsAppText(phone, body, previewUrl, log)`** — `previewUrl` is the 3rd positional param. A call that omits it will land the `log` object in the wrong slot; pass it explicitly.
+- **Resend** — `POST /api/admin/message-log { id }` replays the **stored payload** (rendered body, or template + params) rather than re-deriving the message, so a retry can't silently produce different content (a stale price, a rotated link) than the failure was about. It always writes a **new** log row (`metadata.resend_of`) instead of mutating the failed one, so the history shows the attempt and its outcome.
+- **Admin UI** — Settings → **Message Log** ([components/MessageLogPanel.js](components/MessageLogPanel.js)): sent/failed counts, filter by channel/type/status, search by recipient, per-row **Re-send**. Delivery events also appear on each person's **activity timeline** in the detail modal (a failed send is dotted rose, as loudly as a destructive action).
+- **Permissions:** GET needs `audit:view` (it's a delivery audit trail); resend needs `reminders:send` (it puts a real message in front of a real person).
+- ⚠️ **`MESSAGE_KINDS` lives in [lib/messageKinds.js](lib/messageKinds.js), not `messageLog.js`** — `messageLog.js` imports `supabaseAdmin`, so a **client** component importing the constant from it would drag `SUPABASE_SERVICE_ROLE_KEY` into the browser bundle. Same client-safe/server-only split as `formFields.js` vs `formFieldsServer.js`. **Import kinds from `messageKinds` in any client component.**
 
 ---
 
@@ -417,6 +441,8 @@ A second, human-verified completion path alongside online Razorpay.
 - `POST /api/admin/verify-payment` — offline verification (approve/reject/cheque steps/reverse/record).
 - `GET /api/admin/payment-proof/[id]` — signed URL to an offline proof file.
 - `GET|PATCH /api/admin/app-settings` — global config (`bank_details`; GET any role, PATCH admin).
+- `GET|POST|PATCH|DELETE /api/admin/sponsors` — sponsor records (`settings:manage`).
+- `GET /api/admin/message-log` — outbound delivery trail (`audit:view`); `POST { id }` re-sends a message (`reminders:send`). See §12b.
 - `GET /api/admin/audit-logs` — read audit trail.
 
 Every admin route uses `authorize()` from [lib/adminGuard.js](lib/adminGuard.js); destructive ones also call `verifyAdminPassword()`.
@@ -435,6 +461,8 @@ Every admin route uses `authorize()` from [lib/adminGuard.js](lib/adminGuard.js)
 | `payments.js` | **Money transitions + reconciliation** (see §8–9) |
 | `ticket.js` | `dispatchTicket()` confirmation email + WhatsApp |
 | `auditLog.js` | `logAudit()` fire-and-forget writer |
+| `messageLog.js` | `logMessage()` fire-and-forget outbound-message writer (**server-only** — imports supabaseAdmin) |
+| `messageKinds.js` | `MESSAGE_KINDS` catalog (**client+server safe** — import this one from components) |
 | `profiles.js` | `upsertProfile()` |
 | `phone.js` | `normalizePhone()` → E.164 |
 | `formFields.js` | Built-in field metadata (client+server safe) |
@@ -510,6 +538,14 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
 
 Keep newest first. Add an entry for every meaningful change.
 
+- **2026-07-13 (later)**
+  - **🐛 Fixed: `run_all.sql` was not idempotent — a second run crashed** with `ERROR: column "day_label_hi" does not exist`. The 2026-07-10 entry below claimed "the `ADD COLUMN`s earlier in the script briefly re-create [the `_hi` columns] each run" — **that was only true for 3 of the 8 tables.** `events`/`categories`/`page_content` get their `_hi` columns back from an `ADD COLUMN IF NOT EXISTS` in sections 0a/0b, but `event_schedule`, `event_highlights`, `event_guests`, `event_faqs` and `form_fields` declared theirs **inside `CREATE TABLE IF NOT EXISTS`**, which is a **no-op once the table exists**. So after section 9c dropped them on the first run, they were gone for good, and 9b's unguarded `UPDATE … SET x = day_label_hi` failed to even parse on the next run. **Fix:** 9b's backfills are now wrapped in a `DO $mig$` block that checks `information_schema.columns` and only `EXECUTE`s the backfill for tables whose legacy column still exists (each table's `_hi` columns are dropped together in one `ALTER`, so one representative column per table is a sound check). It backfills on a pre-migration DB and skips silently on a migrated one. Also removed the dead add-then-drop churn: the `_hi` columns are no longer created in 0a/0b or in the `CREATE TABLE`s, so a fresh DB never makes them just to drop them. Same fix mirrored in `schema.sql`. **Lesson: `CREATE TABLE IF NOT EXISTS` does NOT add columns to an existing table — never rely on it to re-create one.**
+  - **Phase 6 — Sponsors, anonymous donations, message log.**
+    - **Sponsors** — new `sponsors` table + `GET|POST|PATCH|DELETE /api/admin/sponsors` (`settings:manage`) + Settings → **Sponsors** ([components/SponsorsManager.js](components/SponsorsManager.js)): name, tier (Title/Gold/…), amount, logo (URL or upload), contact, notes, with a total-committed tile. Deliberately **admin-recorded only** — no public sponsor form, no Razorpay (a company committing a large sponsorship does not self-serve through a checkout) — and **not shown on the public site**.
+    - **Anonymous donations** — a donor can now give **without their name being recorded at all** (not merely hidden): `donations.name` becomes nullable, `is_anonymous` marks the row, the public Seva form gets a checkbox that disables the name field, and the receipt email greets them generically instead of rendering `Namaste null`. Admin list + CSV show "Anonymous". Contact details stay optional-but-kept so the receipt can still be emailed. New i18n keys (`donate_anonymous`, `donate_anonymous_hint`, `donate_anon_donor`) in **all three** language files.
+    - **Message log + resend** — new `message_log` table, `lib/messageLog.js`, `GET|POST /api/admin/message-log`, and Settings → **Message Log** ([components/MessageLogPanel.js](components/MessageLogPanel.js)). See **§12b** for the design. The key decisions: logging is done **inside `sendEmail()` and the WhatsApp `post()` helper**, not at the ~15 call sites, so the log is **complete by construction**; and **resend replays the stored payload** rather than re-deriving the message, so a retry can't silently produce different content than the failure was about. Delivery events also merge into each person's **activity timeline**. ⚠️ `MESSAGE_KINDS` lives in the client-safe `lib/messageKinds.js` because `messageLog.js` imports `supabaseAdmin` — importing the constant from there into a client component would have pulled `SUPABASE_SERVICE_ROLE_KEY` into the browser bundle (verified absent from `.next/static` after the split).
+    - **Skipped by decision:** visitor/pageview analytics. "Conversion rate" therefore keeps its current meaning (paid ÷ payment attempts), which already exists — a true visitor→registration rate needs tracking that isn't built.
+    - **Action required:** re-run `supabase/run_all.sql` (adds `sponsors`, `message_log`, `donations.is_anonymous`, and makes `donations.name` nullable).
 - **2026-07-13**
   - **Dashboard completion — Today's Registrations, Seva, Check-ins.** Three new stat tiles: **Today's Registrations** (local-midnight onward, with a `N paid · ₹X` sub-line; computed client-side from the already-loaded rows), **Seva Raised** (standalone `donations` total + count, clicks through to Settings → Donations) and **Checked In** (unique registrations scanned, as a % of paid, clicks through to Scan Log). The latter two need data outside the registrations array, so `GET /api/admin/data` now returns a **`stats`** block — and it is **permission-scoped**: `donations`/`donationsTotal` only for `settings:manage`, `checkedInRegs` only for `scanlog:view`. A role without the permission gets `null` and the tile is hidden, so the tile can't leak a total the role couldn't already reach through its own panel. `DashboardAnalytics` gained a third trend card, **Seva · last 14 days** (the grid goes 2-col → 3-col when donations are visible). ⚠️ Note the two distinct "donations": `registrations.donation_amount` (the add-on inside a registration, already in Sales by Category) vs. the `donations` table (the standalone Seva page) — the new tile and chart mean the latter, and the copy says so.
   - **Cancel a registration (admin only, never a refund).** New `POST /api/admin/cancel-registration` + a **Cancel registration** button in the detail modal, new terminal status **`cancelled`**, a **🚫 Cancelled** section tab, and new `registrations.cancelled_at` / `cancellation_reason` columns. Design decisions, all deliberate: (1) **`requireAdmin: true`** — no volunteer permission grants it, not even `registrations:manage`, because cancelling destroys a seat-hold and voids a pass; (2) **a reason is mandatory** (server 400s without one) and lands on the row, in the audit log (`registration.cancel`), and in the customer's email; (3) **it never touches money** — `amount_paid`/`amount_due`/`razorpay_payment_id`/`offline_reference` are left as-is so the payment record survives, and returning money stays a separate explicit Refund/Reverse. The confirm dialog, the email ([notifyCancelled](lib/notify.js), which links the no-refund policy) and a banner on the cancelled row all state the no-refund fact plainly, since "cancel = my money comes back" is the one thing an operator or customer would wrongly assume. (4) **The seat releases itself** — every capacity count in the app is an *allowlist* of statuses and `cancelled` is in none of them, so **zero** capacity code changed. Keep future capacity counts allowlist-shaped. (5) On success the route hands back that tier's oldest-first `waiting` waitlist entries and the UI nudges the admin to notify the next person — previously the waitlist was a dead-end list with nothing to trigger it. Cancelling an already-ended row (`cancelled/refunded/failed/closed`) is rejected. **Action required:** re-run `supabase/run_all.sql` (adds the two columns + the new CHECK value).

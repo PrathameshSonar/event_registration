@@ -73,6 +73,7 @@ export async function POST(request) {
                 <p><a href="${shortUrl}" style="display:inline-block;background:#ea580c;color:#fff;font-weight:700;padding:12px 24px;border-radius:8px;text-decoration:none;">Pay Balance Now</a></p>
                 <p style="font-size:12px;color:#9ca3af;">Your entry pass is issued only after full payment. No-refund policy applies.</p>
             `),
+            log: { kind: 'balance_link', registrationId: reg.id },
         });
     }
 
@@ -83,7 +84,7 @@ export async function POST(request) {
             categoryTitle,
             dueRupees.toLocaleString('en-IN'),
             shortUrl,
-        ]);
+        ], { kind: 'balance_link', registrationId: reg.id });
     }
 
     await logAudit({

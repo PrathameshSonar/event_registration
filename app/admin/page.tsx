@@ -7,7 +7,7 @@ import {
     Trash2, Plus, Image as ImageIcon, Video, CalendarDays,
     Ticket, Calendar as CalendarIcon, Search, LogOut, QrCode, Check,
     LayoutDashboard, ScrollText, RefreshCw, MessageSquare, Send, UserPlus, Megaphone,
-    Gift, UserCheck
+    Gift, UserCheck, Handshake, Mail
 } from 'lucide-react';
 import { youtubeThumbnail } from '@/lib/youtube';
 import { buildTranslations } from '@/lib/i18n';
@@ -19,6 +19,8 @@ import PaymentSettingsManager from '@/components/PaymentSettingsManager';
 import AdminUsersManager from '@/components/AdminUsersManager';
 import WaitlistManager from '@/components/WaitlistManager';
 import DonationsManager from '@/components/DonationsManager';
+import SponsorsManager from '@/components/SponsorsManager';
+import MessageLogPanel from '@/components/MessageLogPanel';
 import FeedbackManager from '@/components/FeedbackManager';
 import ScanLogPanel from '@/components/ScanLogPanel';
 import Toaster from '@/components/Toaster';
@@ -50,7 +52,7 @@ export default function AdminDashboard() {
     const can = (perm: string) => isAdmin || permissions.includes(perm);
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'enquiries' | 'scanlog' | 'settings' | 'audit'>('dashboard');
-    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'checkpoints' | 'formfields' | 'homecontent' | 'payment' | 'users' | 'waitlist' | 'donations' | 'feedback'>('events');
+    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'checkpoints' | 'formfields' | 'homecontent' | 'payment' | 'users' | 'waitlist' | 'donations' | 'sponsors' | 'messages' | 'feedback'>('events');
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -1190,6 +1192,9 @@ export default function AdminDashboard() {
                             <button onClick={() => setSettingsSubTab('users')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'users' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><Users className="w-4 h-4" /> Admin Users</button>
                             <button onClick={() => setSettingsSubTab('waitlist')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'waitlist' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ListFilter className="w-4 h-4" /> Waitlist</button>
                             <button onClick={() => setSettingsSubTab('donations')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'donations' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><IndianRupee className="w-4 h-4" /> Donations</button>
+                            <button onClick={() => setSettingsSubTab('sponsors')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'sponsors' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><Handshake className="w-4 h-4" /> Sponsors</button>
+                            {/* The message log is a delivery audit trail, so it rides audit:view. */}
+                            {can('audit:view') && <button onClick={() => setSettingsSubTab('messages')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'messages' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><Mail className="w-4 h-4" /> Message Log</button>}
                             <button onClick={() => setSettingsSubTab('feedback')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'feedback' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><MessageSquare className="w-4 h-4" /> Feedback</button>
                         </div>
 
@@ -1411,6 +1416,8 @@ export default function AdminDashboard() {
                             {settingsSubTab === 'users' && <AdminUsersManager />}
                             {settingsSubTab === 'waitlist' && <WaitlistManager />}
                             {settingsSubTab === 'donations' && <DonationsManager />}
+                            {settingsSubTab === 'sponsors' && <SponsorsManager events={eventsList} />}
+                            {settingsSubTab === 'messages' && can('audit:view') && <MessageLogPanel />}
                             {settingsSubTab === 'feedback' && <FeedbackManager />}
                         </div>
                     </div>

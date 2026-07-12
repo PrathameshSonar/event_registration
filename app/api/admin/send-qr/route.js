@@ -120,6 +120,7 @@ export async function POST(request) {
     Ref: ${shortId} · Secured via Razorpay
   </div>
 </div>`,
+                log: { kind: 'qr', registrationId: reg.id },
             });
             if (ok) { emailSent++; delivered = true; } else { emailFailed++; }
         }
@@ -131,8 +132,8 @@ export async function POST(request) {
 
                 // Send as image if we have a public URL; otherwise fall back to text with link.
                 const ok = qrPublicUrl
-                    ? await sendWhatsAppImage(reg.phone, qrPublicUrl, caption)
-                    : await sendWhatsAppText(reg.phone, caption);
+                    ? await sendWhatsAppImage(reg.phone, qrPublicUrl, caption, { kind: 'qr', registrationId: reg.id })
+                    : await sendWhatsAppText(reg.phone, caption, true, { kind: 'qr', registrationId: reg.id });
                 if (ok) { waSent++; delivered = true; } else { waFailed++; }
             } catch (e) {
                 console.error('WhatsApp QR failed for', reg.id, e);

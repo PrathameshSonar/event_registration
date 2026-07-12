@@ -368,6 +368,61 @@ CREATE TABLE IF NOT EXISTS waitlist (
 CREATE INDEX IF NOT EXISTS waitlist_category_idx ON waitlist(category_id);
 GRANT ALL ON waitlist TO service_role;
 
+-- Sponsors. Sponsorship deals are negotiated OFFLINE and recorded by an admin —
+-- there is no public sponsor form and no Razorpay flow (a company committing
+-- ₹1,00,000 does not self-serve through a checkout). Admin-only: sponsors are not
+-- rendered on the public site today, so this is purely the internal record of who
+-- sponsored, at what level, for how much, and who to call.
+CREATE TABLE IF NOT EXISTS sponsors (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id      UUID REFERENCES events(id) ON DELETE SET NULL,
+    name          TEXT NOT NULL,
+    tier          TEXT,                       -- free text: Title / Gold / Silver / …
+    amount        NUMERIC DEFAULT 0,
+    logo_url      TEXT,
+    contact_name  TEXT,
+    contact_phone TEXT,
+    contact_email TEXT,
+    notes         TEXT,
+    sort_order    INTEGER DEFAULT 0,
+    created_at    TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS sponsors_event_idx ON sponsors(event_id);
+GRANT ALL ON sponsors TO service_role;
+
+-- Anonymous donations: a donor may give without their name being recorded. `name`
+-- was NOT NULL, so it has to become nullable — DROP NOT NULL is a no-op if it has
+-- already been dropped, which keeps this re-runnable.
+ALTER TABLE donations ADD COLUMN IF NOT EXISTS is_anonymous BOOLEAN DEFAULT false;
+ALTER TABLE donations ALTER COLUMN name DROP NOT NULL;
+
+-- Delivery log for every outbound transactional message (email + WhatsApp).
+-- Written centrally from lib/email.js + lib/whatsapp.js, so it is complete by
+-- construction — a new send site is logged without touching this table.
+-- The rendered payload (subject/body, or template + params) is stored so a failed
+-- message can be RE-SENT verbatim from the admin panel without re-deriving it.
+CREATE TABLE IF NOT EXISTS message_log (
+    id              BIGSERIAL PRIMARY KEY,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    channel         TEXT NOT NULL CHECK (channel IN ('email', 'whatsapp')),
+    kind            TEXT,                       -- 'ticket' | 'qr' | 'balance_link' | 'cancellation' | …
+    recipient       TEXT NOT NULL,              -- email address or phone
+    subject         TEXT,                       -- email only
+    body            TEXT,                       -- rendered HTML (email) / text (WhatsApp free-form)
+    template        TEXT,                       -- WhatsApp template name
+    template_params JSONB,                      -- WhatsApp template body params
+    image_url       TEXT,                       -- WhatsApp image sends (the QR pass)
+    status          TEXT NOT NULL CHECK (status IN ('sent', 'failed')),
+    error           TEXT,
+    registration_id UUID REFERENCES registrations(id) ON DELETE SET NULL,
+    metadata        JSONB
+);
+CREATE INDEX IF NOT EXISTS message_log_created_idx ON message_log (created_at DESC);
+CREATE INDEX IF NOT EXISTS message_log_reg_idx     ON message_log (registration_id);
+CREATE INDEX IF NOT EXISTS message_log_status_idx  ON message_log (status);
+GRANT ALL ON message_log TO service_role;
+GRANT USAGE, SELECT ON SEQUENCE message_log_id_seq TO service_role;
+
 
 -- 3) ── Link categories to their parent event ───────────────────────────────
 ALTER TABLE categories
