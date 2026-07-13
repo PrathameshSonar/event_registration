@@ -6,6 +6,7 @@ import { Fragment } from 'react';
 import { Calendar, MapPin, Image as ImageIcon, Video, AlertCircle, Clock, Phone, Radio, Newspaper, FileText, Download } from 'lucide-react';
 import Link from 'next/link';
 import { useLanguage } from './LanguageProvider';
+import { useBranding } from './BrandingProvider';
 import { pick } from '@/lib/i18n';
 import { youtubeEmbedUrl } from '@/lib/youtube';
 import LangToggle from './LangToggle';
@@ -60,6 +61,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
     news = news || [];
     downloads = downloads || [];
     const { t, lang } = useLanguage();
+    const branding = useBranding();
     const [waitlistCat, setWaitlistCat] = useState(null);
 
     // Live only when the admin has BOTH flipped the switch and saved a URL —
@@ -112,7 +114,14 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
             <header className="bg-white/90 border-b border-gold-200/70 sticky top-0 z-50 backdrop-blur-md">
                 <div className="max-w-5xl mx-auto px-4 md:px-8">
                     <div className="flex justify-between items-center py-4 md:py-6">
-                        <h1 className="font-serif text-xl font-bold tracking-tight text-neutral-900">{t('nav_brand')}</h1>
+                        {/* An uploaded logo replaces the wordmark; otherwise the
+                            branded site name, falling back to the translated one. */}
+                        {branding.logo_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={branding.logo_url} alt={branding.site_name || t('nav_brand')} className="h-9 md:h-10 w-auto object-contain" />
+                        ) : (
+                            <h1 className="font-serif text-xl font-bold tracking-tight text-neutral-900">{branding.site_name || t('nav_brand')}</h1>
+                        )}
                         <nav className="flex items-center gap-4 md:gap-6 text-sm font-medium text-neutral-600">
                             <Link href="/" className="text-orange-600 transition font-semibold hidden md:block border-b-2 border-gold-400 pb-0.5">{t('nav_event_details')}</Link>
                             <Link href="/pitham" className="hover:text-orange-600 transition hidden md:block">{t('nav_pitham')}</Link>

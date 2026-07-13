@@ -3,15 +3,17 @@
 
 import Link from 'next/link';
 import { useLanguage } from './LanguageProvider';
+import { useBranding } from './BrandingProvider';
 
 export default function Footer() {
     const { t } = useLanguage();
+    const branding = useBranding();
     return (
         <footer className="bg-neutral-900 text-neutral-400 border-t border-neutral-800 mt-auto">
             <div className="max-w-5xl mx-auto px-4 py-12">
                 <div className="flex flex-col md:flex-row justify-between items-start gap-8 mb-10">
                     <div>
-                        <h3 className="text-white font-bold text-lg mb-2">BaglaBhairav</h3>
+                        <h3 className="text-white font-bold text-lg mb-2">{branding.site_name}</h3>
                         <p className="text-sm text-neutral-500 max-w-xs leading-relaxed">
                             {t('footer_tagline')}
                         </p>

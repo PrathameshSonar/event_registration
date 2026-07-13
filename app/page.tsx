@@ -2,6 +2,7 @@
 import type { Metadata } from 'next';
 import { supabase } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { getBranding, getSeo } from '@/lib/branding';
 import HomeContent from '@/components/HomeContent';
 
 export const revalidate = 60;
@@ -10,24 +11,31 @@ export const revalidate = 60;
 // event, so a shared link shows the real event's title, date and hero image
 // (falls back to the static /og-image.jpg when no hero image is set).
 export async function generateMetadata(): Promise<Metadata> {
-    const { data: ev } = await supabase
-        .from('events')
-        .select('title, short_description, date_time, venue, hero_image_url')
-        .eq('is_active', true)
-        .single();
+    const [{ data: ev }, seo, branding] = await Promise.all([
+        supabase
+            .from('events')
+            .select('title, short_description, date_time, venue, hero_image_url')
+            .eq('is_active', true)
+            .single(),
+        getSeo(),
+        getBranding(),
+    ]);
 
-    const title = ev?.title ? `${ev.title} — BaglaBhairav Mahotsav` : 'BaglaBhairav | Annual Mahotsav';
+    // Preference order, most specific first: the ACTIVE EVENT's own copy → the
+    // admin's SEO settings → the shipped default. The event wins because a shared
+    // link should show the event someone is actually being invited to.
+    const title = ev?.title ? `${ev.title} — ${branding.site_name} Mahotsav` : seo.site_title;
     const bits = [ev?.date_time, ev?.venue].filter(Boolean).join(' · ');
     const description = ev?.short_description
         ? `${ev.short_description}${bits ? ` (${bits})` : ''}`
-        : 'Join the BaglaBhairav Mahotsav. Reserve your pass and connect with the community.';
-    const image = ev?.hero_image_url || '/og-image.jpg';
+        : seo.description;
+    const image = ev?.hero_image_url || seo.og_image || '/og-image.jpg';
 
     return {
         title,
         description,
         openGraph: {
-            title, description, siteName: 'BaglaBhairav', locale: 'en_IN', type: 'website',
+            title, description, siteName: branding.site_name, locale: 'en_IN', type: 'website',
             images: [{ url: image, width: 1200, height: 630, alt: title }],
         },
         twitter: { card: 'summary_large_image', title, description, images: [image] },

@@ -467,7 +467,7 @@ Answers the question an operator asks constantly: **"did they actually get it?"*
 - `GET|POST /api/admin/registration-notes` — enquiry contact-notes history (GET any role; POST admin).
 - `POST /api/admin/verify-payment` — offline verification (approve/reject/cheque steps/reverse/record).
 - `GET /api/admin/payment-proof/[id]` — signed URL to an offline proof file.
-- `GET|PATCH /api/admin/app-settings` — global config (`bank_details`; GET any role, PATCH admin).
+- `GET|PATCH /api/admin/app-settings` — **all** global config, driven by the registry in [lib/appSettings.js](lib/appSettings.js): `bank_details`, `branding`, `seo`. GET any role; PATCH needs `settings:manage` and busts the cached `branding`/`seo` tags. See §19c.
 - `GET|POST|PATCH|DELETE /api/admin/sponsors` — sponsor records (`settings:manage`).
 - `GET /api/admin/message-log` — outbound delivery trail (`audit:view`); `POST { id }` re-sends a message (`reminders:send`). See §12b.
 - `GET /api/admin/audit-logs` — read audit trail.
@@ -541,6 +541,26 @@ Email is **fully centralised**: the `resend` SDK is imported in exactly one file
 
 ---
 
+## 19c. Branding & SEO (Settings → Branding & SEO)
+
+Global config lives in `app_settings`, now driven by a registry: [lib/appSettings.js](lib/appSettings.js) declares each key with its defaults + sanitiser, and `/api/admin/app-settings` serves them all generically. **Adding a global setting = one entry there + a UI panel.** (`bank_details` still appears at the top level of the response, so `PaymentSettingsManager` was untouched.)
+
+### Branding — how a colour actually re-themes the site
+The site uses hardcoded Tailwind classes (`bg-orange-600`, `text-gold-400`, …) in **~260 places**. Re-tokenising every call site would be an enormous, risky diff. Instead:
+- [app/globals.css](app/globals.css) maps Tailwind's **`orange-*` and `gold-*` scales onto CSS variables** (`--brand-*`, `--accent-*`) inside `@theme inline`, so `bg-orange-600` compiles to `background-color: var(--brand-600)`. **Every existing class becomes themeable with no code change.**
+- ⚠️ **Those variables default to the exact values Tailwind already emitted** (`--brand-600: #ea580c`, …). An unconfigured site therefore renders **byte-identically** to before — `brandCss()` returns `''` and no override is injected. Never put a non-Tailwind hex in those `:root` defaults.
+- One picked colour must theme a whole scale (pale tints for backgrounds, dark shades for hover), so [lib/branding.js](lib/branding.js) `ramp()` derives 50→900 from the seed by holding hue/saturation and walking lightness. **The 600 step is pinned to the seed verbatim** — an admin who picks `#1d4ed8` must get exactly `#1d4ed8` on the buttons, not the ramp's nearest approximation.
+- There is deliberately **no "dark colour" setting**: the dark headers use `neutral-900`, which is also the body-text colour — theming it would recolour every paragraph.
+
+⚠️ **The layout reads branding through `unstable_cache` (1h, tagged).** A raw DB call in the root layout would force **every** page — including the static `/terms`, `/privacy`, `/pitham`, `/feedback` — to render per-request. Verified: they still build as `○`. The settings PATCH calls `revalidateTag('branding'|'seo')`, so a save reaches the site immediately instead of waiting out the hour. (`cacheComponents` is off, so `unstable_cache` — not `use cache` — is the correct API here.)
+
+The CSS is **inlined in `<head>`**, not fetched, so brand colours are present on first paint (a stylesheet request would flash the default palette). `site_name` + `logo_url` reach client components through [components/BrandingProvider.tsx](components/BrandingProvider.tsx) — colours don't, because CSS variables already handle them.
+
+### SEO
+`site_title`, `description`, `og_image`, `keywords`. The **homepage still prefers the active event's** own title/description/hero image (a shared link should show the event you're inviting people to); these are the fallback and what every other page uses. ✅ **Fixes a long-standing bug:** `/og-image.jpg` was referenced in the metadata but **never existed in the project**, so shared links had no preview image at all unless the active event happened to have a hero image. An admin-set `og_image` now fills that gap.
+
+---
+
 ## 20. Payment status lifecycle
 
 ```
@@ -601,6 +621,12 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
 
 Keep newest first. Add an entry for every meaningful change.
 
+- **2026-07-14 (later)**
+  - **Phase 3, part 1 — Branding & SEO.** See **§19c**. New Settings → **Branding & SEO** panel; no SQL needed (`app_settings` already existed).
+    - **Settings are now a registry.** [lib/appSettings.js](lib/appSettings.js) declares each `app_settings` key with defaults + a sanitiser, and `/api/admin/app-settings` serves them all generically instead of being hardcoded to `bank_details` (which still works untouched). Part 2's keys drop straight in.
+    - **Branding re-themes the site without touching ~260 call sites.** The site hardcodes `bg-orange-600` / `text-gold-400` everywhere; rather than re-tokenise all of it, `globals.css` maps Tailwind's **orange + gold scales onto CSS variables**, so every existing class becomes themeable for free. ⚠️ **The variable defaults are the exact values Tailwind already emitted**, and `brandCss()` returns `''` when branding is untouched — so an unconfigured site is **byte-identical** to before (verified in the built CSS: `--brand-600: #ea580c`, and `bg-orange-600` → `var(--brand-600)`). A picked colour is expanded server-side into a full 50→900 ramp so tints/hovers stay in-family, **with the 600 step pinned to the seed verbatim** — pick `#1d4ed8` and the buttons are exactly `#1d4ed8`, not the ramp's approximation. No "dark colour" knob: dark headers use `neutral-900`, which is also body text.
+    - ⚠️ **The layout's branding read goes through `unstable_cache` (1h, tagged), on purpose.** A plain DB call in the root layout would make **every** page dynamic — including the static `/terms`, `/privacy`, `/pitham`, `/feedback`. Verified they still build as `○`. Saving busts the tag via `revalidateTag`, so changes land immediately rather than after an hour. The CSS is inlined in `<head>` (not a stylesheet request) so there's no flash of the default palette. New `BrandingProvider` context carries `site_name`/`logo_url` to client components (Footer alone is used on three pages); colours don't need it — CSS variables already do that job.
+    - ✅ **Fixed a live bug:** `/og-image.jpg` was referenced by the metadata but **never existed in the repo**, so shared links had no preview image unless the active event had a hero image. SEO settings now provide a real `og_image`. The homepage still prefers the active event's own title/description/image.
 - **2026-07-14**
   - **Phase 4 — Media library + documents.** See **§19b**.
     - **The real bug it fixes:** uploads used to go straight to storage and only the returned URL was kept on whatever row was being edited. Nothing recorded the upload — so files couldn't be browsed, couldn't be reused (the same photo was uploaded once per field), and couldn't be deleted. **Every replaced image was orphaned in the bucket forever.** New `media_library` table indexes every file.

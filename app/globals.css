@@ -3,6 +3,36 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* ── THEMEABLE BRAND SCALES ────────────────────────────────────────────────
+     The site uses hardcoded Tailwind classes (bg-orange-600, text-gold-400, …)
+     in ~260 places, so re-tokenising every call site would be an enormous diff.
+     Instead the orange + gold SCALES are mapped onto these variables below, and
+     THESE DEFAULTS ARE THE EXACT VALUES TAILWIND ALREADY EMITTED — so with no
+     branding configured the rendered CSS is unchanged.
+
+     Settings → Branding overrides them with a <style> injected in the root
+     layout (see lib/branding.js), which derives a full 50→900 ramp from the one
+     colour an admin picks. Don't hardcode a hex here that isn't Tailwind's. */
+  --brand-50:  #fff7ed;
+  --brand-100: #ffedd5;
+  --brand-200: #fed7aa;
+  --brand-300: #fdba74;
+  --brand-400: #fb923c;
+  --brand-500: #f97316;
+  --brand-600: #ea580c;
+  --brand-700: #c2410c;
+  --brand-800: #9a3412;
+  --brand-900: #7c2d12;
+
+  --accent-50:  #fbf6e9;
+  --accent-100: #f5e9c8;
+  --accent-200: #ecd79a;
+  --accent-300: #e0bf63;
+  --accent-400: #d4a017;
+  --accent-500: #b8860b;
+  --accent-600: #96690a;
+  --accent-700: #7a5308;
 }
 
 @theme inline {
@@ -17,15 +47,28 @@
   /* Warm ivory surface for the devotional homepage. */
   --color-ivory: #fffbf5;
 
+  /* The brand scale IS Tailwind's `orange-*`, so every existing bg-orange-600 /
+     text-orange-700 / border-orange-200 becomes themeable with no code change. */
+  --color-orange-50:  var(--brand-50);
+  --color-orange-100: var(--brand-100);
+  --color-orange-200: var(--brand-200);
+  --color-orange-300: var(--brand-300);
+  --color-orange-400: var(--brand-400);
+  --color-orange-500: var(--brand-500);
+  --color-orange-600: var(--brand-600);
+  --color-orange-700: var(--brand-700);
+  --color-orange-800: var(--brand-800);
+  --color-orange-900: var(--brand-900);
+
   /* Gold accent scale (pairs with saffron/orange). */
-  --color-gold-50:  #fbf6e9;
-  --color-gold-100: #f5e9c8;
-  --color-gold-200: #ecd79a;
-  --color-gold-300: #e0bf63;
-  --color-gold-400: #d4a017;
-  --color-gold-500: #b8860b;
-  --color-gold-600: #96690a;
-  --color-gold-700: #7a5308;
+  --color-gold-50:  var(--accent-50);
+  --color-gold-100: var(--accent-100);
+  --color-gold-200: var(--accent-200);
+  --color-gold-300: var(--accent-300);
+  --color-gold-400: var(--accent-400);
+  --color-gold-500: var(--accent-500);
+  --color-gold-600: var(--accent-600);
+  --color-gold-700: var(--accent-700);
 }
 
 @media (prefers-color-scheme: dark) {
