@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { LanguageProvider } from "@/components/LanguageProvider";
+import LiveBanner from "@/components/LiveBanner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -52,7 +53,11 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-          <LanguageProvider>{children}</LanguageProvider>
+          <LanguageProvider>
+            {/* Renders nothing unless the active event is actually streaming. */}
+            <LiveBanner />
+            {children}
+          </LanguageProvider>
         </body>
     </html>
   );

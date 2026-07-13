@@ -64,18 +64,23 @@ export default async function Home() {
     let highlights: any[] = [];
     let faqs: any[] = [];
     let guests: any[] = [];
+    let news: Record<string, unknown>[] = [];
     if (pageData?.id) {
         // Use the service-role client: these tables aren't granted to the anon role.
-        const [schedRes, hlRes, faqRes, guestRes] = await Promise.all([
+        const [schedRes, hlRes, faqRes, guestRes, newsRes] = await Promise.all([
             supabaseAdmin.from('event_schedule').select('*').eq('event_id', pageData.id).order('sort_order'),
             supabaseAdmin.from('event_highlights').select('*').eq('event_id', pageData.id).order('sort_order'),
             supabaseAdmin.from('event_faqs').select('*').eq('event_id', pageData.id).order('sort_order'),
             supabaseAdmin.from('event_guests').select('*').eq('event_id', pageData.id).order('sort_order'),
+            // Only PUBLISHED announcements reach the public page — drafts stay hidden.
+            supabaseAdmin.from('event_news').select('*').eq('event_id', pageData.id)
+                .eq('is_published', true).order('published_at', { ascending: false }),
         ]);
         schedule = schedRes.data || [];
         highlights = hlRes.data || [];
         faqs = faqRes.data || [];
         guests = guestRes.data || [];
+        news = newsRes.data || [];
     }
 
     // 4. Seat counts — requires service-role key (RLS blocks anon reads on registrations)
@@ -130,6 +135,7 @@ export default async function Home() {
                 highlights={highlights}
                 faqs={faqs}
                 guests={guests}
+                news={news}
                 registeredCount={registeredCount}
             />
         </>

@@ -526,6 +526,39 @@ GRANT ALL ON event_guests TO service_role;
 ALTER TABLE events
     ADD COLUMN IF NOT EXISTS hero_image_url TEXT;
 
+-- 8b) ── Live stream (per event) ────────────────────────────────────────────
+-- `livestream_url` accepts a YouTube link in ANY form (watch / youtu.be / embed /
+-- shorts / bare id — normalised by lib/youtube.js) OR any other provider's iframe
+-- embed URL, which is used as-is. `livestream_is_live` is the on/off switch: the
+-- homepage player + the site-wide sticky banner appear ONLY while it is true, so
+-- an admin can stage the URL in advance and go live with one toggle.
+-- `livestream_banner` is the optional line shown in the banner (translatable via
+-- events.translations, like every other event text field).
+ALTER TABLE events
+    ADD COLUMN IF NOT EXISTS livestream_url     TEXT,
+    ADD COLUMN IF NOT EXISTS livestream_is_live BOOLEAN DEFAULT false,
+    ADD COLUMN IF NOT EXISTS livestream_banner  TEXT;
+
+-- 8c) ── News / announcements (per event) ───────────────────────────────────
+-- Short updates shown on the homepage ("parking details", "guest lineup
+-- announced"). Same shape as event_highlights / event_faqs: per-event rows,
+-- English in the base columns, other languages in `translations`.
+-- `is_published` lets an admin draft an item before it appears publicly.
+CREATE TABLE IF NOT EXISTS event_news (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id     UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    title        TEXT NOT NULL,
+    body         TEXT,
+    image_url    TEXT,
+    is_published BOOLEAN DEFAULT true,
+    published_at TIMESTAMPTZ DEFAULT now(),
+    sort_order   INTEGER DEFAULT 0,
+    translations JSONB DEFAULT '{}'::jsonb,
+    created_at   TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS event_news_event_idx ON event_news(event_id, published_at DESC);
+GRANT ALL ON event_news TO service_role;
+
 -- "Plan Your Visit" — how to reach / parking / accommodation, shown on the
 -- homepage near the venue map. Optional; translated via `translations`.
 ALTER TABLE events

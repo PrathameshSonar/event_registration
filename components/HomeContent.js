@@ -3,10 +3,11 @@
 "use client";
 
 import { Fragment } from 'react';
-import { Calendar, MapPin, Image as ImageIcon, Video, AlertCircle, Clock, Phone } from 'lucide-react';
+import { Calendar, MapPin, Image as ImageIcon, Video, AlertCircle, Clock, Phone, Radio, Newspaper } from 'lucide-react';
 import Link from 'next/link';
 import { useLanguage } from './LanguageProvider';
 import { pick } from '@/lib/i18n';
+import { youtubeEmbedUrl } from '@/lib/youtube';
 import LangToggle from './LangToggle';
 import Footer from './Footer';
 import YouTubeEmbed from './YouTubeEmbed';
@@ -43,13 +44,19 @@ const DEFAULT_HIGHLIGHTS = [
     { icon: '📿', title: { en: 'Pravachan', hi: 'प्रवचन', mr: 'प्रवचन' }, desc: { en: 'Spiritual discourses by revered saints', hi: 'पूज्य संतों द्वारा आध्यात्मिक प्रवचन', mr: 'पूज्य संतांकडून आध्यात्मिक प्रवचन' } },
 ];
 
-export default function HomeContent({ pageData, categories, mediaItems, seatsTaken, schedule, highlights, faqs, guests, registeredCount }) {
+export default function HomeContent({ pageData, categories, mediaItems, seatsTaken, schedule, highlights, faqs, guests, news, registeredCount }) {
     schedule = schedule || [];
     highlights = highlights || [];
     guests = guests || [];
     faqs = faqs || [];
+    news = news || [];
     const { t, lang } = useLanguage();
     const [waitlistCat, setWaitlistCat] = useState(null);
+
+    // Live only when the admin has BOTH flipped the switch and saved a URL —
+    // otherwise the section would render an empty player.
+    const isLive = !!(pageData?.livestream_is_live && pageData?.livestream_url);
+    const liveEmbed = isLive ? youtubeEmbedUrl(pageData.livestream_url) : null;
 
     const eventTitle = pick(pageData, 'title', lang) || t('hero_event_fallback');
     const eventDesc = pick(pageData, 'short_description', lang) || t('hero_desc_fallback');
@@ -193,6 +200,74 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
             </section>
 
             {/* ABOUT THE MAHOTSAV */}
+            {/* LIVE STREAM — only while the admin has actually gone live. Placed high
+                on the page because it's time-critical: if it's on, it's the reason
+                someone is visiting right now. */}
+            {isLive && (
+                <section id="livestream" className="scroll-mt-4 bg-neutral-900 py-10 md:py-14 border-b border-neutral-800">
+                    <div className="max-w-4xl mx-auto px-4">
+                        <div className="text-center mb-6">
+                            <span className="inline-flex items-center gap-2 bg-rose-600 text-white text-xs font-bold px-3 py-1 rounded-full">
+                                <span className="w-2 h-2 rounded-full bg-white animate-pulse" /> {t('live_now')}
+                            </span>
+                            <h3 className="font-serif text-xl md:text-2xl font-bold tracking-tight text-white mt-3 flex items-center justify-center gap-2">
+                                <Radio className="w-5 h-5 text-rose-500" /> {t('section_live_title')}
+                            </h3>
+                            <p className="text-neutral-400 text-sm mt-2">{t('section_live_desc')}</p>
+                        </div>
+                        <div className="relative w-full overflow-hidden rounded-2xl border border-neutral-700 shadow-2xl" style={{ paddingTop: '56.25%' }}>
+                            <iframe
+                                src={liveEmbed}
+                                title={t('section_live_title')}
+                                className="absolute inset-0 w-full h-full"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                            />
+                        </div>
+                    </div>
+                </section>
+            )}
+
+            {/* NEWS & ANNOUNCEMENTS */}
+            {news.length > 0 && (
+                <Reveal>
+                <section className="bg-white py-10 md:py-14 border-b border-gold-100/70">
+                    <div className="max-w-5xl mx-auto px-4">
+                        <div className="text-center mb-8">
+                            <h3 className="font-serif text-xl md:text-2xl font-bold tracking-tight text-neutral-900 flex items-center justify-center gap-2">
+                                <Newspaper className="w-5 h-5 text-orange-600" /> {t('section_news_title')}
+                            </h3>
+                            <div className="gold-divider"><span /></div>
+                            <p className="text-neutral-500 text-sm mt-3">{t('section_news_desc')}</p>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                            {news.map((n) => {
+                                const title = pick(n, 'title', lang);
+                                const body = pick(n, 'body', lang);
+                                return (
+                                    <article key={n.id} className="rounded-2xl border border-gold-100 bg-ivory overflow-hidden hover:shadow-warm hover:border-gold-200 transition flex flex-col">
+                                        {n.image_url && (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img src={n.image_url} alt="" className="w-full h-40 object-cover" />
+                                        )}
+                                        <div className="p-5 flex-1">
+                                            {n.published_at && (
+                                                <time className="text-[11px] font-semibold uppercase tracking-wider text-orange-600">
+                                                    {new Date(n.published_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                </time>
+                                            )}
+                                            <h4 className="font-bold text-neutral-900 mt-1.5 mb-1.5 text-sm md:text-base leading-snug">{title}</h4>
+                                            {body && <p className="text-neutral-500 text-xs md:text-sm leading-relaxed whitespace-pre-wrap">{body}</p>}
+                                        </div>
+                                    </article>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </section>
+                </Reveal>
+            )}
+
             {aboutText && (
                 <Reveal>
                 <section className="bg-gold-50/40 py-10 md:py-14 border-b border-gold-100/70">

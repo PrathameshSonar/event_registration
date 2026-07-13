@@ -556,6 +556,31 @@ GRANT ALL ON event_guests TO service_role;
 ALTER TABLE events
     ADD COLUMN IF NOT EXISTS hero_image_url TEXT;
 
+-- Live stream (per event). `livestream_url` takes a YouTube link in any form
+-- (normalised by lib/youtube.js) or any other provider's iframe embed URL.
+-- `livestream_is_live` is the on/off switch — the homepage player and the
+-- site-wide sticky banner appear only while it is true.
+ALTER TABLE events
+    ADD COLUMN IF NOT EXISTS livestream_url     TEXT,
+    ADD COLUMN IF NOT EXISTS livestream_is_live BOOLEAN DEFAULT false,
+    ADD COLUMN IF NOT EXISTS livestream_banner  TEXT;
+
+-- News / announcements (per event). Same shape as event_highlights/event_faqs.
+CREATE TABLE IF NOT EXISTS event_news (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id     UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    title        TEXT NOT NULL,
+    body         TEXT,
+    image_url    TEXT,
+    is_published BOOLEAN DEFAULT true,
+    published_at TIMESTAMPTZ DEFAULT now(),
+    sort_order   INTEGER DEFAULT 0,
+    translations JSONB DEFAULT '{}'::jsonb,
+    created_at   TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS event_news_event_idx ON event_news(event_id, published_at DESC);
+GRANT ALL ON event_news TO service_role;
+
 ALTER TABLE events
     ADD COLUMN IF NOT EXISTS travel_info    TEXT;
 

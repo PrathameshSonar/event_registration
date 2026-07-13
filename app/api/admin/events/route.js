@@ -56,20 +56,26 @@ export async function PATCH(request) {
         });
     } else if (updates) {
         // Update event content fields.
+        // ⚠️ A field missing from this whitelist SILENTLY fails to save (this bit
+        // hero_image_url once). Add new event columns here.
         const allowed = [
             'title', 'short_description', 'long_description',
             'date_time', 'venue', 'map_url',
             'start_at', 'end_at', 'contact_phone', 'hero_image_url',
             'instagram_url', 'facebook_url', 'youtube_url',
             'travel_info',
+            'livestream_url', 'livestream_banner',
             'translations',
         ];
         const sanitized = {};
         for (const key of allowed) {
             if (updates[key] !== undefined) sanitized[key] = updates[key] || null;
         }
-        // Boolean flag — handle separately so `false` isn't coerced to null.
+        // Boolean flags — handled separately because the loop above coerces every
+        // falsy value to null, which would turn `false` (go offline / un-archive)
+        // into null instead of an explicit false.
         if (updates.show_in_archive !== undefined) sanitized.show_in_archive = !!updates.show_in_archive;
+        if (updates.livestream_is_live !== undefined) sanitized.livestream_is_live = !!updates.livestream_is_live;
         const { error } = await supabaseAdmin.from('events').update(sanitized).eq('id', id);
         if (error) {
             console.error('Event update error:', error.code, error.message);

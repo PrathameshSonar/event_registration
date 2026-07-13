@@ -5,7 +5,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Trash2, Save, Clock, Sparkles, Phone, CalendarClock, Image as ImageIcon, HelpCircle, BellRing, Star } from "lucide-react";
+import { Plus, Trash2, Save, Clock, Sparkles, Phone, CalendarClock, Image as ImageIcon, HelpCircle, BellRing, Star, Radio, Newspaper, Eye, EyeOff } from "lucide-react";
+import { youtubeId } from "@/lib/youtube";
 import { toast } from "@/lib/uiStore";
 import ImageUpload from "@/components/ImageUpload";
 import TranslatableField from "@/components/admin/TranslatableField";
@@ -28,12 +29,27 @@ export default function HomeContentManager(props) {
   const [evDirty, setEvDirty] = useState(false);
   const [savingEv, setSavingEv] = useState(false);
 
+  // Live stream (event-level). Kept in its OWN dirty flag + save so an admin can
+  // hit "Go live" without also committing half-typed countdown/helpline edits.
+  const [lsUrl, setLsUrl] = useState("");
+  const [lsBanner, setLsBanner] = useState("");
+  const [lsLive, setLsLive] = useState(false);
+  const [lsDirty, setLsDirty] = useState(false);
+  const [savingLs, setSavingLs] = useState(false);
+
   const [schedule, setSchedule] = useState([]);
   const [highlights, setHighlights] = useState([]);
   const [faqs, setFaqs] = useState([]);
   const [guests, setGuests] = useState([]);
+  const [news, setNews] = useState([]);
   const [reminders, setReminders] = useState([]);
   const [busy, setBusy] = useState(false);
+
+  // New news / announcement
+  const [nTitle, setNTitle] = useState("");
+  const [nBody, setNBody] = useState("");
+  const [nImage, setNImage] = useState("");
+  const [nTr, setNTr] = useState({});
 
   // New guest (English base + a `tr` map for other languages)
   const [gName, setGName] = useState("");
@@ -70,19 +86,87 @@ export default function HomeContentManager(props) {
 
   const loadLists = useCallback(async (id) => {
     if (!id) return;
-    const [s, h, f, r, g] = await Promise.all([
+    const [s, h, f, r, g, n] = await Promise.all([
       fetch(`/api/admin/schedule?eventId=${id}`).then((r) => r.json()).catch(() => ({ items: [] })),
       fetch(`/api/admin/highlights?eventId=${id}`).then((r) => r.json()).catch(() => ({ items: [] })),
       fetch(`/api/admin/faqs?eventId=${id}`).then((r) => r.json()).catch(() => ({ items: [] })),
       fetch(`/api/admin/reminders?eventId=${id}`).then((r) => r.json()).catch(() => ({ items: [] })),
       fetch(`/api/admin/guests?eventId=${id}`).then((r) => r.json()).catch(() => ({ items: [] })),
+      fetch(`/api/admin/news?eventId=${id}`).then((r) => r.json()).catch(() => ({ items: [] })),
     ]);
     setSchedule(s.items || []);
     setHighlights(h.items || []);
     setFaqs(f.items || []);
     setReminders(r.items || []);
     setGuests(g.items || []);
+    setNews(n.items || []);
   }, []);
+
+  // ── Live stream ───────────────────────────────────────────────────────────
+  const saveLivestream = async (overrides = {}) => {
+    setSavingLs(true);
+    const next = {
+      livestream_url: lsUrl.trim() || null,
+      livestream_banner: lsBanner.trim() || null,
+      livestream_is_live: lsLive,
+      ...overrides,
+    };
+    const res = await fetch("/api/admin/events", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: eventId, updates: next }),
+    });
+    setSavingLs(false);
+    if (!res.ok) { toast.error("Could not save the live stream settings."); return; }
+    setLsDirty(false);
+    if (overrides.livestream_is_live !== undefined) {
+      toast.success(overrides.livestream_is_live ? "🔴 You are LIVE — the player and banner are now on the site." : "Stream ended — the player and banner are hidden.");
+    } else {
+      toast.success("Live stream settings saved.");
+    }
+  };
+
+  // Going live needs a URL, otherwise the homepage would show an empty player.
+  const toggleLive = async () => {
+    const goingLive = !lsLive;
+    if (goingLive && !lsUrl.trim()) { toast.error("Add the stream URL first — there's nothing to show without one."); return; }
+    setLsLive(goingLive);
+    await saveLivestream({ livestream_is_live: goingLive });
+  };
+
+  // ── News / announcements ──────────────────────────────────────────────────
+  const addNews = async (e) => {
+    e.preventDefault();
+    if (!nTitle.trim()) return;
+    setBusy(true);
+    const res = await fetch("/api/admin/news", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event_id: eventId, title: nTitle, body: nBody, image_url: nImage,
+        is_published: true, translations: buildTranslations(nTr),
+      }),
+    });
+    setBusy(false);
+    if (!res.ok) { toast.error("Could not add the announcement."); return; }
+    setNTitle(""); setNBody(""); setNImage(""); setNTr({});
+    await loadLists(eventId);
+  };
+
+  const toggleNews = async (item) => {
+    setBusy(true);
+    await fetch("/api/admin/news", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: item.id, is_published: !item.is_published }),
+    });
+    await loadLists(eventId);
+    setBusy(false);
+  };
+
+  const delNews = async (id) => {
+    setBusy(true);
+    await fetch("/api/admin/news", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    await loadLists(eventId);
+    setBusy(false);
+  };
 
   const addGuest = async (e) => {
     e.preventDefault();
@@ -113,8 +197,12 @@ export default function HomeContentManager(props) {
     setPhone(ev?.contact_phone || "");
     setHeroImage(ev?.hero_image_url || "");
     setEvDirty(false);
+    setLsUrl(ev?.livestream_url || "");
+    setLsBanner(ev?.livestream_banner || "");
+    setLsLive(!!ev?.livestream_is_live);
+    setLsDirty(false);
     if (eventId) loadLists(eventId);
-  }, [eventId, ev?.start_at, ev?.end_at, ev?.contact_phone, ev?.hero_image_url, loadLists]);
+  }, [eventId, ev?.start_at, ev?.end_at, ev?.contact_phone, ev?.hero_image_url, ev?.livestream_url, ev?.livestream_banner, ev?.livestream_is_live, loadLists]);
 
   const saveEventFields = async () => {
     setSavingEv(true);
@@ -263,6 +351,111 @@ export default function HomeContentManager(props) {
         <button onClick={saveEventFields} disabled={!evDirty || savingEv} className={`mt-4 flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition ${evDirty ? "bg-orange-600 text-white hover:bg-orange-700" : "bg-neutral-100 text-neutral-400 cursor-not-allowed border border-neutral-200"}`}>
           <Save className="w-4 h-4" /> {evDirty ? "Save" : "Saved"}
         </button>
+      </div>
+
+      {/* Live stream */}
+      <div className={`border rounded-xl p-6 mb-8 transition ${lsLive ? "bg-rose-50 border-rose-300" : "bg-neutral-50 border-neutral-200"}`}>
+        <div className="flex items-center justify-between gap-3 mb-1 flex-wrap">
+          <h3 className="font-bold text-sm uppercase tracking-wider text-neutral-700 flex items-center gap-2">
+            <Radio className={`w-4 h-4 ${lsLive ? "text-rose-600" : ""}`} /> Live Stream
+            {lsLive && (
+              <span className="inline-flex items-center gap-1.5 bg-rose-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> ON AIR
+              </span>
+            )}
+          </h3>
+          <button
+            onClick={toggleLive}
+            disabled={savingLs}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition disabled:opacity-50 ${lsLive ? "bg-neutral-900 text-white hover:bg-neutral-700" : "bg-rose-600 text-white hover:bg-rose-700"}`}
+          >
+            {savingLs ? "Saving…" : lsLive ? "End stream" : "🔴 Go live"}
+          </button>
+        </div>
+        <p className="text-xs text-neutral-500 mb-4">
+          {lsLive
+            ? "The player and the site-wide banner are LIVE on the public site right now."
+            : "Paste the stream link ahead of time, then hit Go live when you start. Nothing shows publicly until you do."}
+        </p>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-neutral-600 mb-1">Stream URL</label>
+            <input
+              type="url"
+              placeholder="YouTube link, or any provider's iframe embed URL"
+              value={lsUrl}
+              onChange={(e) => { setLsUrl(e.target.value); setLsDirty(true); }}
+              className={inputCls}
+            />
+            <p className="text-xs text-neutral-400 mt-1">
+              {lsUrl.trim()
+                ? (youtubeId(lsUrl)
+                    ? "✓ YouTube link recognised — it will be embedded automatically."
+                    : "Not a YouTube link — this will be embedded as-is, so paste the provider's EMBED url (not the page url).")
+                : "Paste a YouTube watch/live link (any form), or another provider's embed URL."}
+            </p>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-neutral-600 mb-1">Banner text (optional)</label>
+            <input
+              type="text"
+              placeholder="e.g. Maha Aarti streaming now"
+              value={lsBanner}
+              onChange={(e) => { setLsBanner(e.target.value); setLsDirty(true); }}
+              className={inputCls}
+            />
+            <p className="text-xs text-neutral-400 mt-1">Shown in the sticky bar across the site while you&rsquo;re live. Falls back to a default message if empty.</p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => saveLivestream()}
+          disabled={!lsDirty || savingLs}
+          className={`mt-4 flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition ${lsDirty ? "bg-orange-600 text-white hover:bg-orange-700" : "bg-neutral-100 text-neutral-400 cursor-not-allowed border border-neutral-200"}`}
+        >
+          <Save className="w-4 h-4" /> {lsDirty ? "Save" : "Saved"}
+        </button>
+      </div>
+
+      {/* News / announcements */}
+      <div className="mb-8">
+        <h3 className="font-bold text-sm uppercase tracking-wider text-neutral-700 mb-1 flex items-center gap-2"><Newspaper className="w-4 h-4" /> News &amp; Announcements</h3>
+        <p className="text-xs text-neutral-400 mb-3">Short updates shown on the homepage, newest first. Hidden items stay saved but don&rsquo;t appear publicly. Leave empty to hide the section.</p>
+        <div className="space-y-2 mb-4">
+          {news.length === 0 && <p className="text-neutral-400 text-sm">No announcements yet.</p>}
+          {news.map((n) => (
+            <div key={n.id} className={`flex items-center gap-3 bg-white border rounded-lg p-3 ${n.is_published ? "border-neutral-200" : "border-neutral-200 opacity-60"}`}>
+              {n.image_url
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={n.image_url} alt="" className="w-12 h-12 rounded object-cover flex-shrink-0" />
+                : <div className="w-12 h-12 rounded bg-neutral-100 flex items-center justify-center flex-shrink-0"><Newspaper className="w-4 h-4 text-neutral-400" /></div>}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-neutral-900 truncate">
+                  {n.title}
+                  {!n.is_published && <span className="ml-2 text-[10px] font-bold bg-neutral-200 text-neutral-600 px-1.5 py-0.5 rounded align-middle">HIDDEN</span>}
+                </p>
+                {n.body && <p className="text-xs text-neutral-400 truncate">{n.body}</p>}
+              </div>
+              <button onClick={() => toggleNews(n)} disabled={busy} title={n.is_published ? "Hide from the site" : "Show on the site"} className="p-2 text-neutral-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition">
+                {n.is_published ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              </button>
+              <button onClick={() => delNews(n.id)} disabled={busy} className="p-2 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
+            </div>
+          ))}
+        </div>
+        <form onSubmit={addNews} className="bg-neutral-50 border border-neutral-200 rounded-xl p-4 space-y-3">
+          <TranslatableField label="Headline" field="title" value={nTitle} onValue={setNTitle} tr={nTr} onTr={mkSetTr(setNTr)} placeholder="e.g. Parking & entry details announced" />
+          <TranslatableField label="Details" field="body" value={nBody} onValue={setNBody} tr={nTr} onTr={mkSetTr(setNTr)} multiline rows={3} placeholder="A short paragraph of detail." />
+          <div>
+            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Image (optional)</label>
+            <div className="flex gap-2">
+              <input type="url" placeholder="https://… or upload →" value={nImage} onChange={(e) => setNImage(e.target.value)} className={inputCls} />
+              <ImageUpload onUploaded={(url) => setNImage(url)} label="Upload" />
+            </div>
+          </div>
+          <button type="submit" disabled={busy || !nTitle.trim()} className="w-full flex items-center justify-center gap-2 bg-neutral-900 hover:bg-orange-600 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-lg text-sm transition"><Plus className="w-4 h-4" /> Add Announcement</button>
+        </form>
       </div>
 
       {/* Schedule */}

@@ -179,6 +179,12 @@ Homepage content per event (programme, ritual cards, **guest/artist lineup**, FA
 ### `registration_notes`
 Contact-history log for the enquiry pipeline: `id, registration_id→registrations (cascade), note, actor_role, created_at`. One row per note. Needs `GRANT ALL ... TO service_role`.
 
+### `event_news`
+Homepage announcements for an event: `id, event_id→events, title, body, image_url, is_published (draft/live), published_at, sort_order, translations jsonb, created_at`. Same shape as `event_highlights` / `event_faqs`. Only `is_published = true` rows reach the public page. Needs `GRANT ALL ... TO service_role`.
+
+### Live stream (columns on `events`)
+`livestream_url` (a YouTube link in **any** form — normalised by [lib/youtube.js](lib/youtube.js) — **or** any other provider's iframe embed URL, used as-is), `livestream_is_live` (the on/off switch), `livestream_banner` (optional line for the sticky bar, translatable via `events.translations`). See §16b.
+
 ### `sponsors`
 Admin-recorded sponsorship deals: `id, event_id→events, name, tier (free text: Title/Gold/…), amount, logo_url, contact_name, contact_phone, contact_email, notes, sort_order, created_at`. Negotiated **offline** — no public form, no Razorpay — and **not rendered on the public site**. Needs `GRANT ALL ... TO service_role`.
 
@@ -403,6 +409,19 @@ Answers the question an operator asks constantly: **"did they actually get it?"*
 
 ---
 
+## 16b. Live stream & news
+
+**News / announcements.** Short updates on the homepage, newest first. Admin-managed in **Settings → Home Page Content → News & Announcements** (add headline/details/image, all translatable; an **eye** button toggles `is_published` so an item can be drafted or pulled without deleting it). CRUD: `GET|POST|PATCH|DELETE /api/admin/news` (`settings:manage`). The public homepage renders **only published rows** and hides the whole section when there are none.
+
+**Live stream.**
+- Admin sets it up in **Home Page Content → Live Stream**: paste the URL ahead of time, then hit **🔴 Go live**. `livestream_is_live` is a separate one-click toggle with its own save, so going live never also commits half-typed countdown/helpline edits.
+- **Live requires BOTH the toggle AND a URL** — checked in the API, the homepage, and the banner. A toggle with no URL would render an empty player, so it's treated as not live (and the admin UI refuses to go live without one).
+- **Where it shows:** a dark **player section** on the homepage (`#livestream`, placed high — if it's on, it's why someone is visiting), **plus a site-wide sticky banner** so a visitor on `/register` or `/donate` still learns you're live.
+- ⚠️ **The banner is a CLIENT component ([components/LiveBanner.js](components/LiveBanner.js)) fetching `GET /api/livestream`, deliberately.** The root layout is a *static* server component — doing a DB read there would force **every** page (including the static `/terms`, `/privacy`, `/pitham`, `/feedback`) to render dynamically on every request. Fetching a tiny JSON from the client keeps those pages static (verified: they still build as `○`), and the 60s poll means someone already sitting on the page sees the bar appear when you go live, without reloading. **Don't "simplify" this into a layout-level server fetch.**
+- The banner renders **nothing** unless live, so the cost is one small fetch.
+
+---
+
 ## 17. Full API reference
 
 **Public:**
@@ -412,6 +431,7 @@ Answers the question an operator asks constantly: **"did they actually get it?"*
 - `GET /api/form-fields?categoryId=` — active fields for a category.
 - `POST /api/reminders` — reminder opt-in.
 - `GET /api/checkpoints` — active checkpoints.
+- `GET /api/livestream` — is the active event streaming? (powers the site-wide banner; see §16b).
 - `POST /api/checkin/[id]` — record a scan (PIN or session). Returns NEW/DUPLICATE/NOT_PAID/INVALID.
 - `POST /api/checkin/verify-pin` — validate scanner PIN.
 - `POST /api/webhook/razorpay` — Razorpay webhook (HMAC-verified).
@@ -428,7 +448,9 @@ Answers the question an operator asks constantly: **"did they actually get it?"*
 - `POST /api/admin/resend-confirmation` — re-send the confirmation email/WhatsApp for a completed reg.
 - `POST|PATCH|DELETE /api/admin/categories` — tiers (DELETE needs password).
 - `POST|PATCH|DELETE /api/admin/events` — events (+ setActive; DELETE needs password).
-- `POST|DELETE /api/admin/media`, `…/highlights`, `…/faqs`, `…/schedule` — event content (GET on some).
+- `POST|DELETE /api/admin/media`, `…/highlights`, `…/faqs`, `…/schedule`, `…/guests` — event content (GET on some).
+- `GET|POST|PATCH|DELETE /api/admin/news` — homepage announcements (`settings:manage`; PATCH also toggles `is_published`).
+- Live stream is edited through `PATCH /api/admin/events` (`livestream_url` / `livestream_is_live` / `livestream_banner`). ⚠️ **A field missing from that route's `allowed` whitelist silently fails to save** — and booleans must be handled outside the falsy-to-null loop.
 - `GET|POST|PATCH|DELETE /api/admin/form-fields` — field catalog + per-category settings.
 - `GET|POST|PATCH|DELETE /api/admin/checkpoints`.
 - `GET /api/admin/reminders` — export opt-ins.
@@ -550,6 +572,13 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
 
 Keep newest first. Add an entry for every meaningful change.
 
+- **2026-07-13 (later still)**
+  - **Phase 5 — News / announcements + Live stream.** See **§16b**.
+    - **News** — new `event_news` table + `GET|POST|PATCH|DELETE /api/admin/news` (`settings:manage`) + a **News & Announcements** block in Home Page Content (headline / details / image, all translatable via `TranslatableField`, so Hindi + Marathi come free). An **eye** toggle flips `is_published`, so an item can be drafted or pulled from the site without deleting it; only published rows reach the public page, and the homepage section hides itself entirely when there are none. Deliberately a homepage section only — no `/news` route or per-article permalinks (chosen scope).
+    - **Live stream** — new `events.livestream_url` / `livestream_is_live` / `livestream_banner`. The URL takes a **YouTube link in any form** (reusing the existing `lib/youtube.js` normaliser) **or any other provider's iframe embed URL**, used as-is — so you're not locked to YouTube. Admin pastes the URL ahead of time and hits **🔴 Go live**: the toggle is a separate one-click save from the rest of the event fields, so going live can't also commit half-typed countdown/helpline edits. **Live requires BOTH the toggle and a URL** (enforced in the API, the homepage and the banner) — a toggle with no URL would render an empty player, so it counts as not-live and the admin UI refuses it. It shows as a dark **player section** high on the homepage (`#livestream`) **plus a site-wide sticky banner**.
+    - ⚠️ **Design note worth keeping:** the sticky banner is a **client** component hitting the new public `GET /api/livestream`, *not* a server read in the root layout. The layout is a static server component — a DB call there would force **every** page (including the static `/terms`, `/privacy`, `/pitham`, `/feedback`) to render dynamically per request. The client fetch keeps them static (verified `○` in the build output) and the 60s poll makes the bar appear for someone already on the page when you go live. Don't "simplify" it into the layout.
+    - Also added `livestream_url` / `livestream_banner` to the **events PATCH whitelist**, with `livestream_is_live` handled outside the falsy-to-null loop (as `show_in_archive` already is) — otherwise toggling *off* would have written `null` instead of `false`. New i18n keys (`live_*`, `section_live_*`, `section_news_*`) in all three languages.
+    - **Action required:** re-run `supabase/run_all.sql` (adds `event_news` + the three `events.livestream_*` columns).
 - **2026-07-13 (later)**
   - **🐛 Fixed: the Create New Event form was Hindi-only — new events could never be given Marathi.** Every other admin editor (`EventRow`, `CategoryRow`, `HomeContentManager`, `FormFieldsManager`) already used the config-driven [TranslatableField](components/admin/TranslatableField.tsx), which renders one input per non-English entry in `LANGUAGES`. The **create-event** form in `app/admin/page.tsx` was the one straggler: it hardcoded five Hindi-only fields (`newEventTitleHi`, `newEventShortHi`, …) with `(हिंदी)` placeholders, so a newly-created event had to be re-opened and edited before Marathi could be entered at all. It now uses `TranslatableField` over a single `newEventTr` state (`{ [lang]: { [field]: value } }`) fed straight to `buildTranslations()`. **Marathi — and any future language — now appears automatically, everywhere.** (English title/short/long were `required` on the old raw inputs; `TranslatableField` has no `required` prop, so that validation moved into `handleCreateEvent`.) Verified: no hardcoded `_hi` inputs remain anywhere in `app/` or `components/`.
   - **Email is now provider-neutral (one-file swap).** The `resend` SDK is imported in exactly ONE place and all 11 callers go through `sendEmail({to,subject,html})`, so switching provider is a one-file change — but three incidental spots still *named* Resend and would have rotted after a swap. Fixed: the provider call is isolated into a single **`deliver()`** function in [lib/email.js](lib/email.js) (takes `{to,subject,html}` → `{ok,error}`); env vars are now **`EMAIL_API_KEY` / `EMAIL_FROM`**, with the legacy `RESEND_*` names still honoured as a fallback so existing deployments keep working untouched; and the Data Health launch check now asks `emailConfigured()` instead of reading `process.env.RESEND_API_KEY` by name (it would otherwise have gone falsely red after a swap). Vendor names are out of user-facing strings too. See the swap runbook in §18. Notably **no email uses attachments / cc / bcc / reply-to** — the fields where provider APIs actually diverge — so there is no provider-specific shape to port.
