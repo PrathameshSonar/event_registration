@@ -581,6 +581,40 @@ CREATE TABLE IF NOT EXISTS event_news (
 CREATE INDEX IF NOT EXISTS event_news_event_idx ON event_news(event_id, published_at DESC);
 GRANT ALL ON event_news TO service_role;
 
+-- A news item may carry one downloadable file. Denormalised on purpose so the
+-- announcement survives the library row being deleted or retitled later.
+ALTER TABLE event_news
+    ADD COLUMN IF NOT EXISTS attachment_url  TEXT,
+    ADD COLUMN IF NOT EXISTS attachment_name TEXT;
+
+-- Media library: one row per uploaded file, so uploads can be browsed, reused and
+-- deleted instead of being orphaned in the bucket.
+-- Two buckets, because visibility is a STORAGE decision, not a flag:
+--   public  → `event-media` bucket, permanent public URL
+--   private → `admin-docs` bucket, only via a signed URL (contracts, invoices)
+CREATE TABLE IF NOT EXISTS media_library (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    kind         TEXT NOT NULL DEFAULT 'image' CHECK (kind IN ('image', 'document')),
+    visibility   TEXT NOT NULL DEFAULT 'public' CHECK (visibility IN ('public', 'private')),
+    bucket       TEXT NOT NULL,
+    path         TEXT NOT NULL,
+    url          TEXT,
+    filename     TEXT,
+    mime         TEXT,
+    size_bytes   BIGINT,
+    title        TEXT,
+    description  TEXT,
+    is_download  BOOLEAN DEFAULT false,
+    attach_to_ticket BOOLEAN DEFAULT false,
+    sort_order   INTEGER DEFAULT 0,
+    event_id     UUID REFERENCES events(id) ON DELETE SET NULL,
+    uploaded_by  TEXT,
+    created_at   TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS media_library_kind_idx     ON media_library (kind, created_at DESC);
+CREATE INDEX IF NOT EXISTS media_library_download_idx ON media_library (is_download) WHERE is_download = true;
+GRANT ALL ON media_library TO service_role;
+
 ALTER TABLE events
     ADD COLUMN IF NOT EXISTS travel_info    TEXT;
 

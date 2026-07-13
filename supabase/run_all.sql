@@ -559,6 +559,54 @@ CREATE TABLE IF NOT EXISTS event_news (
 CREATE INDEX IF NOT EXISTS event_news_event_idx ON event_news(event_id, published_at DESC);
 GRANT ALL ON event_news TO service_role;
 
+-- A news item may carry one downloadable file (e.g. "Parking details 📄 PDF").
+-- Denormalised on purpose: the URL + display name are copied from the library at
+-- attach time, so the announcement keeps working even if the library row is later
+-- deleted or retitled.
+ALTER TABLE event_news
+    ADD COLUMN IF NOT EXISTS attachment_url  TEXT,
+    ADD COLUMN IF NOT EXISTS attachment_name TEXT;
+
+-- 8d) ── Media library ───────────────────────────────────────────────────────
+-- One row per uploaded file. Before this, uploads went straight to storage and
+-- ONLY the returned URL was kept on whatever row was being edited — so nothing
+-- could be browsed, reused, or deleted, and every replaced file was orphaned in
+-- the bucket forever. This table is the index that makes those possible.
+--
+-- Two buckets, because visibility is a STORAGE decision, not a flag:
+--   visibility='public'  → public `event-media` bucket, permanent public URL.
+--   visibility='private' → private `admin-docs` bucket, reachable ONLY via a
+--                          short-lived signed URL from /api/admin/media-file/[id].
+--   A signed contract or vendor invoice must never sit behind a permanent public
+--   URL, so it is NOT enough to just hide it in the UI.
+-- `path` is the storage object key — required to delete the file and to sign it.
+CREATE TABLE IF NOT EXISTS media_library (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    kind         TEXT NOT NULL DEFAULT 'image' CHECK (kind IN ('image', 'document')),
+    visibility   TEXT NOT NULL DEFAULT 'public' CHECK (visibility IN ('public', 'private')),
+    bucket       TEXT NOT NULL,
+    path         TEXT NOT NULL,          -- object key inside the bucket
+    url          TEXT,                   -- public URL; NULL for private files
+    filename     TEXT,                   -- original filename, for display + download
+    mime         TEXT,
+    size_bytes   BIGINT,
+    title        TEXT,                   -- admin-editable label
+    description  TEXT,
+    -- Public documents flagged here appear in the homepage "Downloads" section.
+    is_download  BOOLEAN DEFAULT false,
+    -- Public documents flagged here are attached to the ticket-confirmation email.
+    attach_to_ticket BOOLEAN DEFAULT false,
+    sort_order   INTEGER DEFAULT 0,
+    event_id     UUID REFERENCES events(id) ON DELETE SET NULL,
+    uploaded_by  TEXT,
+    created_at   TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS media_library_kind_idx     ON media_library (kind, created_at DESC);
+CREATE INDEX IF NOT EXISTS media_library_download_idx ON media_library (is_download) WHERE is_download = true;
+GRANT ALL ON media_library TO service_role;
+-- The private `admin-docs` bucket is created automatically on the first private
+-- upload (same as `event-media`) — no manual Storage step needed.
+
 -- "Plan Your Visit" — how to reach / parking / accommodation, shown on the
 -- homepage near the venue map. Optional; translated via `translations`.
 ALTER TABLE events

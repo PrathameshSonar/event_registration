@@ -3,7 +3,7 @@
 "use client";
 
 import { Fragment } from 'react';
-import { Calendar, MapPin, Image as ImageIcon, Video, AlertCircle, Clock, Phone, Radio, Newspaper } from 'lucide-react';
+import { Calendar, MapPin, Image as ImageIcon, Video, AlertCircle, Clock, Phone, Radio, Newspaper, FileText, Download } from 'lucide-react';
 import Link from 'next/link';
 import { useLanguage } from './LanguageProvider';
 import { pick } from '@/lib/i18n';
@@ -32,6 +32,14 @@ const YoutubeIcon = (props) => (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" /></svg>
 );
 
+// "2.4 MB" / "812 KB" — so a visitor on mobile data knows what they're tapping.
+const fmtFileSize = (b) => {
+    const n = Number(b || 0);
+    if (!n) return '';
+    if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+    return `${(n / 1024 / 1024).toFixed(1)} MB`;
+};
+
 // Shown when the admin hasn't added ritual highlights yet — keeps the page rich out of the box.
 // Curated fallback ritual cards (shown when the admin hasn't added any).
 // title/desc are keyed by language code so a new language just needs its entry.
@@ -44,12 +52,13 @@ const DEFAULT_HIGHLIGHTS = [
     { icon: '📿', title: { en: 'Pravachan', hi: 'प्रवचन', mr: 'प्रवचन' }, desc: { en: 'Spiritual discourses by revered saints', hi: 'पूज्य संतों द्वारा आध्यात्मिक प्रवचन', mr: 'पूज्य संतांकडून आध्यात्मिक प्रवचन' } },
 ];
 
-export default function HomeContent({ pageData, categories, mediaItems, seatsTaken, schedule, highlights, faqs, guests, news, registeredCount }) {
+export default function HomeContent({ pageData, categories, mediaItems, seatsTaken, schedule, highlights, faqs, guests, news, downloads, registeredCount }) {
     schedule = schedule || [];
     highlights = highlights || [];
     guests = guests || [];
     faqs = faqs || [];
     news = news || [];
+    downloads = downloads || [];
     const { t, lang } = useLanguage();
     const [waitlistCat, setWaitlistCat] = useState(null);
 
@@ -258,10 +267,61 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                                             )}
                                             <h4 className="font-bold text-neutral-900 mt-1.5 mb-1.5 text-sm md:text-base leading-snug">{title}</h4>
                                             {body && <p className="text-neutral-500 text-xs md:text-sm leading-relaxed whitespace-pre-wrap">{body}</p>}
+                                            {n.attachment_url && (
+                                                <a
+                                                    href={n.attachment_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-2.5 py-1.5 hover:bg-orange-100 transition"
+                                                >
+                                                    <FileText className="w-3.5 h-3.5" />
+                                                    {n.attachment_name || t('download_cta')}
+                                                </a>
+                                            )}
                                         </div>
                                     </article>
                                 );
                             })}
+                        </div>
+                    </div>
+                </section>
+                </Reveal>
+            )}
+
+            {/* DOWNLOADS — brochures, maps, guides. Only PUBLIC documents an admin
+                flagged in the media library ever reach this list. */}
+            {downloads.length > 0 && (
+                <Reveal>
+                <section className="bg-gold-50/40 py-10 md:py-14 border-b border-gold-100/70">
+                    <div className="max-w-3xl mx-auto px-4">
+                        <div className="text-center mb-8">
+                            <h3 className="font-serif text-xl md:text-2xl font-bold tracking-tight text-neutral-900 flex items-center justify-center gap-2">
+                                <Download className="w-5 h-5 text-orange-600" /> {t('section_downloads_title')}
+                            </h3>
+                            <div className="gold-divider"><span /></div>
+                            <p className="text-neutral-500 text-sm mt-3">{t('section_downloads_desc')}</p>
+                        </div>
+                        <div className="space-y-2.5">
+                            {downloads.map((d) => (
+                                <a
+                                    key={d.id}
+                                    href={d.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-3.5 bg-white border border-gold-100 rounded-xl p-4 hover:border-orange-300 hover:shadow-warm transition group"
+                                >
+                                    <span className="w-10 h-10 rounded-lg bg-orange-50 border border-orange-100 flex items-center justify-center flex-shrink-0">
+                                        <FileText className="w-5 h-5 text-orange-600" />
+                                    </span>
+                                    <span className="flex-1 min-w-0">
+                                        <span className="block font-semibold text-neutral-900 text-sm truncate">{d.title || d.filename}</span>
+                                        <span className="block text-xs text-neutral-400">{fmtFileSize(d.size_bytes)}</span>
+                                    </span>
+                                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-3 py-1.5 group-hover:bg-orange-100 transition flex-shrink-0">
+                                        <Download className="w-3.5 h-3.5" /> {t('download_cta')}
+                                    </span>
+                                </a>
+                            ))}
                         </div>
                     </div>
                 </section>

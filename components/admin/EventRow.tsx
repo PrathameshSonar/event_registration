@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import { Trash2, Save } from 'lucide-react';
-import ImageUpload from '@/components/ImageUpload';
+import MediaPicker from '@/components/MediaPicker';
 import TranslatableField from '@/components/admin/TranslatableField';
 import { buildTranslations } from '@/lib/i18n';
 import type { EventItem } from '@/app/admin/types';
@@ -108,7 +108,7 @@ export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
                                 <img src={heroImageUrl} alt="Hero preview" className="w-24 h-14 object-cover rounded-lg border border-neutral-200 flex-shrink-0" />
                             )}
                             <input type="url" value={heroImageUrl} onChange={e => { setHeroImageUrl(e.target.value); track(); }} placeholder="https://... or upload →" className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" />
-                            <ImageUpload onUploaded={(url) => { setHeroImageUrl(url); track(); }} />
+                            <MediaPicker onSelected={(url) => { setHeroImageUrl(url); track(); }} />
                             {heroImageUrl && <button type="button" onClick={() => { setHeroImageUrl(''); track(); }} className="px-3 py-2 text-sm font-semibold rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 transition">Clear</button>}
                         </div>
                     </div>

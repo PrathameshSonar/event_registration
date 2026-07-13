@@ -83,6 +83,16 @@ export default async function Home() {
         news = newsRes.data || [];
     }
 
+    // 3c. Public downloads — documents an admin flagged for the homepage. Only
+    // public documents can ever appear here (a private file has no URL at all).
+    const { data: downloads } = await supabaseAdmin
+        .from('media_library')
+        .select('id, title, filename, url, mime, size_bytes')
+        .eq('is_download', true)
+        .eq('visibility', 'public')
+        .eq('kind', 'document')
+        .order('sort_order');
+
     // 4. Seat counts — requires service-role key (RLS blocks anon reads on registrations)
     const { data: regs } = await supabaseAdmin
         .from('registrations')
@@ -136,6 +146,7 @@ export default async function Home() {
                 faqs={faqs}
                 guests={guests}
                 news={news}
+                downloads={downloads || []}
                 registeredCount={registeredCount}
             />
         </>

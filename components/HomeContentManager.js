@@ -5,10 +5,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Trash2, Save, Clock, Sparkles, Phone, CalendarClock, Image as ImageIcon, HelpCircle, BellRing, Star, Radio, Newspaper, Eye, EyeOff } from "lucide-react";
+import { Plus, Trash2, Save, Clock, Sparkles, Phone, CalendarClock, Image as ImageIcon, HelpCircle, BellRing, Star, Radio, Newspaper, Eye, EyeOff, FileText } from "lucide-react";
 import { youtubeId } from "@/lib/youtube";
 import { toast } from "@/lib/uiStore";
-import ImageUpload from "@/components/ImageUpload";
+import MediaPicker from "@/components/MediaPicker";
 import TranslatableField from "@/components/admin/TranslatableField";
 import { buildTranslations } from "@/lib/i18n";
 
@@ -49,6 +49,8 @@ export default function HomeContentManager(props) {
   const [nTitle, setNTitle] = useState("");
   const [nBody, setNBody] = useState("");
   const [nImage, setNImage] = useState("");
+  const [nAttachUrl, setNAttachUrl] = useState("");
+  const [nAttachName, setNAttachName] = useState("");
   const [nTr, setNTr] = useState({});
 
   // New guest (English base + a `tr` map for other languages)
@@ -142,12 +144,13 @@ export default function HomeContentManager(props) {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         event_id: eventId, title: nTitle, body: nBody, image_url: nImage,
+        attachment_url: nAttachUrl, attachment_name: nAttachName,
         is_published: true, translations: buildTranslations(nTr),
       }),
     });
     setBusy(false);
     if (!res.ok) { toast.error("Could not add the announcement."); return; }
-    setNTitle(""); setNBody(""); setNImage(""); setNTr({});
+    setNTitle(""); setNBody(""); setNImage(""); setNAttachUrl(""); setNAttachName(""); setNTr({});
     await loadLists(eventId);
   };
 
@@ -450,9 +453,27 @@ export default function HomeContentManager(props) {
           <div>
             <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Image (optional)</label>
             <div className="flex gap-2">
-              <input type="url" placeholder="https://… or upload →" value={nImage} onChange={(e) => setNImage(e.target.value)} className={inputCls} />
-              <ImageUpload onUploaded={(url) => setNImage(url)} label="Upload" />
+              <input type="url" placeholder="https://… or pick from the library →" value={nImage} onChange={(e) => setNImage(e.target.value)} className={inputCls} />
+              <MediaPicker onSelected={(url) => setNImage(url)} label="Library" />
             </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Attachment (optional)</label>
+            {nAttachUrl ? (
+              <div className="flex items-center gap-2 bg-white border border-neutral-200 rounded-lg p-2.5">
+                <FileText className="w-4 h-4 text-orange-600 flex-shrink-0" />
+                <span className="text-sm text-neutral-800 flex-1 min-w-0 truncate">{nAttachName || nAttachUrl}</span>
+                <button type="button" onClick={() => { setNAttachUrl(""); setNAttachName(""); }} className="p-1 text-neutral-400 hover:text-red-600 rounded transition"><Trash2 className="w-3.5 h-3.5" /></button>
+              </div>
+            ) : (
+              <MediaPicker
+                kind="document"
+                label="Attach a document"
+                className="w-full"
+                onSelected={(url, item) => { setNAttachUrl(url); setNAttachName(item?.title || item?.filename || "Download"); }}
+              />
+            )}
+            <p className="text-xs text-neutral-400 mt-1">Readers get a download button on the announcement (e.g. a parking map PDF).</p>
           </div>
           <button type="submit" disabled={busy || !nTitle.trim()} className="w-full flex items-center justify-center gap-2 bg-neutral-900 hover:bg-orange-600 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-lg text-sm transition"><Plus className="w-4 h-4" /> Add Announcement</button>
         </form>
@@ -506,7 +527,7 @@ export default function HomeContentManager(props) {
           <div><TranslatableField label="Role / title" field="role" value={gRole} onValue={setGRole} tr={gTr} onTr={mkSetTr(setGTr)} placeholder="e.g. Kathavachak, Singer" /></div>
           <div className="md:col-span-2 flex gap-2">
             <input type="url" placeholder="Photo URL — paste a link or upload →" value={gPhoto} onChange={(e) => setGPhoto(e.target.value)} className={`${inputCls} flex-1`} />
-            <ImageUpload onUploaded={(url) => setGPhoto(url)} />
+            <MediaPicker onSelected={(url) => setGPhoto(url)} />
           </div>
           <div className="md:col-span-2"><TranslatableField label="Short bio" field="bio" value={gBio} onValue={setGBio} tr={gTr} onTr={mkSetTr(setGTr)} multiline rows={2} placeholder="Short bio (optional)" /></div>
           <button type="submit" disabled={busy || !gName.trim()} className="md:col-span-2 flex items-center justify-center gap-2 bg-neutral-900 hover:bg-orange-600 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-lg text-sm transition"><Plus className="w-4 h-4" /> Add Guest</button>

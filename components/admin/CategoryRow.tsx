@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { Trash2, Users, Save } from 'lucide-react';
-import ImageUpload from '@/components/ImageUpload';
+import MediaPicker from '@/components/MediaPicker';
 import TranslatableField from '@/components/admin/TranslatableField';
 import { buildTranslations } from '@/lib/i18n';
 import type { Category } from '@/app/admin/types';
@@ -76,7 +76,7 @@ export default function CategoryRow({ category, onUpdate, onDelete }: { category
                 <div className="md:col-span-2"><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Media URL</label>
                     <div className="flex gap-2">
                         <input type="text" value={mediaUrl} onChange={(e) => { setMediaUrl(e.target.value); setIsChanged(true); }} placeholder="https://... or upload →" className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" />
-                        <ImageUpload onUploaded={(url) => { setMediaUrl(url); setIsChanged(true); }} />
+                        <MediaPicker onSelected={(url) => { setMediaUrl(url); setIsChanged(true); }} />
                     </div>
                 </div>
                 <div className="md:col-span-2"><TranslatableField label="Short Summary" field="description" value={desc} onValue={(v) => { setDesc(v); setIsChanged(true); }} tr={tr} onTr={setTrField} /></div>

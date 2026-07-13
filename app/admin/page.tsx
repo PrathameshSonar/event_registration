@@ -7,7 +7,7 @@ import {
     Trash2, Plus, Image as ImageIcon, Video, CalendarDays,
     Ticket, Calendar as CalendarIcon, Search, LogOut, QrCode, Check,
     LayoutDashboard, ScrollText, RefreshCw, MessageSquare, Send, UserPlus, Megaphone,
-    Gift, UserCheck, Handshake, Mail
+    Gift, UserCheck, Handshake, Mail, FolderOpen
 } from 'lucide-react';
 import { youtubeThumbnail } from '@/lib/youtube';
 import { buildTranslations } from '@/lib/i18n';
@@ -20,6 +20,7 @@ import AdminUsersManager from '@/components/AdminUsersManager';
 import WaitlistManager from '@/components/WaitlistManager';
 import DonationsManager from '@/components/DonationsManager';
 import SponsorsManager from '@/components/SponsorsManager';
+import MediaLibraryManager from '@/components/MediaLibraryManager';
 import MessageLogPanel from '@/components/MessageLogPanel';
 import FeedbackManager from '@/components/FeedbackManager';
 import ScanLogPanel from '@/components/ScanLogPanel';
@@ -31,7 +32,7 @@ import EventOpsPanel from '@/components/EventOpsPanel';
 import HealthPanel from '@/components/HealthPanel';
 import ManualCheckin from '@/components/ManualCheckin';
 import BroadcastModal from '@/components/BroadcastModal';
-import ImageUpload from '@/components/ImageUpload';
+import MediaPicker from '@/components/MediaPicker';
 import CategoryRow from '@/components/admin/CategoryRow';
 import EventRow from '@/components/admin/EventRow';
 import TranslatableField from '@/components/admin/TranslatableField';
@@ -53,7 +54,7 @@ export default function AdminDashboard() {
     const can = (perm: string) => isAdmin || permissions.includes(perm);
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'enquiries' | 'scanlog' | 'settings' | 'audit'>('dashboard');
-    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'checkpoints' | 'formfields' | 'homecontent' | 'payment' | 'users' | 'waitlist' | 'donations' | 'sponsors' | 'messages' | 'feedback'>('events');
+    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'library' | 'checkpoints' | 'formfields' | 'homecontent' | 'payment' | 'users' | 'waitlist' | 'donations' | 'sponsors' | 'messages' | 'feedback'>('events');
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -1189,6 +1190,7 @@ export default function AdminDashboard() {
                             <button onClick={() => setSettingsSubTab('events')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'events' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><CalendarDays className="w-4 h-4" /> Event Setup</button>
                             <button onClick={() => setSettingsSubTab('tiers')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'tiers' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><Ticket className="w-4 h-4" /> Ticket Tiers</button>
                             <button onClick={() => setSettingsSubTab('media')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'media' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ImageIcon className="w-4 h-4" /> Media Gallery</button>
+                            <button onClick={() => setSettingsSubTab('library')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'library' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><FolderOpen className="w-4 h-4" /> Media Library</button>
                             <button onClick={() => setSettingsSubTab('checkpoints')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'checkpoints' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><QrCode className="w-4 h-4" /> Entry Checkpoints</button>
                             <button onClick={() => setSettingsSubTab('formfields')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'formfields' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ListFilter className="w-4 h-4" /> Form Fields</button>
                             <button onClick={() => setSettingsSubTab('homecontent')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'homecontent' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><CalendarDays className="w-4 h-4" /> Home Page Content</button>
@@ -1323,7 +1325,7 @@ export default function AdminDashboard() {
                                         <div className="md:col-span-2"><label className="block text-xs font-bold text-neutral-600 uppercase tracking-wider mb-1">Asset URL</label>
                                             <div className="flex gap-2">
                                                 <input type="url" placeholder="https://... or upload →" value={mediaUrl} onChange={(e) => setMediaUrl(e.target.value)} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600" required />
-                                                {mediaType === 'image' && <ImageUpload onUploaded={(url) => setMediaUrl(url)} label="Upload" />}
+                                                {mediaType === 'image' && <MediaPicker onSelected={(url) => setMediaUrl(url)} label="Upload" />}
                                             </div>
                                         </div>
                                         <div className="md:col-span-1"><label className="block text-xs font-bold text-neutral-600 uppercase tracking-wider mb-1">Type</label><select value={mediaType} onChange={(e) => setMediaType(e.target.value as 'image' | 'youtube')} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-white focus:outline-none focus:border-orange-600 cursor-pointer"><option value="image">Image</option><option value="youtube">YouTube</option></select></div>
@@ -1409,6 +1411,7 @@ export default function AdminDashboard() {
                             {settingsSubTab === 'payment' && <PaymentSettingsManager />}
                             {settingsSubTab === 'users' && <AdminUsersManager />}
                             {settingsSubTab === 'waitlist' && <WaitlistManager />}
+                            {settingsSubTab === 'library' && <MediaLibraryManager />}
                             {settingsSubTab === 'donations' && <DonationsManager />}
                             {settingsSubTab === 'sponsors' && <SponsorsManager events={eventsList} />}
                             {settingsSubTab === 'messages' && can('audit:view') && <MessageLogPanel />}

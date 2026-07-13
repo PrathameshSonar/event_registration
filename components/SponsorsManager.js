@@ -9,7 +9,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { IndianRupee, Plus, Trash2, Pencil, Handshake, X } from "lucide-react";
 import { toast, confirmDialog } from "@/lib/uiStore";
-import ImageUpload from "@/components/ImageUpload";
+import MediaPicker from "@/components/MediaPicker";
 
 const TIERS = ["Title", "Platinum", "Gold", "Silver", "Bronze", "Partner", "In-kind"];
 
@@ -166,7 +166,7 @@ export default function SponsorsManager({ events = [] }) {
                         <label className="block text-xs font-bold text-neutral-600 uppercase tracking-wider mb-1">Logo</label>
                         <div className="flex gap-2">
                             <input className={input} value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} placeholder="https://… or upload →" />
-                            <ImageUpload onUploaded={(url) => setForm((f) => ({ ...f, logo_url: url }))} label="Upload" />
+                            <MediaPicker onSelected={(url) => setForm((f) => ({ ...f, logo_url: url }))} label="Upload" />
                         </div>
                     </div>
 

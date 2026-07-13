@@ -4,7 +4,7 @@
 >
 > **⚠️ KEEP THIS UPDATED.** Whenever a feature, route, column, env var, or flow changes, update the relevant section **and** the Changelog at the bottom. This file is meant to stay accurate.
 >
-> Last updated: 2026-07-13.
+> Last updated: 2026-07-14.
 
 ---
 
@@ -178,6 +178,9 @@ Homepage content per event (programme, ritual cards, **guest/artist lineup**, FA
 
 ### `registration_notes`
 Contact-history log for the enquiry pipeline: `id, registration_id→registrations (cascade), note, actor_role, created_at`. One row per note. Needs `GRANT ALL ... TO service_role`.
+
+### `media_library`
+Index of every uploaded file: `id, kind ('image'|'document'), visibility ('public'|'private'), bucket, path, url, filename, mime, size_bytes, title, description, is_download, attach_to_ticket, sort_order, event_id, uploaded_by, created_at`. See §19b. **Two buckets** — public `event-media`, private `admin-docs`. Needs `GRANT ALL ... TO service_role`.
 
 ### `event_news`
 Homepage announcements for an event: `id, event_id→events, title, body, image_url, is_published (draft/live), published_at, sort_order, translations jsonb, created_at`. Same shape as `event_highlights` / `event_faqs`. Only `is_published = true` rows reach the public page. Needs `GRANT ALL ... TO service_role`.
@@ -450,6 +453,8 @@ Answers the question an operator asks constantly: **"did they actually get it?"*
 - `POST|PATCH|DELETE /api/admin/events` — events (+ setActive; DELETE needs password).
 - `POST|DELETE /api/admin/media`, `…/highlights`, `…/faqs`, `…/schedule`, `…/guests` — event content (GET on some).
 - `GET|POST|PATCH|DELETE /api/admin/news` — homepage announcements (`settings:manage`; PATCH also toggles `is_published`).
+- `GET|POST|PATCH|DELETE /api/admin/media-library` — the media library (`settings:manage`). POST is multipart. DELETE returns **409 + `inUse`** if the file is still referenced; re-send with `force: true` to override. See §19b.
+- `GET /api/admin/media-file/[id]` — signed URL for a **private** library file (`settings:manage`).
 - Live stream is edited through `PATCH /api/admin/events` (`livestream_url` / `livestream_is_live` / `livestream_banner`). ⚠️ **A field missing from that route's `allowed` whitelist silently fails to save** — and booleans must be handled outside the falsy-to-null loop.
 - `GET|POST|PATCH|DELETE /api/admin/form-fields` — field catalog + per-category settings.
 - `GET|POST|PATCH|DELETE /api/admin/checkpoints`.
@@ -502,13 +507,37 @@ Email is **fully centralised**: the `resend` SDK is imported in exactly one file
 2. Swap the SDK import at the top of that file, and the dependency in `package.json`.
 3. Point `EMAIL_API_KEY` / `EMAIL_FROM` at the new provider.
 
-**No call site changes.** `sendEmail()`'s signature, its boolean return, `emailShell()`, and the `message_log` write are all provider-neutral — and **no email in this app uses attachments, cc, bcc, or reply-to**, which are the fields where provider APIs actually diverge. The env vars are provider-neutral too, and the Data Health launch check asks `emailConfigured()` rather than naming a vendor, so it can't go falsely red after a swap.
+**No call site changes.** `sendEmail()`'s signature, its boolean return, `emailShell()`, and the `message_log` write are all provider-neutral. The env vars are provider-neutral too, and the Data Health launch check asks `emailConfigured()` rather than naming a vendor, so it can't go falsely red after a swap.
+
+⚠️ **The one thing you must re-map: attachments.** Callers pass a neutral `attachments: [{ url, filename }]`, and `deliver()` maps it to the provider's own shape — Resend takes `{ path, filename }` and fetches the URL itself; SES wants raw MIME, Postmark wants base64 `Content`. Everything else is a straight port. Nothing uses cc / bcc / reply-to.
 
 ---
 
 ## 19. Components
 
 `CheckoutForm.js` (registration+payment+receipt+enquire/pay choice), `RegisterPageContent.js`, `HomeContent.js`, `HomeContentManager.js` (admin home editor), `FormFieldsManager.js`, `AuditLogPanel.js`, `EnquiriesPanel.js` (leads pipeline), `LanguageProvider.tsx`, `LangToggle.js`, `Countdown.js`, `FaqAccordion.js`, `ReminderForm.js`, `AddToCalendar.js`, `ShareButtons.js`, `FloatingActions.js`, `Reveal.js` (scroll-reveal), `YouTubeEmbed.js`, `PreviousEventsContent.js`, `Footer.js`.
+
+---
+
+## 19b. Media library
+
+**The problem it solves.** Uploads used to go straight to storage via `POST /api/admin/upload-image`, and only the returned URL was written onto whatever row you were editing. Nothing recorded that the upload happened — so files could not be browsed, could not be reused (the same photo was uploaded once per field), and could not be deleted. **Every replaced image was orphaned in the bucket forever.** `media_library` is the index that fixes all three.
+
+**Two buckets, because visibility is a STORAGE decision, not a UI flag.**
+- `visibility = 'public'` → public **`event-media`** bucket → permanent public URL. Images (which must be fetchable by `<img src>` to render at all) are *always* public.
+- `visibility = 'private'` → private **`admin-docs`** bucket → **no public URL at all**. Reachable only through a short-lived signed URL from `GET /api/admin/media-file/[id]`, exactly like `payment-proofs`. This is for contracts, sponsor decks and invoices. ⚠️ **Hiding such a file in the UI while it sat behind a permanent public URL would not be privacy** — hence a real second bucket. Both buckets auto-create on first upload; no manual Storage step.
+
+**How files get used** (`is_download` / `attach_to_ticket`, both enforced server-side to be *public documents only*):
+- **Homepage Downloads section** — public documents flagged `is_download` (brochure, parking map, programme).
+- **News attachment** — an announcement can carry one file. `event_news.attachment_url`/`attachment_name` are **denormalised on purpose** so the announcement survives the library row being deleted or retitled.
+- **Ticket-email attachment** — documents flagged `attach_to_ticket` are attached to every confirmation email by [lib/ticket.js](lib/ticket.js). ⚠️ **Capped at 5 MB** (well under the 25 MB upload limit): this file rides on *every* ticket email, and many inboxes bounce messages over ~10 MB. Publish a big file as a download and link to it instead.
+- **Internal-only** — private documents, admin-viewable, never public.
+
+**Components.** [components/MediaPicker.js](components/MediaPicker.js) replaced the old `ImageUpload` button in all six media fields (gallery, tier image, guest photo, hero image, sponsor logo, news image) — it lets you **browse and reuse** as well as upload. [components/MediaLibraryManager.js](components/MediaLibraryManager.js) is Settings → **Media Library** (grid + search, copy link, publish flags, delete).
+
+**Deleting** checks the file's URL against every column that can reference it (the `USAGE` list in the route) and returns **409 + where it's used**; the UI then shows those places and lets the admin force it. ⚠️ **A new consumer of library URLs must be added to `USAGE`**, or its images can be deleted out from under it.
+
+⚠️ **The old un-indexed `POST /api/admin/upload-image` and `components/ImageUpload.js` were deleted.** Don't reintroduce an upload path that doesn't write a `media_library` row — that's precisely the orphan bug this replaced.
 
 ---
 
@@ -572,6 +601,16 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
 
 Keep newest first. Add an entry for every meaningful change.
 
+- **2026-07-14**
+  - **Phase 4 — Media library + documents.** See **§19b**.
+    - **The real bug it fixes:** uploads used to go straight to storage and only the returned URL was kept on whatever row was being edited. Nothing recorded the upload — so files couldn't be browsed, couldn't be reused (the same photo was uploaded once per field), and couldn't be deleted. **Every replaced image was orphaned in the bucket forever.** New `media_library` table indexes every file.
+    - **Two buckets, because visibility is a STORAGE decision, not a UI flag.** Public files → the existing public `event-media`. **Private** documents (contracts, sponsor decks, invoices) → a new private **`admin-docs`** bucket with **no public URL at all**, opened only via a short-lived signed URL from `GET /api/admin/media-file/[id]` (same pattern as `payment-proofs`). Hiding a contract in the UI while it sat behind a permanent public URL would not be privacy. Images are always public — they can't render from a private bucket. Both buckets auto-create.
+    - **All four document uses wired:** homepage **Downloads** section (`is_download`), **attachment on a news item** (`event_news.attachment_url`/`attachment_name` — denormalised on purpose so the announcement survives the library row being deleted), **attached to the ticket email** (`attach_to_ticket`), and **internal-only** private files. ⚠️ Ticket attachments are **capped at 5 MB** (vs the 25 MB upload limit) because the file rides on *every* confirmation email and many inboxes bounce over ~10 MB.
+    - **Email attachments** required re-opening the one provider-specific seam: `sendEmail({ attachments: [{url, filename}] })` is neutral, and `deliver()` maps it to Resend's `{path, filename}`. **This is now the single thing a provider swap must re-map** — §18's runbook says so.
+    - **`components/MediaPicker.js` replaces `ImageUpload`** in all six media fields (gallery, tier image, guest photo, hero image, sponsor logo, news image): browse-and-reuse *or* upload. New Settings → **Media Library** panel (search, copy link, publish flags, delete). **Deleting checks whether the file is still in use** and returns 409 with the exact places, so it can't silently break a page; the admin can force it.
+    - 🗑️ **Deleted the old `POST /api/admin/upload-image` and `components/ImageUpload.js`.** Leaving an upload path that doesn't index its file would just re-create the orphan bug. Verified no references remain.
+    - **Video upload was deliberately NOT built** — video stays as YouTube embeds. Supabase Storage gives no transcoding and no adaptive bitrate, and you pay egress: one 500 MB file watched by 1,000 people is 500 GB billed. YouTube does it free and better.
+    - **Action required:** re-run `supabase/run_all.sql` (adds `media_library` + `event_news.attachment_*`).
 - **2026-07-13 (later still)**
   - **Phase 5 — News / announcements + Live stream.** See **§16b**.
     - **News** — new `event_news` table + `GET|POST|PATCH|DELETE /api/admin/news` (`settings:manage`) + a **News & Announcements** block in Home Page Content (headline / details / image, all translatable via `TranslatableField`, so Hindi + Marathi come free). An **eye** toggle flips `is_published`, so an item can be drafted or pulled from the site without deleting it; only published rows reach the public page, and the homepage section hides itself entirely when there are none. Deliberately a homepage section only — no `/news` route or per-article permalinks (chosen scope).
