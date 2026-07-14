@@ -5,9 +5,8 @@ import { NextResponse } from 'next/server';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAudit } from '@/lib/auditLog';
-import { sendEmail, emailShell } from '@/lib/email';
+import { sendTemplatedEmail } from '@/lib/email';
 import { sendWhatsAppText } from '@/lib/whatsapp';
-import { escapeHtml } from '@/lib/escape';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,16 +48,11 @@ export async function POST(request) {
     let emailSent = 0, waSent = 0;
     for (const r of batch) {
         if (r.email) {
-            const ok = await sendEmail({
+            const ok = await sendTemplatedEmail({
                 to: r.email,
-                subject: '🙏 Thank you for joining the BaglaBhairav Mahotsav',
-                html: emailShell(`
-                    <p style="font-size:16px;color:#404040;margin-top:0;">Namaste <strong>${escapeHtml(r.first_name || '')}</strong>,</p>
-                    <p style="font-size:14px;color:#6b7280;line-height:1.6;">Thank you for being part of the BaglaBhairav Mahotsav — your presence made it special. 🙏</p>
-                    <p style="font-size:14px;color:#6b7280;line-height:1.6;">We'd love to hear how it was for you. It takes less than a minute:</p>
-                    <p><a href="${link}" style="display:inline-block;background:#ea580c;color:#fff;font-weight:700;padding:12px 24px;border-radius:8px;text-decoration:none;">Share your feedback</a></p>
-                `),
-                log: { kind: 'feedback', registrationId: r.id },
+                kind: 'feedback',
+                registrationId: r.id,
+                vars: { name: r.first_name || '', feedbackLink: link },
             });
             if (ok) emailSent++;
         }

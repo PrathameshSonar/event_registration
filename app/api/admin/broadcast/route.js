@@ -13,7 +13,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAudit } from '@/lib/auditLog';
 import { escapeHtml } from '@/lib/escape';
 import { sendEmail, emailShell } from '@/lib/email';
-import { sendWhatsAppTemplate, waConfigured, WHATSAPP_TEMPLATES } from '@/lib/whatsapp';
+import { sendWhatsAppTemplate, waConfigured } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,7 +79,7 @@ export async function POST(request) {
             if (ok) emailSent++;
         }
         if (channels.whatsapp && r.phone && waConfigured()) {
-            if (await sendWhatsAppTemplate(r.phone, WHATSAPP_TEMPLATES.announcement, [text], { kind: 'broadcast', registrationId: r.id })) waSent++;
+            if (await sendWhatsAppTemplate(r.phone, 'announcement', [text], { kind: 'broadcast', registrationId: r.id })) waSent++;
         }
     }
 

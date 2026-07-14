@@ -5,9 +5,9 @@ import QRCode from 'qrcode';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAudit } from '@/lib/auditLog';
-import { escapeHtml } from '@/lib/escape';
-import { sendEmail } from '@/lib/email';
+import { sendTemplatedEmail } from '@/lib/email';
 import { sendWhatsAppText, sendWhatsAppImage, waConfigured } from '@/lib/whatsapp';
+import { getQrConfig } from '@/lib/settingsServer';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,21 +47,24 @@ export async function POST(request) {
     let emailSent = 0, emailFailed = 0, waSent = 0, waFailed = 0;
     const sentIds = [];
 
+    // Size / margin / colours / signed-URL lifetime — Settings → Templates & Config.
+    // Fetched once for the whole batch, not per registration.
+    const qrCfg = await getQrConfig();
+
     for (const reg of regs) {
         const verifyUrl = `${siteUrl}/entry/${reg.id}`;
         const salutation = reg.salutation ? `${reg.salutation} ` : '';
         const fullName = `${salutation}${reg.first_name} ${reg.last_name}`;
         const categoryTitle = reg.categories?.title || 'General Admission';
         const shortId = reg.id.split('-')[0].toUpperCase();
-        const eFullName = escapeHtml(fullName), eCat = escapeHtml(categoryTitle); // for the email HTML
 
         // Generate QR as PNG buffer (used for email + storage upload)
         let qrBuffer;
         try {
             qrBuffer = await QRCode.toBuffer(verifyUrl, {
-                width: 280,
-                margin: 2,
-                color: { dark: '#171717', light: '#ffffff' },
+                width: qrCfg.size,
+                margin: qrCfg.margin,
+                color: { dark: qrCfg.dark, light: qrCfg.light },
             });
         } catch (e) {
             console.error('QR generation failed for', reg.id, e);
@@ -80,7 +83,7 @@ export async function POST(request) {
         if (!upErr) {
             const { data: signedData } = await supabaseAdmin.storage
                 .from('qr-codes')
-                .createSignedUrl(`${reg.id}.png`, 30 * 24 * 60 * 60); // 30 days
+                .createSignedUrl(`${reg.id}.png`, qrCfg.link_expiry_days * 24 * 60 * 60);
             qrPublicUrl = signedData?.signedUrl || null;
         } else {
             console.warn('QR storage upload failed (bucket may not exist yet):', upErr.message);
@@ -88,39 +91,21 @@ export async function POST(request) {
 
         // ── EMAIL ─────────────────────────────────────────────
         if (reg.email) {
-            const ok = await sendEmail({
+            // Copy lives in lib/emailTemplates.js (admin-overridable in Settings) — we
+            // pass DATA only; the renderer HTML-escapes every value.
+            const ok = await sendTemplatedEmail({
                 to: reg.email,
-                subject: '🎟️ Your Entry QR Code — BaglaBhairav Mahotsav',
-                html: `
-<div style="font-family:sans-serif;max-width:600px;margin:0 auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
-  <div style="background:#171717;padding:32px;text-align:center;">
-    <span style="color:#ea580c;font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.1em;">Entry Pass</span>
-    <h1 style="color:#fff;margin:8px 0 0;font-size:26px;font-weight:800;">BaglaBhairav Mahotsav</h1>
-  </div>
-  <div style="padding:32px;background:#fff;text-align:center;">
-    <p style="font-size:16px;color:#404040;margin-top:0;">Namaste <strong>${eFullName}</strong>,</p>
-    <p style="font-size:14px;color:#6b7280;line-height:1.6;">Please show this QR code at the event entrance. Our team will scan it to verify your registration.</p>
-    <div style="background:#f9fafb;border:2px dashed #e5e7eb;border-radius:16px;padding:24px;display:inline-block;margin:16px auto;">
-      <img src="${qrDataUrl}" alt="Entry QR Code" width="220" height="220" style="display:block;border-radius:8px;" />
-    </div>
-    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin:24px 0;text-align:left;">
-      <table style="width:100%;border-collapse:collapse;font-size:14px;">
-        <tr><td style="padding:6px 0;color:#6b7280;width:40%;">Name:</td><td style="padding:6px 0;font-weight:bold;color:#111827;">${eFullName}</td></tr>
-        <tr><td style="padding:6px 0;color:#6b7280;">Category:</td><td style="padding:6px 0;font-weight:bold;color:#111827;">${eCat}</td></tr>
-        <tr><td style="padding:6px 0;color:#6b7280;">Attendees:</td><td style="padding:6px 0;font-weight:bold;color:#111827;">${reg.attendees_count} Person(s)</td></tr>
-        <tr style="border-top:1px solid #e5e7eb;">
-          <td style="padding:10px 0 0;color:#6b7280;">Amount Paid:</td>
-          <td style="padding:10px 0 0;font-weight:800;color:#16a34a;font-size:16px;">₹${reg.total_amount}</td>
-        </tr>
-      </table>
-    </div>
-    <p style="font-size:12px;color:#9ca3af;">Can't scan? Open your pass: <a href="${verifyUrl}" style="color:#ea580c;">${verifyUrl}</a></p>
-  </div>
-  <div style="background:#f3f4f6;padding:16px;text-align:center;font-size:11px;color:#9ca3af;border-top:1px solid #e5e7eb;">
-    Ref: ${shortId} · Secured via Razorpay
-  </div>
-</div>`,
-                log: { kind: 'qr', registrationId: reg.id },
+                kind: 'qr',
+                registrationId: reg.id,
+                vars: {
+                    name: fullName,
+                    tier: categoryTitle,
+                    attendees: reg.attendees_count,
+                    total: reg.total_amount,
+                    qrImage: qrDataUrl,
+                    verifyUrl,
+                    shortId,
+                },
             });
             if (ok) { emailSent++; delivered = true; } else { emailFailed++; }
         }

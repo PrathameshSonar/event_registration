@@ -3,6 +3,7 @@
 import QRCode from 'qrcode';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { getQrConfig } from '@/lib/settingsServer';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,10 +34,11 @@ export async function GET(_request, { params }) {
     const verifyUrl = `${siteUrl}/entry/${id}`;
     const shortId = id.split('-')[0].toUpperCase();
 
+    const qrCfg = await getQrConfig();
     const qrBuffer = await QRCode.toBuffer(verifyUrl, {
-        width: 400,
-        margin: 3,
-        color: { dark: '#171717', light: '#ffffff' },
+        width: qrCfg.download_size,   // the download is deliberately larger than the emailed one
+        margin: qrCfg.margin,
+        color: { dark: qrCfg.dark, light: qrCfg.light },
     });
 
     return new Response(qrBuffer, {

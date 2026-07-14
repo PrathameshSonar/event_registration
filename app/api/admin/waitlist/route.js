@@ -8,9 +8,8 @@ import { NextResponse } from 'next/server';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAudit } from '@/lib/auditLog';
-import { escapeHtml } from '@/lib/escape';
-import { sendEmail, emailShell } from '@/lib/email';
-import { sendWhatsAppTemplate, WHATSAPP_TEMPLATES } from '@/lib/whatsapp';
+import { sendTemplatedEmail } from '@/lib/email';
+import { sendWhatsAppTemplate } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,21 +50,15 @@ export async function POST(request) {
     let emailed = false, waSent = false;
 
     if (row.email) {
-        emailed = await sendEmail({
+        emailed = await sendTemplatedEmail({
             to: row.email,
-            subject: `🎉 A spot opened up — ${tier}`,
-            html: emailShell(`
-                <p style="font-size:16px;color:#404040;margin-top:0;">Namaste <strong>${escapeHtml(row.name)}</strong>,</p>
-                <p style="font-size:14px;color:#6b7280;line-height:1.6;">Good news — a spot has opened up for <strong>${escapeHtml(tier)}</strong>. Register now before it fills again:</p>
-                <p><a href="${link}" style="display:inline-block;background:#ea580c;color:#fff;font-weight:700;padding:12px 24px;border-radius:8px;text-decoration:none;">Register now</a></p>
-                <p style="font-size:12px;color:#9ca3af;">This spot is first-come — the link may stop working once seats fill.</p>
-            `),
-            log: { kind: 'waitlist' },
+            kind: 'waitlist',
+            vars: { name: row.name, tier, registerLink: link },
         });
     }
     if (row.phone) {
         // Params: [name, tier, registerLink]
-        waSent = await sendWhatsAppTemplate(row.phone, WHATSAPP_TEMPLATES.waitlistOpen, [row.name, tier, link], { kind: 'waitlist' });
+        waSent = await sendWhatsAppTemplate(row.phone, 'waitlistOpen', [row.name, tier, link], { kind: 'waitlist' });
     }
 
     await supabaseAdmin.from('waitlist').update({ status: 'notified', notified_at: new Date().toISOString() }).eq('id', id);

@@ -467,7 +467,8 @@ Answers the question an operator asks constantly: **"did they actually get it?"*
 - `GET|POST /api/admin/registration-notes` — enquiry contact-notes history (GET any role; POST admin).
 - `POST /api/admin/verify-payment` — offline verification (approve/reject/cheque steps/reverse/record).
 - `GET /api/admin/payment-proof/[id]` — signed URL to an offline proof file.
-- `GET|PATCH /api/admin/app-settings` — **all** global config, driven by the registry in [lib/appSettings.js](lib/appSettings.js): `bank_details`, `branding`, `seo`. GET any role; PATCH needs `settings:manage` and busts the cached `branding`/`seo` tags. See §19c.
+- `GET|PATCH /api/admin/app-settings` — **all** global config, driven by the registry in [lib/appSettings.js](lib/appSettings.js): `bank_details`, `branding`, `seo`, `email_templates`, `whatsapp_templates`, `qr`. GET any role; PATCH needs `settings:manage` and busts the matching cache tag. See §19c / §19d.
+- `GET /api/admin/gateway-status` — read-only gateway/channel status (`settings:manage`). Key id masked; **secrets never returned**. See §19d.
 - `GET|POST|PATCH|DELETE /api/admin/sponsors` — sponsor records (`settings:manage`).
 - `GET /api/admin/message-log` — outbound delivery trail (`audit:view`); `POST { id }` re-sends a message (`reminders:send`). See §12b.
 - `GET /api/admin/audit-logs` — read audit trail.
@@ -561,6 +562,31 @@ The CSS is **inlined in `<head>`**, not fetched, so brand colours are present on
 
 ---
 
+## 19d. Templates & Config (Settings → Templates & Config)
+
+### Email templates
+**[lib/emailTemplates.js](lib/emailTemplates.js) is the single source of truth for every transactional email.** No sender carries inline HTML any more — `ticket.js`, `notify.js`, `payments.js`, `send-qr`, `waitlist`, `feedback`, `donate/verify` and `resend-balance` all call **`sendTemplatedEmail({ to, kind, vars })`** and pass **data only**.
+
+- An admin override (stored in `app_settings.email_templates`) wins; otherwise the registry default is used, so the shipped emails are unchanged until someone edits one.
+- **Only overrides are stored.** "Reset to default" is a *delete*, which is why the default can never drift from what the code actually sends.
+- **Template syntax** (deliberately tiny — this is admin-facing): `{{name}}` inserts a value **HTML-escaped**; `{{{qrImage}}}` inserts raw (only for values we generate, like the QR data URI); `{{#if reason}}…{{/if}}` includes a block only when the value is non-empty. ⚠️ Escaping is automatic — that's what stops a registrant named `<script>` from breaking out into the markup, so **never** switch a user-supplied var to the raw `{{{…}}}` form.
+- `wrap: true` → the body is inner HTML placed in the branded `emailShell`. `wrap: false` → the template is the complete email (ticket + QR have bespoke layouts; wrapping them would nest two headers).
+- ⚠️ **`balance_link` and `balance_reminder` are separate on purpose.** The first is "thanks, your advance is received"; the second is the admin's later chase ("this is a reminder…"). Collapsing them makes a chase email read like a fresh confirmation.
+
+### WhatsApp templates
+Meta requires a **pre-approved template** for any business-initiated message, so **the message bodies live in Meta, not here** — only the *names* are configurable. Senders now pass a **key** (`'ticketConfirmation'`, `'announcement'`, `'paymentLink'`, `'waitlistOpen'`) and `sendWhatsAppTemplate()` resolves the real name at send time: **Settings → env var → built-in default**. So a template re-approved under a new name needs no redeploy. A literal name still works (that's how the message-log **resend** replays a stored send).
+
+### QR entry pass
+`size`, `download_size`, `margin`, `dark`, `light`, `link_expiry_days` — applied in both `send-qr` and `qr/[id]`. Defaults are exactly the previously-hardcoded values. ⚠️ Low-contrast or inverted colours produce a QR that looks fine and **fails to scan at the gate**.
+
+### Payment gateway — read-only, deliberately
+`GET /api/admin/gateway-status` reports Razorpay configured/**test-vs-live** (from the `rzp_test_`/`rzp_live_` key prefix), whether the webhook secret and `CRON_SECRET` are set, and the email/WhatsApp status. **The key id is masked and the secret is never returned.** ⚠️ **Keys stay in env and are NOT editable from the panel.** Storing a live payment secret in a DB row that an admin panel can read and write would be a real security downgrade — a settings-level account, a SQL injection, or a DB backup leak would own the merchant account.
+
+### Caching
+`email_templates`, `whatsapp_templates` and `qr` are read through **tagged `unstable_cache`** ([lib/settingsServer.js](lib/settingsServer.js), 5 min) so a hot send path isn't a DB round-trip. The settings PATCH calls `revalidateTag()`, so an edit takes effect immediately. ⚠️ Same client/server split as elsewhere: `lib/appSettings.js` + `lib/emailTemplates.js` are **client-safe** (the admin editor imports them); `lib/settingsServer.js` holds the service-role reads.
+
+---
+
 ## 20. Payment status lifecycle
 
 ```
@@ -621,6 +647,15 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
 
 Keep newest first. Add an entry for every meaningful change.
 
+- **2026-07-14 (later still)**
+  - **Phase 3, part 2 — Email templates, WhatsApp templates, QR config, gateway status.** See **§19d**. New Settings → **Templates & Config**. No SQL (all new `app_settings` keys).
+    - **Email copy now has exactly ONE home.** [lib/emailTemplates.js](lib/emailTemplates.js) holds all 11 transactional emails; every sender (`ticket`, `notify` ×3, `payments`, `send-qr`, `waitlist`, `feedback`, `donate/verify`, `resend-balance`) was refactored to `sendTemplatedEmail({to, kind, vars})` and passes **data only** — no inline HTML remains anywhere. Admin overrides live in `app_settings.email_templates`; **only overrides are stored**, so "Reset to default" is a delete and the default can never drift from what the code sends.
+    - **Tiny template engine:** `{{var}}` (HTML-escaped), `{{{raw}}}` (only for values we generate, e.g. the QR data URI), `{{#if x}}…{{/if}}`. Escaping is automatic and load-bearing — it's what stops a registrant named `<script>` from breaking out of the markup. Verified: XSS escaped, conditionals include/drop correctly (incl. `hadPaid=false` suppressing the no-refund line), data URI survives.
+    - ⚠️ **Caught during the refactor:** `resend-balance` had its own *reminder* wording ("This is a reminder to clear your remaining balance…") which was about to be collapsed into the first-send `balance_link` copy — making an admin's chase email read like a fresh "thanks, your advance is received" confirmation. Restored as a separate **`balance_reminder`** template (and message kind).
+    - 🐛 **Incidental fix:** `lib/ticket.js` referenced `WHATSAPP_TEMPLATES` **without importing it** — a latent `ReferenceError` on every ticket WhatsApp send. The key-based refactor removed the reference entirely.
+    - **WhatsApp:** senders now pass a KEY and `sendWhatsAppTemplate()` resolves the real Meta name at send time (Settings → env → default), so a template re-approved under a new name needs no redeploy. Message bodies still live in Meta — only names are ours to set. The message-log **resend** still works because a literal name passes through unresolved.
+    - **QR config:** size / download size / margin / colours / signed-link lifetime, applied in both QR paths; defaults are exactly the old hardcoded values.
+    - **Payment gateway is READ-ONLY on purpose** — configured, **test-vs-live** (from the `rzp_test_`/`rzp_live_` prefix), webhook + `CRON_SECRET` presence, email/WhatsApp status. Key id masked, secret never returned. Keys stay in env: putting a live payment secret in a DB row an admin panel can read/write would be a genuine security downgrade.
 - **2026-07-14 (later)**
   - **Phase 3, part 1 — Branding & SEO.** See **§19c**. New Settings → **Branding & SEO** panel; no SQL needed (`app_settings` already existed).
     - **Settings are now a registry.** [lib/appSettings.js](lib/appSettings.js) declares each `app_settings` key with defaults + a sanitiser, and `/api/admin/app-settings` serves them all generically instead of being hardcoded to `bank_details` (which still works untouched). Part 2's keys drop straight in.

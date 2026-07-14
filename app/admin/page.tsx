@@ -7,7 +7,7 @@ import {
     Trash2, Plus, Image as ImageIcon, Video, CalendarDays,
     Ticket, Calendar as CalendarIcon, Search, LogOut, QrCode, Check,
     LayoutDashboard, ScrollText, RefreshCw, MessageSquare, Send, UserPlus, Megaphone,
-    Gift, UserCheck, Handshake, Mail, FolderOpen, Palette
+    Gift, UserCheck, Handshake, Mail, FolderOpen, Palette, FileCode
 } from 'lucide-react';
 import { youtubeThumbnail } from '@/lib/youtube';
 import { buildTranslations } from '@/lib/i18n';
@@ -22,6 +22,7 @@ import DonationsManager from '@/components/DonationsManager';
 import SponsorsManager from '@/components/SponsorsManager';
 import MediaLibraryManager from '@/components/MediaLibraryManager';
 import BrandingManager from '@/components/BrandingManager';
+import TemplatesConfigManager from '@/components/TemplatesConfigManager';
 import MessageLogPanel from '@/components/MessageLogPanel';
 import FeedbackManager from '@/components/FeedbackManager';
 import ScanLogPanel from '@/components/ScanLogPanel';
@@ -55,7 +56,7 @@ export default function AdminDashboard() {
     const can = (perm: string) => isAdmin || permissions.includes(perm);
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'enquiries' | 'scanlog' | 'settings' | 'audit'>('dashboard');
-    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'library' | 'branding' | 'checkpoints' | 'formfields' | 'homecontent' | 'payment' | 'users' | 'waitlist' | 'donations' | 'sponsors' | 'messages' | 'feedback'>('events');
+    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'library' | 'branding' | 'templates' | 'checkpoints' | 'formfields' | 'homecontent' | 'payment' | 'users' | 'waitlist' | 'donations' | 'sponsors' | 'messages' | 'feedback'>('events');
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -1196,6 +1197,7 @@ export default function AdminDashboard() {
                             <button onClick={() => setSettingsSubTab('formfields')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'formfields' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ListFilter className="w-4 h-4" /> Form Fields</button>
                             <button onClick={() => setSettingsSubTab('homecontent')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'homecontent' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><CalendarDays className="w-4 h-4" /> Home Page Content</button>
                             <button onClick={() => setSettingsSubTab('branding')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'branding' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><Palette className="w-4 h-4" /> Branding &amp; SEO</button>
+                            <button onClick={() => setSettingsSubTab('templates')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'templates' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><FileCode className="w-4 h-4" /> Templates &amp; Config</button>
                             <button onClick={() => setSettingsSubTab('payment')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'payment' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><IndianRupee className="w-4 h-4" /> Payment Details</button>
                             <button onClick={() => setSettingsSubTab('users')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'users' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><Users className="w-4 h-4" /> Admin Users</button>
                             <button onClick={() => setSettingsSubTab('waitlist')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'waitlist' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ListFilter className="w-4 h-4" /> Waitlist</button>
@@ -1415,6 +1417,7 @@ export default function AdminDashboard() {
                             {settingsSubTab === 'waitlist' && <WaitlistManager />}
                             {settingsSubTab === 'library' && <MediaLibraryManager />}
                             {settingsSubTab === 'branding' && <BrandingManager />}
+                            {settingsSubTab === 'templates' && <TemplatesConfigManager />}
                             {settingsSubTab === 'donations' && <DonationsManager />}
                             {settingsSubTab === 'sponsors' && <SponsorsManager events={eventsList} />}
                             {settingsSubTab === 'messages' && can('audit:view') && <MessageLogPanel />}

@@ -5,9 +5,8 @@ import Razorpay from 'razorpay';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAudit } from '@/lib/auditLog';
-import { escapeHtml } from '@/lib/escape';
-import { sendEmail, emailShell } from '@/lib/email';
-import { sendWhatsAppTemplate, WHATSAPP_TEMPLATES } from '@/lib/whatsapp';
+import { sendTemplatedEmail } from '@/lib/email';
+import { sendWhatsAppTemplate } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,22 +63,25 @@ export async function POST(request) {
     // Email
     let emailed = false, waSent = false;
     if (reg.email) {
-        emailed = await sendEmail({
+        // 'balance_reminder', NOT 'balance_link' — this is a chase, and it must read
+        // like one ("this is a reminder…"), not like the original "your advance is
+        // received" confirmation.
+        emailed = await sendTemplatedEmail({
             to: reg.email,
-            subject: '⏳ Reminder: pay your balance — BaglaBhairav',
-            html: emailShell(`
-                <p style="font-size:16px;color:#404040;margin-top:0;">Namaste <strong>${escapeHtml(reg.first_name)} ${escapeHtml(reg.last_name)}</strong>,</p>
-                <p style="font-size:14px;color:#6b7280;line-height:1.6;">This is a reminder to clear your remaining balance of <strong>₹${dueRupees.toLocaleString('en-IN')}</strong> for <strong>${escapeHtml(categoryTitle)}</strong>.</p>
-                <p><a href="${shortUrl}" style="display:inline-block;background:#ea580c;color:#fff;font-weight:700;padding:12px 24px;border-radius:8px;text-decoration:none;">Pay Balance Now</a></p>
-                <p style="font-size:12px;color:#9ca3af;">Your entry pass is issued only after full payment. No-refund policy applies.</p>
-            `),
-            log: { kind: 'balance_link', registrationId: reg.id },
+            kind: 'balance_reminder',
+            registrationId: reg.id,
+            vars: {
+                name: `${reg.first_name} ${reg.last_name}`,
+                tier: categoryTitle,
+                amount: dueRupees.toLocaleString('en-IN'),
+                payLink: shortUrl,
+            },
         });
     }
 
     // WhatsApp
     if (reg.phone) {
-        waSent = await sendWhatsAppTemplate(reg.phone, WHATSAPP_TEMPLATES.paymentLink, [
+        waSent = await sendWhatsAppTemplate(reg.phone, 'paymentLink', [
             `${reg.first_name || ''} ${reg.last_name || ''}`.trim() || 'devotee',
             categoryTitle,
             dueRupees.toLocaleString('en-IN'),
