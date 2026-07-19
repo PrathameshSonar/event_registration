@@ -47,12 +47,20 @@ export default function RegistrationListContent({ categories, seatsTaken, hero }
 
                 return (
                   <Reveal key={c.id} className="h-full">
-                    <article className={`relative flex h-full flex-col rounded-[24px] p-8 transition-all duration-500 hover:-translate-y-1 ${featured ? "bg-white ring-2 ring-gold shadow-gold" : "luxury-card"}`}>
+                    <article className={`relative flex h-full flex-col rounded-[24px] overflow-hidden transition-all duration-500 hover:-translate-y-1 ${featured ? "bg-white ring-2 ring-gold shadow-gold" : "luxury-card"}`}>
                       {featured && (
-                        <span className="absolute -top-3 left-8 rounded-full bg-gradient-to-r from-orange-600 to-amber-600 px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-white font-bold">
+                        <span className="absolute top-4 left-4 z-10 rounded-full bg-gradient-to-r from-orange-600 to-amber-600 px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-white font-bold shadow">
                           {t("category_recommended") || "Most Chosen"}
                         </span>
                       )}
+                      {c.media_url && (
+                        <div className="relative h-44 overflow-hidden">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={c.media_url} alt={title} className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                        </div>
+                      )}
+                      <div className={`flex flex-col flex-1 p-8 ${c.media_url ? "" : "pt-8"}`}>
                       {tagline && <span className="kicker">{tagline}</span>}
                       <h3 className="mt-3 font-display text-2xl text-brown">{title}</h3>
                       <p className="mt-3 font-display text-3xl text-vermillion">{priceLabel}</p>
@@ -79,6 +87,7 @@ export default function RegistrationListContent({ categories, seatsTaken, hero }
                             {c.is_enquiry_only ? (t("category_enquire") || "Enquire") : (t("category_register") || "Reserve")} <ArrowRight className="h-4 w-4" />
                           </Link>
                         )}
+                      </div>
                       </div>
                     </article>
                   </Reveal>

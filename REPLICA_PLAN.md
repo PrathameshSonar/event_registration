@@ -155,3 +155,6 @@ Registration → `/register/[id]` + `CheckoutForm` (restyled). Donations → `/d
   - **/contact** has a working form → `POST /api/contact` → new **`contact_messages`** table (re-run `run_all.sql`). Admin view for messages = a small follow-up.
   - **Nav + footer now use real routes** (Home/About/Event/Registration/Gallery/Live/News/FAQ/Contact); all "Register" CTAs → `/registration`.
   - Remaining: homepage "See full…" preview links; i18n `nav_about`/`nav_news` (English fallback works now); **Phase 8** downloads restore; **Phase 6** CheckoutForm luxury re-theme + **visual QA**.
+- 2026-07-19 — **Category images + perks restored (matches/exceeds Emergent).**
+  - Emergent tier cards = colour + perks, no image. We show **image (`categories.media_url`) + perks (`categories.perks`)** on `/registration` cards and `/register/[id]`. Both admin-editable (CategoryRow). Build-verified.
+  - ⚠️ **Build/deploy note:** the `Bagla_bhairav-main/` reference folder lives inside the repo and has its own `package-lock.json` + Next 15 — Next warns about the extra lockfile, and if the shell cwd drifts into it, `npm run build` builds the WRONG app. **Recommend moving `Bagla_bhairav-main/` OUT of the project** (keep it as a local reference elsewhere) before deploy.
