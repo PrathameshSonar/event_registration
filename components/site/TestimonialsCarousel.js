@@ -35,19 +35,19 @@ export default function TestimonialsCarousel({ items = [] }) {
         <div className="flex">
           {items.map((it, i) => (
             <div key={i} className="min-w-0 flex-[0_0_100%] px-2 md:px-6">
-              <figure className="mx-auto max-w-2xl luxury-card px-7 py-7 md:px-10 md:py-9 text-center">
-                <Quote className="mx-auto h-6 w-6 text-gold" strokeWidth={1.5} />
+              <figure className="mx-auto max-w-2xl luxury-card px-5 py-5 md:px-10 md:py-9 text-center">
+                <Quote className="mx-auto h-5 w-5 md:h-6 md:w-6 text-gold" strokeWidth={1.5} />
                 <blockquote
-                  className={`mt-4 text-brown/90 text-balance whitespace-pre-wrap ${
+                  className={`mt-3 md:mt-4 text-brown/90 text-balance whitespace-pre-wrap line-clamp-6 md:line-clamp-none ${
                     it.lang === "mr" || it.lang === "hi"
-                      ? "font-cormorant text-[20px] md:text-[24px] leading-[1.5]"
-                      : "text-base md:text-lg leading-[1.65]"
+                      ? "font-cormorant text-[17px] md:text-[24px] leading-[1.45]"
+                      : "text-[15px] md:text-lg leading-[1.6]"
                   }`}
                 >
                   {it.quote}
                 </blockquote>
                 {(it.name || it.role) && (
-                  <figcaption className="mt-6 flex flex-col items-center gap-1">
+                  <figcaption className="mt-4 md:mt-6 flex flex-col items-center gap-1">
                     {it.name && <span className="font-display text-base text-vermillion">{it.name}</span>}
                     {it.role && <span className="text-xs uppercase tracking-[0.24em] text-mutedgold">{it.role}</span>}
                   </figcaption>

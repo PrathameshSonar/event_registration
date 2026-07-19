@@ -23,22 +23,22 @@ export default function Benefits({ items = [] }) {
           <p className="mt-5 text-brown/70">{t("section_blessings_desc") || "The blessings extend far beyond the days of the event."}</p>
         </Reveal>
 
-        <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-8 grid grid-cols-2 gap-3 md:gap-5 lg:grid-cols-3">
           {items.slice(0, 6).map((b, i) => {
             const Icon = getLucideIcon(b.icon);
             const title = pick(b, "title", lang);
             const desc = pick(b, "description", lang);
             return (
               <Reveal key={b.id || i} delay={i * 60}>
-                <article className="group relative overflow-hidden rounded-[20px] border border-gold/15 bg-white p-7 transition-all duration-500 hover:shadow-luxury-lg hover:-translate-y-1">
+                <article className="group relative h-full overflow-hidden rounded-[18px] border border-gold/15 bg-white p-4 sm:p-6 lg:p-7 transition-all duration-500 hover:shadow-luxury-lg hover:-translate-y-1">
                   <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-gradient-to-br from-gold-400/25 to-transparent blur-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="flex items-start gap-4">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-full bg-vermillion/10 text-vermillion text-lg">
-                      {Icon ? <Icon className="h-5 w-5" strokeWidth={1.7} /> : (b.icon || "✨")}
+                  <div className="flex flex-col sm:flex-row items-start gap-2.5 sm:gap-4">
+                    <span className="flex h-9 w-9 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-full bg-vermillion/10 text-vermillion">
+                      {Icon ? <Icon className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={1.7} /> : (b.icon || "✨")}
                     </span>
                     <div>
-                      <h3 className="font-display text-lg md:text-xl text-brown">{title}</h3>
-                      {desc && <p className="mt-2 text-brown/75 leading-[1.7] line-clamp-3" style={{ fontSize: "0.95rem" }}>{desc}</p>}
+                      <h3 className="font-display text-[15px] sm:text-lg lg:text-xl text-brown leading-tight">{title}</h3>
+                      {desc && <p className="mt-1.5 text-brown/75 leading-[1.6] line-clamp-3 text-[13px] sm:text-[0.95rem]">{desc}</p>}
                     </div>
                   </div>
                 </article>

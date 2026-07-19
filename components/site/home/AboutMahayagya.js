@@ -31,11 +31,11 @@ export default function AboutMahayagya({ event }) {
             {aboutText && <p className="mt-6 text-brown/80 max-w-xl leading-[1.8] whitespace-pre-wrap" style={{ fontSize: "1.125rem" }}>{aboutText}</p>}
 
             {stats.length > 0 && (
-              <ul className={`mt-8 grid gap-4 ${stats.length >= 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+              <ul className={`mt-7 grid gap-2.5 sm:gap-4 ${stats.length >= 3 ? "grid-cols-3" : "grid-cols-2"}`}>
                 {stats.map((s, i) => (
-                  <li key={i} className="luxury-card p-5 text-center">
-                    <div className="font-display text-2xl md:text-3xl text-vermillion">{s.value}</div>
-                    <div className="mt-1 text-[11px] uppercase tracking-[0.2em] text-brown/60">{s.label}</div>
+                  <li key={i} className="luxury-card px-2 py-4 sm:p-5 text-center">
+                    <div className="font-display text-lg sm:text-2xl md:text-3xl text-vermillion tabular-nums leading-none break-words">{s.value}</div>
+                    <div className="mt-1.5 text-[9px] sm:text-[11px] uppercase tracking-[0.1em] sm:tracking-[0.2em] leading-tight text-brown/60">{s.label}</div>
                   </li>
                 ))}
               </ul>

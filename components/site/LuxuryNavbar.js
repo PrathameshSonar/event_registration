@@ -78,7 +78,7 @@ export default function LuxuryNavbar() {
   const isActive = (to) => (to === "/" ? pathname === "/" : pathname.startsWith(to.split("#")[0]) && to !== "/");
 
   return (
-    <header className={`sticky top-0 z-50 transition-all duration-500 ${scrolled ? "glass-nav" : "bg-transparent"}`}>
+    <header className={`sticky top-0 z-50 transition-all duration-500 ${scrolled ? "glass-nav" : "bg-ivory/90 backdrop-blur border-b border-gold/10 xl:bg-transparent xl:backdrop-blur-none xl:border-transparent"}`}>
       <div className="container-nav flex h-16 md:h-20 items-center justify-between">
         <Logo line1={line1} line2={line2} subtitle={subtitle} logoUrl={branding?.logo_url} />
 
@@ -128,11 +128,11 @@ export default function LuxuryNavbar() {
                 </li>
               ))}
             </ul>
-            <div className="mt-4 flex items-center justify-between gap-3">
-              <LangToggle />
-              <div className="flex flex-1 gap-3">
-                <Link href="/donate" className="btn-outline-gold h-12 flex-1 text-[15px]">{t("nav_donate") || "Donate"}</Link>
-                {registrationOpen && <Link href="/registration" className="btn-gold h-12 flex-1 text-[15px]">{t("nav_register") || "Register"}</Link>}
+            <div className="mt-4 space-y-3">
+              <div className="flex justify-center"><LangToggle /></div>
+              <div className={`grid gap-3 ${registrationOpen ? "grid-cols-2" : "grid-cols-1"}`}>
+                <Link href="/donate" className="btn-outline-gold h-12 w-full justify-center text-[15px]">{t("nav_donate") || "Donate"}</Link>
+                {registrationOpen && <Link href="/registration" className="btn-gold h-12 w-full justify-center text-[15px]">{t("nav_register") || "Register"}</Link>}
               </div>
             </div>
           </div>

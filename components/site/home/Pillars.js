@@ -21,7 +21,7 @@ export default function Pillars({ items = [] }) {
           <LuxuryHeading className="mt-5" main={t("section_pillars_title") || "The Three Pillars"} accent={t("section_pillars_accent")} />
         </Reveal>
 
-        <div className="mt-10 grid lg:grid-cols-3 gap-6">
+        <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-6">
           {items.slice(0, 3).map((h, i) => {
             const title = pick(h, "title", lang);
             const desc = pick(h, "description", lang);
@@ -29,7 +29,7 @@ export default function Pillars({ items = [] }) {
               <Reveal key={h.id || i} delay={i * 100}>
                 <article className="luxury-card overflow-hidden h-full">
                   {h.image_url ? (
-                    <div className="relative h-44 overflow-hidden">
+                    <div className="relative h-28 sm:h-40 lg:h-44 overflow-hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={h.image_url} alt={title} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
@@ -38,11 +38,11 @@ export default function Pillars({ items = [] }) {
                       </span>
                     </div>
                   ) : (
-                    <div className="relative h-44 flex items-center justify-center bg-gradient-to-br from-gold-400/20 to-lotus/15 text-5xl">{h.icon || "🕉️"}</div>
+                    <div className="relative h-28 sm:h-40 lg:h-44 flex items-center justify-center bg-gradient-to-br from-gold-400/20 to-lotus/15 text-4xl sm:text-5xl">{h.icon || "🕉️"}</div>
                   )}
-                  <div className="p-6">
-                    <h3 className="font-display text-xl text-brown">{title}</h3>
-                    {desc && <p className="mt-2.5 text-brown/75 leading-[1.7] line-clamp-3" style={{ fontSize: "0.95rem" }}>{desc}</p>}
+                  <div className="p-3.5 sm:p-5 lg:p-6">
+                    <h3 className="font-display text-base sm:text-lg lg:text-xl text-brown leading-tight">{title}</h3>
+                    {desc && <p className="mt-1.5 sm:mt-2.5 text-brown/75 leading-[1.6] line-clamp-3 text-[13px] sm:text-[0.95rem]">{desc}</p>}
                   </div>
                 </article>
               </Reveal>

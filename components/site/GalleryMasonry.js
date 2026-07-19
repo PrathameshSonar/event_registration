@@ -33,12 +33,12 @@ export default function GalleryMasonry({ images = [], limit }) {
 
   return (
     <>
-      <div className="columns-1 sm:columns-2 lg:columns-3 gap-5 [column-fill:_balance]">
+      <div className="columns-2 lg:columns-3 gap-3 sm:gap-5 [column-fill:_balance]">
         {items.map((img, i) => (
           <button
             key={i}
             onClick={() => setOpenIndex(i)}
-            className="mb-5 block w-full break-inside-avoid overflow-hidden rounded-[20px] shadow-luxury transition-transform duration-500 hover:-translate-y-1 hover:shadow-luxury-lg group"
+            className="mb-3 sm:mb-5 block w-full break-inside-avoid overflow-hidden rounded-2xl shadow-luxury transition-transform duration-500 hover:-translate-y-1 hover:shadow-luxury-lg group"
             aria-label={img.alt || `Gallery image ${i + 1}`}
           >
             <div className="relative">
@@ -47,8 +47,8 @@ export default function GalleryMasonry({ images = [], limit }) {
                 src={img.src}
                 alt={img.alt || ""}
                 loading="lazy"
+                decoding="async"
                 className="h-auto w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
-                style={{ minHeight: img.h ? `${Math.max(240, img.h / 2)}px` : "260px" }}
               />
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               {img.alt && (

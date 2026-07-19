@@ -9,6 +9,7 @@ import { useState } from "react";
 
 import FloatingActions from "@/components/FloatingActions";
 import WaitlistModal from "@/components/WaitlistModal";
+import { useRegistrationOpen } from "@/components/RegistrationProvider";
 
 import Hero from "@/components/site/home/Hero";
 import Livestream from "@/components/site/home/Livestream";
@@ -27,8 +28,12 @@ import FinalCta from "@/components/site/home/FinalCta";
 
 export default function HomeContent({ pageData, contact, categories, mediaItems, seatsTaken, schedule, highlights, guests, testimonials }) {
   const [waitlistCat, setWaitlistCat] = useState(null);
+  const registrationOpen = useRegistrationOpen();
 
   const hasCategories = Array.isArray(categories) && categories.length > 0;
+  // The mobile sticky "Register" bar (FloatingActions) is fixed to the bottom, so
+  // pad the page on mobile to stop it covering the last section.
+  const stickyBar = hasCategories && registrationOpen;
   const allGuests = guests || [];
   // Every featured guest renders as a Leadership hero (alternating layout). The
   // rest form the "Chief Guests" lineup. If none are featured, all show in lineup.
@@ -39,7 +44,7 @@ export default function HomeContent({ pageData, contact, categories, mediaItems,
 
   return (
     <>
-      <div className="bg-ivory text-brown">
+      <div className={`bg-ivory text-brown ${stickyBar ? "pb-20 md:pb-0" : ""}`}>
         <Hero event={pageData} hasCategories={hasCategories} />
         {isLive && <Livestream event={pageData} />}
         <AboutMahayagya event={pageData} />

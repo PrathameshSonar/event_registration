@@ -26,19 +26,19 @@ export default function Rituals({ items = [] }) {
           </Reveal>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 md:gap-6 lg:grid-cols-3">
           {items.slice(0, 3).map((h, i) => {
             const Icon = getLucideIcon(h.icon);
             const title = pick(h, "title", lang);
             const desc = pick(h, "description", lang);
             return (
               <Reveal key={h.id || i} delay={i * 60}>
-                <article className="luxury-card h-full p-7">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-gold-400/20 to-lotus/15 text-vermillion text-2xl">
+                <article className="luxury-card h-full p-4 sm:p-6 lg:p-7">
+                  <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-gold-400/20 to-lotus/15 text-vermillion text-xl sm:text-2xl">
                     {Icon ? <Icon className="h-5 w-5" strokeWidth={1.6} /> : (h.icon || "🪔")}
                   </div>
-                  <h3 className="mt-5 font-display text-xl text-brown">{title}</h3>
-                  {desc && <p className="mt-2.5 text-brown/75 leading-[1.7] line-clamp-4" style={{ fontSize: "0.95rem" }}>{desc}</p>}
+                  <h3 className="mt-3 sm:mt-5 font-display text-base sm:text-lg lg:text-xl text-brown leading-tight">{title}</h3>
+                  {desc && <p className="mt-1.5 sm:mt-2.5 text-brown/75 leading-[1.6] line-clamp-3 sm:line-clamp-4 text-[13px] sm:text-[0.95rem]">{desc}</p>}
                 </article>
               </Reveal>
             );
