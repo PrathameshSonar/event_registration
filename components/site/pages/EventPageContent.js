@@ -6,7 +6,7 @@
 "use client";
 
 import Link from "next/link";
-import { MapPin, ArrowRight, Download } from "lucide-react";
+import { MapPin, ArrowRight, Download, CalendarDays, Radio } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { pick } from "@/lib/i18n";
 import PageHero from "@/components/site/PageHero";
@@ -14,16 +14,25 @@ import Reveal from "@/components/site/Reveal";
 import SectionKicker from "@/components/site/SectionKicker";
 import LuxuryHeading from "@/components/site/LuxuryHeading";
 
-export default function EventPageContent({ event, schedule, guests, downloads, hero }) {
+export default function EventPageContent({ event, schedule, guests, rituals, downloads, hero }) {
   const { t, lang } = useLanguage();
   const h = hero || {};
   const rows = schedule || [];
   const lineup = (guests || []);
+  const ritualCards = rituals || [];
   const docs = downloads || [];
   const overview = pick(event, "long_description", lang) || pick(event, "short_description", lang);
   const venue = pick(event, "venue", lang);
+  const dates = pick(event, "date_time", lang);
   const travel = pick(event, "travel_info", lang);
   const mapUrl = event?.map_url;
+  const isLive = !!event?.livestream_url;
+
+  const overviewCards = [
+    dates && { Icon: CalendarDays, label: t("event_card_dates") || "When", value: dates },
+    venue && { Icon: MapPin, label: t("event_card_location") || "Where", value: venue },
+    { Icon: Radio, label: t("event_card_stream") || "Livestream", value: isLive ? (t("event_card_stream_yes") || "Streamed live online") : (t("event_card_stream_no") || "In-person") },
+  ].filter(Boolean);
 
   // Group schedule by day label (show ALL items, unlike the homepage preview).
   const days = [];
@@ -44,13 +53,26 @@ export default function EventPageContent({ event, schedule, guests, downloads, h
         size="lg"
       />
 
-      {overview && (
+      {(overview || overviewCards.length > 0) && (
         <section className="section-y mandala-bg">
-          <div className="container-luxury max-w-3xl">
-            <Reveal>
-              <SectionKicker>{t("section_about_kicker") || "Overview"}</SectionKicker>
-              <p className="mt-6 text-brown/80 leading-[1.85] whitespace-pre-wrap" style={{ fontSize: "1.125rem" }}>{overview}</p>
-            </Reveal>
+          <div className="container-luxury max-w-4xl">
+            {overview && (
+              <Reveal className="max-w-3xl mx-auto text-center">
+                <SectionKicker>{t("section_about_kicker") || "Overview"}</SectionKicker>
+                <p className="mt-6 text-brown/80 leading-[1.85] whitespace-pre-wrap" style={{ fontSize: "1.125rem" }}>{overview}</p>
+              </Reveal>
+            )}
+            <div className="mt-12 grid gap-5 sm:grid-cols-3">
+              {overviewCards.map((c, i) => (
+                <Reveal key={i} delay={i * 70}>
+                  <div className="luxury-card h-full p-6 text-center">
+                    <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gold-shine text-white shadow-gold"><c.Icon className="h-6 w-6" /></span>
+                    <p className="mt-4 text-[11px] uppercase tracking-[0.2em] text-brown/50">{c.label}</p>
+                    <p className="mt-1 font-display text-lg text-brown">{c.value}</p>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
           </div>
         </section>
       )}
@@ -85,6 +107,35 @@ export default function EventPageContent({ event, schedule, guests, downloads, h
                   </div>
                 </Reveal>
               ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {ritualCards.length > 0 && (
+        <section className="section-y">
+          <div className="container-luxury">
+            <Reveal className="text-center max-w-xl mx-auto mb-12">
+              <SectionKicker>{t("section_highlights_kicker") || "The Rites"}</SectionKicker>
+              <LuxuryHeading className="mt-5" main={t("event_rituals_title") || "Sacred"} accent={t("event_rituals_accent") || "rituals"} />
+            </Reveal>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {ritualCards.map((r, i) => {
+                const title = pick(r, "title", lang);
+                const desc = pick(r, "description", lang);
+                return (
+                  <Reveal key={r.id || i} delay={i * 60}>
+                    <div className="luxury-card h-full p-7">
+                      <div className="flex items-center gap-3">
+                        {r.icon && <span className="text-2xl">{r.icon}</span>}
+                        <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-mutedgold">{t("event_ritual_label") || "Ritual"} · {String(i + 1).padStart(2, "0")}</span>
+                      </div>
+                      <h3 className="mt-4 font-display text-xl text-brown">{title}</h3>
+                      {desc && <p className="mt-2 text-[15px] text-brown/70 leading-relaxed">{desc}</p>}
+                    </div>
+                  </Reveal>
+                );
+              })}
             </div>
           </div>
         </section>

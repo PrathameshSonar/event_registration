@@ -15,13 +15,16 @@ export default async function EventPage() {
 
   let schedule: any[] = [];
   let guests: any[] = [];
+  let rituals: any[] = [];
   if (event?.id) {
-    const [s, g] = await Promise.all([
+    const [s, g, hl] = await Promise.all([
       supabaseAdmin.from('event_schedule').select('*').eq('event_id', event.id).order('sort_order'),
       supabaseAdmin.from('event_guests').select('*').eq('event_id', event.id).order('sort_order'),
+      supabaseAdmin.from('event_highlights').select('*').eq('event_id', event.id).eq('section', 'highlights').order('sort_order'),
     ]);
     schedule = s.data || [];
     guests = g.data || [];
+    rituals = hl.data || [];
   }
 
   // Public documents (brochures, schedules…) flagged is_download in the Media Library.
@@ -31,5 +34,5 @@ export default async function EventPage() {
     .eq('is_download', true).not('url', 'is', null)
     .order('sort_order');
 
-  return <EventPageContent event={event} schedule={schedule} guests={guests} downloads={downloads || []} hero={heroes?.event || {}} />;
+  return <EventPageContent event={event} schedule={schedule} guests={guests} rituals={rituals} downloads={downloads || []} hero={heroes?.event || {}} />;
 }

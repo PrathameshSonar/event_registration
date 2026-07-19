@@ -98,7 +98,9 @@ Settings today = a flat list of ~17 sub-tabs. Regroup the sidebar into labelled 
 - ✅ **9C Contact Messages** — `/api/admin/contact-messages` + ContactMessagesManager inbox (`contact_messages.is_read` added; re-run run_all.sql).
 - ✅ **9C Downloads** — `media_library.is_download` docs rendered as a Downloads section on /event.
 - ✅ **Logo + wordmark together** (nav + footer); **broken `#livestream` anchors → /live**; **inner-page heading accents** (/about, /event).
-- ⬜ Remaining/optional: PageHero title accents (heroes still single-line by design); /event overview info-cards + rituals + facility cards; /live updates feed; /news newsletter; /donate seva categories + sponsorship aside; /contact info-as-cards (§I OPTIONAL items).
+- ✅ **§I /contact** — contact info rendered as luxury cards (call / WhatsApp / email / address).
+- ✅ **§I /event** — 3 overview info cards (When / Where / Livestream, derived) + Rituals section (numbered cards from `event_highlights` section=`highlights`).
+- ⬜ Remaining/optional: PageHero title accents (heroes single-line by design); /event **facility cards** (needs `events.facilities` jsonb — new admin); /live updates feed; /news newsletter; /donate seva categories + sponsorship aside (needs new admin). All need NEW admin fields — do on request.
 
 ## E. Suggested sequence
 1. **Fonts (B)** first — systematic; every section then inherits the correct look.

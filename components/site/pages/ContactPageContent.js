@@ -51,16 +51,32 @@ export default function ContactPageContent({ event, contact, hero }) {
           <Reveal>
             <SectionKicker>{t("footer_contact") || "Contact"}</SectionKicker>
             <h2 className="mt-5 display-section text-brown">{t("contact_reach_title") || "We'd love to hear from you"}</h2>
-            <ul className="mt-8 space-y-5">
-              {venue && <li className="flex items-start gap-3 text-brown/80"><MapPin className="h-5 w-5 text-vermillion mt-0.5" /><span>{venue}</span></li>}
+            <div className="mt-8 grid sm:grid-cols-2 gap-4">
               {phone && (
-                <>
-                  <li className="flex items-center gap-3 text-brown/80"><Phone className="h-5 w-5 text-vermillion" /><a href={`tel:${phone}`} className="hover:text-vermillion">{phone}</a></li>
-                  <li className="flex items-center gap-3 text-brown/80"><MessageCircle className="h-5 w-5 text-vermillion" /><a href={`https://wa.me/${String(phone).replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="hover:text-vermillion">{t("whatsapp_help") || "WhatsApp"}</a></li>
-                </>
+                <a href={`tel:${phone}`} className="luxury-card p-5 flex items-start gap-3.5 hover:-translate-y-0.5 transition">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-vermillion/10 text-vermillion"><Phone className="h-5 w-5" /></span>
+                  <span><span className="block text-[11px] uppercase tracking-[0.16em] text-brown/50">{t("contact_phone_label") || "Call us"}</span><span className="block font-semibold text-brown">{phone}</span></span>
+                </a>
               )}
-              {email && <li className="flex items-center gap-3 text-brown/80"><Mail className="h-5 w-5 text-vermillion" /><a href={`mailto:${email}`} className="hover:text-vermillion">{email}</a></li>}
-            </ul>
+              {phone && (
+                <a href={`https://wa.me/${String(phone).replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="luxury-card p-5 flex items-start gap-3.5 hover:-translate-y-0.5 transition">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-vermillion/10 text-vermillion"><MessageCircle className="h-5 w-5" /></span>
+                  <span><span className="block text-[11px] uppercase tracking-[0.16em] text-brown/50">WhatsApp</span><span className="block font-semibold text-brown">{t("whatsapp_help") || "Chat with us"}</span></span>
+                </a>
+              )}
+              {email && (
+                <a href={`mailto:${email}`} className="luxury-card p-5 flex items-start gap-3.5 hover:-translate-y-0.5 transition">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-vermillion/10 text-vermillion"><Mail className="h-5 w-5" /></span>
+                  <span className="min-w-0"><span className="block text-[11px] uppercase tracking-[0.16em] text-brown/50">{t("contact_email") || "Email"}</span><span className="block font-semibold text-brown break-words">{email}</span></span>
+                </a>
+              )}
+              {venue && (
+                <div className="luxury-card p-5 flex items-start gap-3.5 sm:col-span-2">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-vermillion/10 text-vermillion"><MapPin className="h-5 w-5" /></span>
+                  <span><span className="block text-[11px] uppercase tracking-[0.16em] text-brown/50">{t("contact_address_label") || "Visit us"}</span><span className="block font-semibold text-brown">{venue}</span></span>
+                </div>
+              )}
+            </div>
             {socials.length > 0 && (
               <div className="mt-8 flex items-center gap-3">
                 {socials.map(({ Icon, href, label }) => (
