@@ -79,7 +79,7 @@ export default function LuxuryNavbar() {
 
   return (
     <header className={`sticky top-0 z-50 transition-all duration-500 ${scrolled ? "glass-nav" : "bg-transparent"}`}>
-      <div className="container-nav flex h-20 md:h-24 items-center justify-between">
+      <div className="container-nav flex h-16 md:h-20 items-center justify-between">
         <Logo line1={line1} line2={line2} subtitle={subtitle} logoUrl={branding?.logo_url} />
 
         <nav className="hidden items-center gap-1 xl:flex" aria-label="Primary">

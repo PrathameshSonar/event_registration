@@ -47,14 +47,14 @@ export default function LuxuryCountdown({ targetISO, variant = "glass" }) {
       {items.map((it) => (
         <div
           key={it.label}
-          className={`flex min-w-[68px] sm:min-w-[86px] flex-col items-center rounded-xl px-3 py-2 sm:px-4 sm:py-3 ${
+          className={`flex min-w-[58px] sm:min-w-[84px] flex-col items-center rounded-xl px-2 py-2 sm:px-4 sm:py-3 ${
             isDark ? "bg-black/25" : "bg-cream"
           }`}
         >
-          <span className={`font-display text-2xl sm:text-4xl tabular-nums leading-none ${isDark ? "text-gold-400" : "text-vermillion"}`}>
+          <span className={`font-display text-xl sm:text-4xl tabular-nums leading-none ${isDark ? "text-gold-400" : "text-vermillion"}`}>
             {it.value}
           </span>
-          <span className={`mt-1 text-[10px] sm:text-[11px] tracking-[0.24em] font-semibold uppercase ${isDark ? "text-ivory/70" : "text-brown/60"}`}>
+          <span className={`mt-1 text-[9px] sm:text-[11px] tracking-[0.12em] sm:tracking-[0.24em] font-semibold uppercase whitespace-nowrap ${isDark ? "text-ivory/70" : "text-brown/60"}`}>
             {it.label}
           </span>
         </div>

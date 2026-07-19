@@ -11,9 +11,9 @@
   .container-luxury { padding-inline: 2.5rem; }
   .container-nav    { padding-inline: 2.5rem; }
 }
-.section-y { padding-block: 6rem; }
-@media (min-width: 768px)  { .section-y { padding-block: 8rem; } }
-@media (min-width: 1024px) { .section-y { padding-block: 9.5rem; } }
+.section-y { padding-block: 3.25rem; }
+@media (min-width: 768px)  { .section-y { padding-block: 4.5rem; } }
+@media (min-width: 1024px) { .section-y { padding-block: 5.5rem; } }
 
 /* ── Kicker (uppercase section label) ─────────────────────────────────────── */
 .kicker,
@@ -89,7 +89,7 @@
   font-family: var(--font-cinzel), "Cinzel", serif;
   font-weight: 500;
   line-height: 1.15;
-  font-size: clamp(1.9rem, 3.4vw, 3rem);
+  font-size: clamp(1.6rem, 2.8vw, 2.5rem);
 }
 
 /* ── Decorative ───────────────────────────────────────────────────────────── */
