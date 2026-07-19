@@ -578,7 +578,9 @@ ALTER TABLE events
     ADD COLUMN IF NOT EXISTS peak_day_label TEXT,
     ADD COLUMN IF NOT EXISTS peak_day_note  TEXT,
     ADD COLUMN IF NOT EXISTS schedule_intro TEXT,
-    ADD COLUMN IF NOT EXISTS schedule_days  JSONB DEFAULT '[]'::jsonb;
+    ADD COLUMN IF NOT EXISTS schedule_days  JSONB DEFAULT '[]'::jsonb,
+    -- Venue facility cards on /event: [{icon,title,note}] (Parking / Meals / …).
+    ADD COLUMN IF NOT EXISTS facilities     JSONB DEFAULT '[]'::jsonb;
 
 -- Contact-form submissions from the public /contact page.
 CREATE TABLE IF NOT EXISTS contact_messages (

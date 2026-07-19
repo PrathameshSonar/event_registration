@@ -647,6 +647,13 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
 
 Keep newest first. Add an entry for every meaningful change.
 
+- **2026-07-19 (Phase 9 §I — Seva categories, facilities, navbar polish)**
+  - **Seva categories on /donate** — new `app_settings.seva_categories` (array of `{icon,title,desc,amount}`) + admin **Settings → Payments & Seva → Seva Categories** ([SevaCategoriesManager](components/SevaCategoriesManager.js)) + public reader `GET /api/seva-categories`. The donate page shows pickable Seva cards (Annadaan/Deep Daan…) that set the amount + prefill the message; falls back to plain presets when empty. Added a **sponsorship aside** → /contact. Note: `withDefaults` is now array-safe (seva_categories is the first array-typed setting).
+  - **Venue facility cards on /event** — new `events.facilities` jsonb (`[{icon,title,note}]`, whitelisted; editor is a repeater in Event Setup). Renders Parking/Meals/… cards. **Re-run `run_all.sql`**.
+  - **/event overview cards + Rituals + Downloads** and **/contact info-as-cards** (see prior entry's §I note).
+  - **Navbar polish** — removed "Watch live" + "News" from the primary nav (7 items now); glass-nav less transparent on scroll (`0.72→0.92` + shadow) so hero text no longer bleeds through; language switcher rebuilt as a luxury popover (globe + checkmark) instead of a native `<select>`.
+  - **Live banner fix** — the banner is no longer `sticky top-0` (it and the navbar were both sticky, so the glass navbar rode over it on scroll); it now scrolls away cleanly, leaving the navbar as the sole sticky element.
+  - i18n: `section_lineup_accent`, `section_highlights_kicker`, `donate_seva_*`, `donate_sponsor_*`, `facilities_*`, `event_*`, `contact_*` (en/hi/mr).
 - **2026-07-19 (Phase 9C/G/H + logo + link fixes)**
   - **/registration richness (9H)** — "per Yajmaan · one-time" price note, per-tier **availability progress bars** (% filled from seatsTaken/max_capacity, "only N left"), and an "Already registered?" lookup card. No admin change.
   - **/about richness (9G)** — **value cards** (Mission/Vision… via a new `event_highlights` section `about`, added to the highlight-section selector in [HomeContentManager](components/HomeContentManager.js)), **Previous Mahayagyas** (archived events `show_in_archive`), and a gallery snippet → /gallery. Two-line accent headings throughout.

@@ -22,6 +22,7 @@ import PaymentSettingsManager from '@/components/PaymentSettingsManager';
 import AdminUsersManager from '@/components/AdminUsersManager';
 import WaitlistManager from '@/components/WaitlistManager';
 import DonationsManager from '@/components/DonationsManager';
+import SevaCategoriesManager from '@/components/SevaCategoriesManager';
 import SponsorsManager from '@/components/SponsorsManager';
 import MediaLibraryManager from '@/components/MediaLibraryManager';
 import BrandingManager from '@/components/BrandingManager';
@@ -59,7 +60,7 @@ export default function AdminDashboard() {
     const can = (perm: string) => isAdmin || permissions.includes(perm);
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'enquiries' | 'scanlog' | 'settings' | 'audit'>('dashboard');
-    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'library' | 'branding' | 'pageheaders' | 'templates' | 'checkpoints' | 'formfields' | 'homecontent' | 'contactsocial' | 'contactmessages' | 'payment' | 'users' | 'waitlist' | 'donations' | 'sponsors' | 'messages' | 'feedback'>('events');
+    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'library' | 'branding' | 'pageheaders' | 'templates' | 'checkpoints' | 'formfields' | 'homecontent' | 'contactsocial' | 'contactmessages' | 'payment' | 'users' | 'waitlist' | 'donations' | 'sevacategories' | 'sponsors' | 'messages' | 'feedback'>('events');
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -1222,6 +1223,7 @@ export default function AdminDashboard() {
                                 { group: 'Payments & Seva', items: [
                                     { k: 'payment', Icon: IndianRupee, label: 'Payment Details' },
                                     { k: 'donations', Icon: IndianRupee, label: 'Donations' },
+                                    { k: 'sevacategories', Icon: Gift, label: 'Seva Categories' },
                                     { k: 'sponsors', Icon: Handshake, label: 'Sponsors' },
                                 ] },
                                 { group: 'Communications', items: [
@@ -1463,6 +1465,7 @@ export default function AdminDashboard() {
                             {settingsSubTab === 'pageheaders' && <PageHeadersManager />}
                             {settingsSubTab === 'templates' && <TemplatesConfigManager />}
                             {settingsSubTab === 'donations' && <DonationsManager />}
+                            {settingsSubTab === 'sevacategories' && <SevaCategoriesManager />}
                             {settingsSubTab === 'sponsors' && <SponsorsManager events={eventsList} />}
                             {settingsSubTab === 'messages' && can('audit:view') && <MessageLogPanel />}
                             {settingsSubTab === 'feedback' && <FeedbackManager />}

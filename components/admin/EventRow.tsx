@@ -45,6 +45,10 @@ export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
     const [scheduleDays, setScheduleDays] = useState<{ label: string; date: string; theme: string }[]>(
         Array.isArray(event.schedule_days) ? event.schedule_days : [],
     );
+    // Venue facility cards on /event: {icon,title,note} (Parking / Meals / …).
+    const [facilities, setFacilities] = useState<{ icon: string; title: string; note: string }[]>(
+        Array.isArray(event.facilities) ? event.facilities : [],
+    );
     const [isChanged, setIsChanged] = useState(false);
 
     // Non-English translations, seeded from the translations JSONB.
@@ -70,6 +74,7 @@ export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
             peak_day_note: peakNote || null,
             schedule_intro: scheduleIntro || null,
             schedule_days: scheduleDays.filter((d) => d.label.trim() || d.date.trim() || d.theme.trim()),
+            facilities: facilities.filter((f) => f.title.trim() || f.note.trim()),
             translations: buildTranslations(tr) as Record<string, Record<string, string>>,
         });
         setIsChanged(false);
@@ -81,6 +86,13 @@ export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
     };
     const addDay = () => { setScheduleDays((p) => [...p, { label: '', date: '', theme: '' }]); setIsChanged(true); };
     const removeDay = (i: number) => { setScheduleDays((p) => p.filter((_, idx) => idx !== i)); setIsChanged(true); };
+
+    const setFacility = (i: number, key: 'icon' | 'title' | 'note', v: string) => {
+        setFacilities((p) => p.map((f, idx) => (idx === i ? { ...f, [key]: v } : f)));
+        setIsChanged(true);
+    };
+    const addFacility = () => { setFacilities((p) => [...p, { icon: '🅿️', title: '', note: '' }]); setIsChanged(true); };
+    const removeFacility = (i: number) => { setFacilities((p) => p.filter((_, idx) => idx !== i)); setIsChanged(true); };
 
     const setStat = (i: number, key: 'value' | 'label', v: string) => {
         setStats((p) => p.map((s, idx) => (idx === i ? { ...s, [key]: v } : s)));
@@ -183,6 +195,24 @@ export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
                                     <input value={d.date} onChange={(e) => setDay(i, 'date', e.target.value)} placeholder="Sat · 29 Nov" className="px-2.5 py-2 text-sm border border-neutral-200 rounded-lg bg-white focus:outline-none focus:border-orange-500 transition" />
                                     <input value={d.theme} onChange={(e) => setDay(i, 'theme', e.target.value)} placeholder="Sthapana & Sacred Beginnings" className="px-2.5 py-2 text-sm border border-neutral-200 rounded-lg bg-white focus:outline-none focus:border-orange-500 transition" />
                                     <button type="button" onClick={() => removeDay(i)} className="text-neutral-400 hover:text-red-600 p-1.5 rounded hover:bg-red-50 transition"><Trash2 className="w-4 h-4" /></button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="border border-neutral-200 rounded-lg p-4 bg-neutral-50/60">
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider">Venue Facilities <span className="font-normal text-neutral-400 normal-case">(cards on the Event page — Parking / Meals / …)</span></label>
+                            <button type="button" onClick={addFacility} className="text-xs font-bold text-orange-600 hover:text-orange-700">+ Add facility</button>
+                        </div>
+                        {facilities.length === 0 && <p className="text-xs text-neutral-400">No facility cards yet — e.g. “🅿️ / Parking / Ample parking beside the venue”.</p>}
+                        <div className="space-y-2">
+                            {facilities.map((f, i) => (
+                                <div key={i} className="grid grid-cols-[3rem_1fr_1.6fr_auto] gap-2 items-center">
+                                    <input value={f.icon} onChange={(e) => setFacility(i, 'icon', e.target.value)} placeholder="🅿️" maxLength={2} className="px-2 py-2 text-center text-lg border border-neutral-200 rounded-lg bg-white focus:outline-none focus:border-orange-500 transition" />
+                                    <input value={f.title} onChange={(e) => setFacility(i, 'title', e.target.value)} placeholder="Parking" className="px-2.5 py-2 text-sm border border-neutral-200 rounded-lg bg-white focus:outline-none focus:border-orange-500 transition" />
+                                    <input value={f.note} onChange={(e) => setFacility(i, 'note', e.target.value)} placeholder="Ample parking beside the venue" className="px-2.5 py-2 text-sm border border-neutral-200 rounded-lg bg-white focus:outline-none focus:border-orange-500 transition" />
+                                    <button type="button" onClick={() => removeFacility(i)} className="text-neutral-400 hover:text-red-600 p-1.5 rounded hover:bg-red-50 transition"><Trash2 className="w-4 h-4" /></button>
                                 </div>
                             ))}
                         </div>

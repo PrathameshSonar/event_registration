@@ -100,7 +100,10 @@ Settings today = a flat list of ~17 sub-tabs. Regroup the sidebar into labelled 
 - ✅ **Logo + wordmark together** (nav + footer); **broken `#livestream` anchors → /live**; **inner-page heading accents** (/about, /event).
 - ✅ **§I /contact** — contact info rendered as luxury cards (call / WhatsApp / email / address).
 - ✅ **§I /event** — 3 overview info cards (When / Where / Livestream, derived) + Rituals section (numbered cards from `event_highlights` section=`highlights`).
-- ⬜ Remaining/optional: PageHero title accents (heroes single-line by design); /event **facility cards** (needs `events.facilities` jsonb — new admin); /live updates feed; /news newsletter; /donate seva categories + sponsorship aside (needs new admin). All need NEW admin fields — do on request.
+- ✅ **§I /donate** — Seva categories (`app_settings.seva_categories` + SevaCategoriesManager + `/api/seva-categories`), pickable cards, sponsorship aside → /contact.
+- ✅ **§I /event facility cards** — `events.facilities` jsonb + Event Setup repeater; Parking/Meals/… cards.
+- ✅ **Navbar/live-banner polish** — trimmed nav (removed Live+News), glass opacity, luxury language popover, non-sticky live banner.
+- ⬜ Remaining/OPTIONAL only: PageHero title accents (single-line by design); /live updates feed (reuse event_news); /news newsletter (reuse event_reminders). Nice-to-haves — do on request.
 
 ## E. Suggested sequence
 1. **Fonts (B)** first — systematic; every section then inherits the correct look.

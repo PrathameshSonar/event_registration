@@ -65,7 +65,7 @@ export async function PATCH(request) {
             'travel_info',
             'livestream_url', 'livestream_banner',
             'stats', 'about_images',
-            'peak_day_label', 'peak_day_note', 'schedule_intro', 'schedule_days',
+            'peak_day_label', 'peak_day_note', 'schedule_intro', 'schedule_days', 'facilities',
             'translations',
         ];
         const sanitized = {};

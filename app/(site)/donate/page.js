@@ -1,8 +1,9 @@
 // app/donate/page.js — public Seva / donation page.
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Handshake, ArrowRight } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 
 const PRESETS = [1100, 2100, 5100, 11000];
@@ -30,6 +31,25 @@ export default function DonatePage() {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
     const [done, setDone] = useState(null);
+    const [sevas, setSevas] = useState([]);
+    const [selectedSeva, setSelectedSeva] = useState("");
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await fetch("/api/seva-categories");
+                const d = await res.json().catch(() => ({}));
+                if (Array.isArray(d.categories)) setSevas(d.categories);
+            } catch { /* ignore */ }
+        })();
+    }, []);
+
+    const pickSeva = (s) => {
+        setSelectedSeva(s.title);
+        if (s.amount > 0) { setAmount(s.amount); setCustom(""); }
+        setMessage((m) => m || `${t("donate_seva_for") || "Seva"}: ${s.title}`);
+        if (typeof document !== "undefined") document.getElementById("donate-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
 
     const effectiveAmount = custom ? Math.floor(Number(custom) || 0) : amount;
 
@@ -103,7 +123,39 @@ export default function DonatePage() {
                 </div>
             </section>
 
-            <div className="container-luxury max-w-2xl py-12">
+            {sevas.length > 0 && (
+                <div className="container-luxury max-w-4xl pt-12">
+                    <div className="text-center max-w-xl mx-auto mb-8">
+                        <p className="kicker text-vermillion">{t("donate_seva_kicker") || "Choose a Seva"}</p>
+                        <h2 className="mt-3 font-display text-2xl md:text-3xl text-brown">{t("donate_seva_title") || "How would you like to contribute?"}</h2>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {sevas.map((s, i) => {
+                            const active = selectedSeva === s.title;
+                            return (
+                                <button
+                                    key={i}
+                                    type="button"
+                                    onClick={() => pickSeva(s)}
+                                    className={`text-left rounded-3xl p-6 transition-all duration-300 hover:-translate-y-0.5 ${active ? "bg-white ring-2 ring-gold shadow-gold" : "luxury-card"}`}
+                                >
+                                    {s.icon && <div className="text-3xl">{s.icon}</div>}
+                                    <h3 className="mt-3 font-display text-lg text-brown">{s.title}</h3>
+                                    {s.desc && <p className="mt-1.5 text-sm text-brown/65 leading-relaxed">{s.desc}</p>}
+                                    {s.amount > 0 && <p className="mt-4 font-display text-xl text-vermillion">₹{Number(s.amount).toLocaleString("en-IN")}</p>}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            <div id="donate-form" className="container-luxury max-w-2xl py-12 scroll-mt-24">
+                {selectedSeva && (
+                    <p className="mb-4 text-center text-sm text-brown/70">
+                        {t("donate_seva_selected") || "You're contributing towards"} <span className="font-semibold text-vermillion">{selectedSeva}</span>
+                    </p>
+                )}
                 <form onSubmit={donate} className="luxury-card p-8 space-y-5">
                     <div>
                         <label className="text-xs font-semibold text-neutral-500 mb-2 block">{t("donate_choose_amount")}</label>
@@ -150,6 +202,19 @@ export default function DonatePage() {
                     </button>
                     <p className="text-[11px] text-brown/40 text-center">{t("donate_secured")}</p>
                 </form>
+
+                <div className="luxury-card mt-8 p-7 flex flex-col sm:flex-row items-center justify-between gap-5 text-center sm:text-left">
+                    <div className="flex items-start gap-4">
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gold-shine text-white shadow-gold"><Handshake className="h-6 w-6" /></span>
+                        <div>
+                            <h3 className="font-display text-lg text-brown">{t("donate_sponsor_title") || "Become a sponsor"}</h3>
+                            <p className="mt-1 text-sm text-brown/65">{t("donate_sponsor_desc") || "Organisations & families can sponsor a ritual, a kunda or the whole Mahotsav. Let's talk."}</p>
+                        </div>
+                    </div>
+                    <Link href="/contact" className="btn-outline-gold shrink-0">
+                        {t("donate_sponsor_cta") || "Talk to us"} <ArrowRight className="h-4 w-4" />
+                    </Link>
+                </div>
             </div>
         </div>
     );

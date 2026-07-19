@@ -20,6 +20,7 @@ export default function EventPageContent({ event, schedule, guests, rituals, dow
   const rows = schedule || [];
   const lineup = (guests || []);
   const ritualCards = rituals || [];
+  const facilities = (Array.isArray(event?.facilities) ? event.facilities : []).filter((f) => f && (f.title || f.note));
   const docs = downloads || [];
   const overview = pick(event, "long_description", lang) || pick(event, "short_description", lang);
   const venue = pick(event, "venue", lang);
@@ -196,6 +197,28 @@ export default function EventPageContent({ event, schedule, guests, rituals, dow
                 />
               </div>
             </Reveal>
+          </div>
+        </section>
+      )}
+
+      {facilities.length > 0 && (
+        <section className="section-y bg-[hsl(34,30%,94%)]">
+          <div className="container-luxury">
+            <Reveal className="text-center max-w-xl mx-auto mb-12">
+              <SectionKicker>{t("facilities_kicker") || "Plan your visit"}</SectionKicker>
+              <LuxuryHeading className="mt-5" main={t("facilities_title") || "Venue"} accent={t("facilities_accent") || "facilities"} />
+            </Reveal>
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {facilities.map((f, i) => (
+                <Reveal key={i} delay={i * 60}>
+                  <div className="luxury-card h-full p-6 text-center">
+                    {f.icon && <div className="text-3xl">{f.icon}</div>}
+                    <h3 className="mt-3 font-display text-lg text-brown">{f.title}</h3>
+                    {f.note && <p className="mt-1.5 text-sm text-brown/65 leading-relaxed">{f.note}</p>}
+                  </div>
+                </Reveal>
+              ))}
+            </div>
           </div>
         </section>
       )}

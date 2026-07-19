@@ -580,7 +580,8 @@ ALTER TABLE events
     ADD COLUMN IF NOT EXISTS peak_day_label TEXT,
     ADD COLUMN IF NOT EXISTS peak_day_note  TEXT,
     ADD COLUMN IF NOT EXISTS schedule_intro TEXT,
-    ADD COLUMN IF NOT EXISTS schedule_days  JSONB DEFAULT '[]'::jsonb;
+    ADD COLUMN IF NOT EXISTS schedule_days  JSONB DEFAULT '[]'::jsonb,
+    ADD COLUMN IF NOT EXISTS facilities     JSONB DEFAULT '[]'::jsonb;
 
 CREATE TABLE IF NOT EXISTS contact_messages (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),

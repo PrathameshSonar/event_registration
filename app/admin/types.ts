@@ -88,6 +88,7 @@ export interface EventItem {
     peak_day_note?: string | null;
     schedule_intro?: string | null;
     schedule_days?: { label: string; date: string; theme: string }[];
+    facilities?: { icon: string; title: string; note: string }[];
     translations: Record<string, Record<string, string>> | null;
 }
 
