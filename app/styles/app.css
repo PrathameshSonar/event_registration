@@ -1,0 +1,64 @@
+/* app/styles/app.css
+   ────────────────────────────────────────────────────────────────────────────
+   App-specific utilities that aren't part of the design-token system:
+   the QR scanner overrides, scrollbar hiding, and the existing homepage
+   flourishes (gold divider, warm shadow, scroll reveal, diya flicker). */
+
+/* html5-qrcode scanner: make the video fill its container and hide the library's
+   own buttons/header. */
+#bbmah-qr-reader { width: 100%; height: 100%; border: none !important; }
+#bbmah-qr-reader > div {
+  width: 100% !important; height: 100% !important;
+  padding: 0 !important; border: none !important;
+}
+#bbmah-qr-reader video { width: 100% !important; height: 100% !important; object-fit: cover; }
+#bbmah-qr-reader__dashboard,
+#bbmah-qr-reader__header_message,
+#bbmah-qr-reader__status_span { display: none !important; }
+
+/* Hide the scrollbar on horizontally-scrollable strips (e.g. the admin tab nav)
+   while keeping them scrollable. */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Gold divider — a thin centred rule with a diamond node, used under section
+   titles to add a temple-toran touch without an image. */
+.gold-divider {
+  display: flex; align-items: center; justify-content: center;
+  gap: 0.5rem; margin: 0.75rem auto 0; width: 5.5rem;
+}
+.gold-divider::before, .gold-divider::after {
+  content: ""; height: 1px; flex: 1;
+  background: linear-gradient(to right, transparent, #d4a017);
+}
+.gold-divider::after { background: linear-gradient(to left, transparent, #d4a017); }
+.gold-divider > span {
+  width: 6px; height: 6px; transform: rotate(45deg);
+  background: #d4a017; border-radius: 1px; flex: 0 0 auto;
+}
+
+/* Warmer, softer elevation for cards on the ivory homepage. */
+.shadow-warm { box-shadow: 0 1px 2px rgba(122, 83, 8, 0.04), 0 8px 24px -12px rgba(154, 52, 18, 0.15); }
+
+/* Scroll-reveal: fade + slide sections into view (CSS fallback; framer-motion
+   Reveal is used in the rebuilt sections). */
+.reveal {
+  opacity: 0; transform: translateY(28px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+  will-change: opacity, transform;
+}
+.reveal-in { opacity: 1; transform: none; }
+
+/* Gentle diya / lamp flicker. */
+.diya-flicker { display: inline-block; transform-origin: center bottom; animation: diyaFlicker 2.6s ease-in-out infinite; }
+@keyframes diyaFlicker {
+  0%, 100% { filter: brightness(1); transform: scale(1) rotate(0deg); }
+  25%      { filter: brightness(1.18); transform: scale(1.05) rotate(-1.5deg); }
+  50%      { filter: brightness(0.94); transform: scale(0.98) rotate(1deg); }
+  75%      { filter: brightness(1.12); transform: scale(1.04) rotate(-1deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .diya-flicker { animation: none; }
+}

@@ -1,6 +1,6 @@
 // app/layout.tsx
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Cinzel, Cormorant_Garamond, Inter } from "next/font/google";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import LiveBanner from "@/components/LiveBanner";
 import { BrandingProvider } from "@/components/BrandingProvider";
@@ -15,6 +15,28 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+// Luxury devotional type system (ported from the Mahayagya design):
+// Cinzel for display/headings, Cormorant Garamond for italic accents, Inter for body.
+const cinzel = Cinzel({
+  variable: "--font-cinzel",
+  weight: ["400", "500", "600", "700"],
+  subsets: ["latin"],
+  display: "swap",
+});
+const cormorant = Cormorant_Garamond({
+  variable: "--font-cormorant",
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
+  subsets: ["latin"],
+  display: "swap",
+});
+const inter = Inter({
+  variable: "--font-inter",
+  weight: ["300", "400", "500", "600", "700"],
+  subsets: ["latin"],
+  display: "swap",
 });
 
 const siteUrl =
@@ -66,7 +88,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${cinzel.variable} ${cormorant.variable} ${inter.variable} h-full antialiased`}
     >
       <head>
         {/* Inlined (not a stylesheet request) so the brand colours are present on
