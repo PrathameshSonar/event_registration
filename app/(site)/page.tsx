@@ -74,28 +74,22 @@ export default async function Home() {
     // 3b. Devotional content for the active event (schedule + highlights + FAQs)
     let schedule: any[] = [];
     let highlights: any[] = [];
-    let faqs: any[] = [];
     let guests: any[] = [];
-    let news: Record<string, unknown>[] = [];
     let testimonials: any[] = [];
+    // News (/news) and FAQ (/faq) are no longer rendered on the homepage, so they
+    // aren't fetched here — they load on their own pages.
     if (pageData?.id) {
         // Use the service-role client: these tables aren't granted to the anon role.
-        const [schedRes, hlRes, faqRes, guestRes, newsRes, testiRes] = await Promise.all([
+        const [schedRes, hlRes, guestRes, testiRes] = await Promise.all([
             supabaseAdmin.from('event_schedule').select('*').eq('event_id', pageData.id).order('sort_order'),
             supabaseAdmin.from('event_highlights').select('*').eq('event_id', pageData.id).order('sort_order'),
-            supabaseAdmin.from('event_faqs').select('*').eq('event_id', pageData.id).order('sort_order'),
             supabaseAdmin.from('event_guests').select('*').eq('event_id', pageData.id).order('sort_order'),
-            // Only PUBLISHED announcements reach the public page — drafts stay hidden.
-            supabaseAdmin.from('event_news').select('*').eq('event_id', pageData.id)
-                .eq('is_published', true).order('published_at', { ascending: false }),
             supabaseAdmin.from('event_testimonials').select('*').eq('event_id', pageData.id)
                 .eq('is_published', true).order('sort_order'),
         ]);
         schedule = schedRes.data || [];
         highlights = hlRes.data || [];
-        faqs = faqRes.data || [];
         guests = guestRes.data || [];
-        news = newsRes.data || [];
         testimonials = testiRes.data || [];
     }
 
@@ -139,9 +133,7 @@ export default async function Home() {
                 seatsTaken={seatsTaken}
                 schedule={schedule}
                 highlights={highlights}
-                faqs={faqs}
                 guests={guests}
-                news={news}
                 testimonials={testimonials}
             />
         </>

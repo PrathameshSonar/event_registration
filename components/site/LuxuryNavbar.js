@@ -45,9 +45,9 @@ function Logo({ line1, line2, subtitle, logoUrl }) {
         </span>
       )}
       <span className="leading-tight">
-        <span className="block font-display text-[15px] sm:text-[17px] font-semibold tracking-[0.14em] text-brown">{line1}</span>
-        {line2 && <span className="block font-display text-[15px] sm:text-[17px] font-semibold tracking-[0.14em] text-vermillion -mt-0.5">{line2}</span>}
-        {subtitle && <span className="mt-0.5 hidden sm:block font-cormorant italic text-[12.5px] leading-tight text-mutedgold whitespace-nowrap">{subtitle}</span>}
+        <span className="block font-display text-[14px] sm:text-[17px] font-semibold tracking-[0.12em] sm:tracking-[0.14em] text-brown">{line1}</span>
+        {line2 && <span className="block font-display text-[14px] sm:text-[17px] font-semibold tracking-[0.12em] sm:tracking-[0.14em] text-vermillion -mt-0.5">{line2}</span>}
+        {subtitle && <span className="mt-0.5 block font-cormorant italic text-[10.5px] sm:text-[12.5px] leading-tight text-mutedgold max-w-[200px] sm:max-w-none">{subtitle}</span>}
       </span>
     </Link>
   );

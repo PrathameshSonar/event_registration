@@ -23,19 +23,17 @@ import RegistrationCta from "@/components/site/home/RegistrationCta";
 import DonateLive from "@/components/site/home/DonateLive";
 import Testimonials from "@/components/site/home/Testimonials";
 import Gallery from "@/components/site/home/Gallery";
-import News from "@/components/site/home/News";
-import Faq from "@/components/site/home/Faq";
 import FinalCta from "@/components/site/home/FinalCta";
 
-export default function HomeContent({ pageData, contact, categories, mediaItems, seatsTaken, schedule, highlights, faqs, guests, news, testimonials }) {
+export default function HomeContent({ pageData, contact, categories, mediaItems, seatsTaken, schedule, highlights, guests, testimonials }) {
   const [waitlistCat, setWaitlistCat] = useState(null);
 
   const hasCategories = Array.isArray(categories) && categories.length > 0;
   const allGuests = guests || [];
-  const featuredGuest = allGuests.find((g) => g.is_featured) || null;
-  // Non-featured guests form the "Chief Guests" lineup (the featured one is the
-  // Leadership hero). If none are featured, all guests show in the lineup.
-  const lineupGuests = featuredGuest ? allGuests.filter((g) => !g.is_featured) : allGuests;
+  // Every featured guest renders as a Leadership hero (alternating layout). The
+  // rest form the "Chief Guests" lineup. If none are featured, all show in lineup.
+  const featuredGuests = allGuests.filter((g) => g.is_featured);
+  const lineupGuests = featuredGuests.length ? allGuests.filter((g) => !g.is_featured) : allGuests;
   const bySection = (name) => (highlights || []).filter((h) => (h.section || "highlights") === name);
   const isLive = !!(pageData?.livestream_is_live && pageData?.livestream_url);
 
@@ -45,7 +43,7 @@ export default function HomeContent({ pageData, contact, categories, mediaItems,
         <Hero event={pageData} hasCategories={hasCategories} />
         {isLive && <Livestream event={pageData} />}
         <AboutMahayagya event={pageData} />
-        <Leadership guest={featuredGuest} />
+        {featuredGuests.map((g, i) => <Leadership key={g.id} guest={g} flip={i % 2 === 1} primary={i === 0} />)}
         <Lineup guests={lineupGuests} />
         <Pillars items={bySection("pillars")} />
         <Rituals items={bySection("highlights")} />
@@ -55,8 +53,8 @@ export default function HomeContent({ pageData, contact, categories, mediaItems,
         <DonateLive event={pageData} />
         <Testimonials items={testimonials || []} />
         <Gallery mediaItems={mediaItems || []} />
-        <News items={news || []} />
-        <Faq items={faqs || []} />
+        {/* News (/news) and FAQ (/faq) intentionally kept OFF the homepage to keep
+            it compact — they each have their own page, linked from the nav/footer. */}
         <FinalCta event={pageData} hasCategories={hasCategories} />
       </div>
 

@@ -19,7 +19,7 @@ export default function Lineup({ guests }) {
   return (
     <section className="section-y bg-morning-sun">
       <div className="container-luxury">
-        <Reveal className="text-center max-w-xl mx-auto mb-12">
+        <Reveal className="text-center max-w-xl mx-auto mb-8">
           <SectionKicker>{t("section_lineup_home_desc") || "Revered Guests"}</SectionKicker>
           <LuxuryHeading className="mt-5" main={t("section_lineup_home_title") || "Chief Guests"} accent={t("section_lineup_home_accent")} />
         </Reveal>

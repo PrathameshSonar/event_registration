@@ -8,7 +8,7 @@ import { pick } from "@/lib/i18n";
 import Reveal from "@/components/site/Reveal";
 import SectionKicker from "@/components/site/SectionKicker";
 
-export default function Leadership({ guest }) {
+export default function Leadership({ guest, flip = false, primary = true }) {
   const { t, lang } = useLanguage();
   if (!guest) return null;
 
@@ -19,12 +19,12 @@ export default function Leadership({ guest }) {
   const bullets = Array.isArray(guest.bullets) ? guest.bullets : [];
 
   return (
-    <section className="relative bg-[hsl(34,30%,94%)] section-y">
+    <section className={`relative section-y ${flip ? "bg-ivory" : "bg-[hsl(34,30%,94%)]"}`}>
       <div className="container-luxury">
-        <div className="grid lg:grid-cols-[0.95fr_1.05fr] gap-14 items-center">
-          <Reveal>
-            <div className="relative">
-              <div className="relative overflow-hidden rounded-[28px] shadow-luxury-lg aspect-[4/5] bg-gradient-to-br from-[hsl(10,60%,32%)] via-[hsl(350,45%,26%)] to-[hsl(20,55%,18%)]">
+        <div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-10 items-center">
+          <Reveal className={flip ? "lg:order-2" : ""}>
+            <div className="relative mx-auto max-w-xs lg:max-w-sm">
+              <div className="relative overflow-hidden rounded-[28px] shadow-luxury-lg aspect-[5/6] bg-gradient-to-br from-[hsl(10,60%,32%)] via-[hsl(350,45%,26%)] to-[hsl(20,55%,18%)]">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_58%,hsla(43,90%,58%,0.35),transparent_55%)]" />
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_100%,hsla(24,90%,55%,0.28),transparent_60%)]" />
                 {guest.photo_url && (
@@ -43,25 +43,31 @@ export default function Leadership({ guest }) {
             </div>
           </Reveal>
 
-          <Reveal delay={120}>
-            <SectionKicker>{t("section_leadership_kicker") || "The Guiding Light"}</SectionKicker>
-            <h2 className="mt-5 display-section text-brown">
-              {t("section_leadership_title") || "Under the Guidance Of"}<br />
-              <span className="font-cormorant italic text-vermillion">{name}</span>
+          <Reveal delay={120} className={flip ? "lg:order-1" : ""}>
+            <SectionKicker>{primary ? (t("section_leadership_kicker") || "The Guiding Light") : (t("section_leadership_kicker_alt") || "With the Blessings Of")}</SectionKicker>
+            <h2 className="mt-4 display-section text-brown">
+              {primary ? (
+                <>
+                  {t("section_leadership_title") || "Under the Guidance Of"}<br />
+                  <span className="font-cormorant italic text-vermillion">{name}</span>
+                </>
+              ) : (
+                <span className="font-cormorant italic text-vermillion">{name}</span>
+              )}
             </h2>
-            {bio && <p className="mt-6 text-brown/80 leading-[1.8] whitespace-pre-wrap" style={{ fontSize: "1.125rem" }}>{bio}</p>}
+            {bio && <p className="mt-4 text-brown/80 leading-[1.7] whitespace-pre-wrap" style={{ fontSize: "1rem" }}>{bio}</p>}
             {bullets.length > 0 && (
-              <ul className="mt-8 grid gap-4 sm:grid-cols-2">
+              <ul className="mt-5 grid gap-3 sm:grid-cols-2">
                 {bullets.map((b, i) => (
                   <li key={i} className="flex items-start gap-3 text-brown/85">
                     <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-gradient-to-br from-gold to-lotus" />
-                    <span className="text-[16px] leading-relaxed">{b}</span>
+                    <span className="text-[15px] leading-relaxed">{b}</span>
                   </li>
                 ))}
               </ul>
             )}
             {quote && (
-              <blockquote className="mt-10 border-l-2 border-gold pl-5 font-cormorant text-2xl md:text-[26px] italic text-brown/85 leading-relaxed whitespace-pre-wrap">
+              <blockquote className="mt-6 border-l-2 border-gold pl-5 font-cormorant text-xl md:text-[22px] italic text-brown/85 leading-relaxed whitespace-pre-wrap">
                 {quote}
               </blockquote>
             )}

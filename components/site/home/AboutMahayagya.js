@@ -24,7 +24,7 @@ export default function AboutMahayagya({ event }) {
   return (
     <section id="about" className="section-y mandala-bg">
       <div className="container-luxury">
-        <div className="grid gap-10 lg:grid-cols-2 lg:gap-16 items-center">
+        <div className="grid gap-8 lg:grid-cols-2 lg:gap-12 items-center">
           <Reveal>
             <SectionKicker>{t("section_about_kicker") || "Why this gathering"}</SectionKicker>
             <LuxuryHeading className="mt-5" main={t("section_about_title") || "About the Mahayagya"} accent={t("section_about_accent")} />

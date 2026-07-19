@@ -13,18 +13,18 @@ export default async function AboutPage() {
     getPageHeroes(),
   ]);
 
-  let featuredGuest: any = null;
+  let featuredGuests: any[] = [];
   let pillars: any[] = [];
   let valueCards: any[] = [];
   let gallery: any[] = [];
   if (event?.id) {
     const [g, hl, av, media] = await Promise.all([
-      supabaseAdmin.from('event_guests').select('*').eq('event_id', event.id).eq('is_featured', true).order('sort_order').limit(1),
+      supabaseAdmin.from('event_guests').select('*').eq('event_id', event.id).eq('is_featured', true).order('sort_order'),
       supabaseAdmin.from('event_highlights').select('*').eq('event_id', event.id).eq('section', 'pillars').order('sort_order'),
       supabaseAdmin.from('event_highlights').select('*').eq('event_id', event.id).eq('section', 'about').order('sort_order'),
       supabaseAdmin.from('event_media').select('*').eq('event_id', event.id).eq('media_type', 'image').order('sort_order').limit(6),
     ]);
-    featuredGuest = (g.data || [])[0] || null;
+    featuredGuests = g.data || [];
     pillars = hl.data || [];
     valueCards = av.data || [];
     gallery = media.data || [];
@@ -35,5 +35,5 @@ export default async function AboutPage() {
     .from('events').select('id, title, date_time, translations, hero_image_url')
     .eq('show_in_archive', true).order('created_at', { ascending: false }).limit(3);
 
-  return <AboutPageContent event={event} featuredGuest={featuredGuest} pillars={pillars} valueCards={valueCards} legacy={legacy || []} gallery={gallery} hero={heroes?.about || {}} />;
+  return <AboutPageContent event={event} featuredGuests={featuredGuests} pillars={pillars} valueCards={valueCards} legacy={legacy || []} gallery={gallery} hero={heroes?.about || {}} />;
 }

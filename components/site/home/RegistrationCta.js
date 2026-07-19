@@ -22,7 +22,7 @@ export default function RegistrationCta({ categories = [], seatsTaken = {}, onWa
     <section id="categories" className="relative section-y overflow-hidden bg-[hsl(350,45%,16%)] text-ivory scroll-mt-24">
       <div className="absolute inset-0 bg-gradient-to-r from-[hsl(350,45%,14%)]/95 via-[hsl(350,45%,14%)]/70 to-transparent" />
       <div className="container-luxury relative z-10">
-        <div className="grid lg:grid-cols-[1fr_1.4fr] gap-14 items-center">
+        <div className="grid lg:grid-cols-[1fr_1.4fr] gap-10 items-center">
           <Reveal>
             <SectionKicker light>{t("section_register_kicker") || "Reserve your seat"}</SectionKicker>
             <LuxuryHeading dark className="mt-5" main={t("section_register_title") || "Choose how you wish"} accent={t("section_register_accent")} />

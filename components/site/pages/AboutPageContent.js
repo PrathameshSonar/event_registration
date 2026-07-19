@@ -14,7 +14,7 @@ import LuxuryHeading from "@/components/site/LuxuryHeading";
 import Leadership from "@/components/site/home/Leadership";
 import Pillars from "@/components/site/home/Pillars";
 
-export default function AboutPageContent({ event, featuredGuest, pillars, valueCards, legacy, gallery, hero }) {
+export default function AboutPageContent({ event, featuredGuests, pillars, valueCards, legacy, gallery, hero }) {
   const { t, lang } = useLanguage();
   const h = hero || {};
   const about = pick(event, "long_description", lang) || pick(event, "short_description", lang);
@@ -80,7 +80,7 @@ export default function AboutPageContent({ event, featuredGuest, pillars, valueC
         </section>
       )}
 
-      <Leadership guest={featuredGuest} />
+      {(featuredGuests || []).map((g, i) => <Leadership key={g.id} guest={g} flip={i % 2 === 1} primary={i === 0} />)}
       <Pillars items={pillars} />
 
       {/* Legacy — previous Mahayagyas (archived events) */}
