@@ -27,10 +27,11 @@ export default function Hero({ event, hasCategories }) {
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-[hsl(10,60%,28%)] via-[hsl(350,45%,22%)] to-[hsl(20,55%,14%)]" />
       )}
-      {/* Cinematic dark overlay with a warm sunlit glow */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/55 to-[hsl(20,45%,8%)]/95" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_45%,hsla(32,95%,55%,0.20),transparent_60%)]" />
-      <div className="absolute inset-y-0 left-0 w-3/5 bg-gradient-to-r from-black/60 to-transparent" />
+      {/* Bottom-weighted scrim: keeps the image visible up top, darkens only
+          toward the bottom-left where the title/text sit (so they stay legible). */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-[hsl(20,45%,8%)]/85" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_40%,hsla(32,95%,55%,0.14),transparent_62%)]" />
+      <div className="absolute inset-y-0 left-0 w-3/5 bg-gradient-to-r from-black/45 to-transparent" />
 
       <div className="container-luxury relative z-10 pt-24 pb-14 md:pb-20 pointer-events-none">
         <div className="max-w-3xl pointer-events-auto">

@@ -18,11 +18,33 @@
 //   PATCH  { id, ...fields }       → edit label / flags
 //   DELETE { id, force? }          → remove from storage + index (409 if in use)
 import { NextResponse } from 'next/server';
+import sharp from 'sharp';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAudit } from '@/lib/auditLog';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs'; // sharp needs the Node runtime (not edge)
+
+// Cap uploaded photos so a huge original doesn't ship at full size to every
+// visitor. 2560px covers a full-bleed hero on the largest screens; WebP at q80
+// is ~30% smaller than JPEG at the same quality. GIFs are left untouched so
+// animation is preserved.
+const MAX_IMAGE_DIMENSION = 2560;
+async function optimizeImage(buffer, mime) {
+    if (mime === 'image/gif') return null; // keep animated GIFs as-is
+    try {
+        const out = await sharp(buffer, { failOn: 'none' })
+            .rotate() // honour EXIF orientation before we strip metadata
+            .resize({ width: MAX_IMAGE_DIMENSION, height: MAX_IMAGE_DIMENSION, fit: 'inside', withoutEnlargement: true })
+            .webp({ quality: 80 })
+            .toBuffer();
+        return { buffer: out, mime: 'image/webp', ext: 'webp' };
+    } catch (e) {
+        console.error('image optimise failed, storing original:', e?.message);
+        return null;
+    }
+}
 
 const PUBLIC_BUCKET = 'event-media';
 const PRIVATE_BUCKET = 'admin-docs';
@@ -135,10 +157,19 @@ export async function POST(request) {
             max,
         );
 
-        const path = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${extOf(file.name, file.type)}`;
-        const buffer = Buffer.from(await file.arrayBuffer());
+        let buffer = Buffer.from(await file.arrayBuffer());
+        let uploadMime = file.type;
+        let uploadExt = extOf(file.name, file.type);
+
+        // Compress + downscale images at the source (skipped for GIF / on failure).
+        if (isImage) {
+            const opt = await optimizeImage(buffer, file.type);
+            if (opt) { buffer = opt.buffer; uploadMime = opt.mime; uploadExt = opt.ext; }
+        }
+
+        const path = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${uploadExt}`;
         const { error: upErr } = await supabaseAdmin.storage.from(bucket).upload(path, buffer, {
-            contentType: file.type, upsert: false,
+            contentType: uploadMime, upsert: false,
         });
         if (upErr) {
             console.error('media upload failed:', upErr.message);
@@ -154,7 +185,7 @@ export async function POST(request) {
 
         const { data: row, error: insErr } = await supabaseAdmin.from('media_library').insert({
             kind, visibility, bucket, path, url,
-            filename: file.name, mime: file.type, size_bytes: file.size,
+            filename: file.name, mime: uploadMime, size_bytes: buffer.length,
             title,
             uploaded_by: session?.username || session?.name || session?.role || 'admin',
         }).select('*').single();
@@ -170,7 +201,7 @@ export async function POST(request) {
         await logAudit({
             session, request, action: 'media.upload', entity: 'media', entityId: row.id,
             summary: `Uploaded ${kind} "${title}"${visibility === 'private' ? ' (private)' : ''}`,
-            metadata: { kind, visibility, size_bytes: file.size, mime: file.type },
+            metadata: { kind, visibility, original_bytes: file.size, stored_bytes: buffer.length, mime: uploadMime },
         });
 
         return NextResponse.json({ ok: true, item: row, url: row.url });

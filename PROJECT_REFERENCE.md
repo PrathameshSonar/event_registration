@@ -647,6 +647,10 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
 
 Keep newest first. Add an entry for every meaningful change.
 
+- **2026-07-20 (Image performance)**
+  - **Upload-time image optimisation.** Added `sharp`; the media-library upload route ([route.js](app/api/admin/media-library/route.js)) now downscales every uploaded image to max 2560px and re-encodes to **WebP q80** at the source (GIFs untouched; falls back to the original on failure). So a 15 MB hero becomes a few hundred KB before it's ever served — no admin discipline required. Stored `mime`/`size_bytes` reflect the optimised file. `runtime = 'nodejs'` set (sharp needs it). Vercel fetches the Linux sharp binary on deploy.
+  - **Lazy-loading** (`loading="lazy" decoding="async"`) added to below-the-fold images (homepage Pillars/Lineup/Leadership/About/DonateLive, tier cards); the gallery masonry already had it. Hero stays eager (it's the LCP).
+  - Note: images still render via plain `<img>` (no next/image); the optimisation happens at upload, so the served files are already small.
 - **2026-07-19 (Stop registrations / details-only mode)**
   - **Master registration switch.** New `events.registration_open` (BOOLEAN, default true) + auto-close once `end_at` is in the past. Pure helper [lib/registrationStatus.js](lib/registrationStatus.js) `isRegistrationOpen(event)` (client+server safe). **Re-run `run_all.sql`.**
   - **Server enforcement (the real guarantee):** `/api/razorpay`, `/api/offline-payment`, `/api/enquiry`, and the `/register/[id]` page all load the category's event (`categories.events(registration_open, end_at)`) and reject/close when registration is off — no sign-up can be created even if a CTA is missed.

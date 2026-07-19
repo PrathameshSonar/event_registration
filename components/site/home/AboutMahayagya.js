@@ -64,18 +64,18 @@ export default function AboutMahayagya({ event }) {
               <div className="grid grid-cols-6 gap-4">
                 <div className="col-span-4 row-span-2 ornate-frame overflow-hidden rounded-[24px] shadow-luxury">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={images[0]} alt="" className="h-full w-full object-cover aspect-[4/5]" />
+                  <img src={images[0]} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover aspect-[4/5]" />
                 </div>
                 {images[1] && (
                   <div className="col-span-2 overflow-hidden rounded-[24px] shadow-luxury">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={images[1]} alt="" className="h-full w-full object-cover aspect-square" />
+                    <img src={images[1]} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover aspect-square" />
                   </div>
                 )}
                 {images[2] && (
                   <div className="col-span-2 overflow-hidden rounded-[24px] shadow-luxury">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={images[2]} alt="" className="h-full w-full object-cover aspect-square" />
+                    <img src={images[2]} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover aspect-square" />
                   </div>
                 )}
                 {event?.date_time && (

@@ -37,7 +37,7 @@ export default function DonateLive({ event }) {
             <div className="relative luxury-card overflow-hidden min-h-[260px]">
               {bg ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={bg} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                <img src={bg} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
               ) : (
                 <div className="absolute inset-0 bg-gradient-to-br from-[hsl(20,55%,18%)] to-[hsl(350,45%,22%)]" />
               )}

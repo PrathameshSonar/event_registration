@@ -64,7 +64,7 @@ export default function RegistrationListContent({ categories, seatsTaken, regist
                       {c.media_url && (
                         <div className="relative h-44 overflow-hidden">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={c.media_url} alt={title} className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" />
+                          <img src={c.media_url} alt={title} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
                         </div>
                       )}

@@ -31,7 +31,7 @@ export default function Pillars({ items = [] }) {
                   {h.image_url ? (
                     <div className="relative h-44 overflow-hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={h.image_url} alt={title} className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" />
+                      <img src={h.image_url} alt={title} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                       <span className="absolute bottom-4 left-5 rounded-full bg-white/90 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-vermillion font-semibold">
                         {String(i + 1).padStart(2, "0")}

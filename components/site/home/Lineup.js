@@ -33,7 +33,7 @@ export default function Lineup({ guests }) {
                 <div className="text-center">
                   {g.photo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={g.photo_url} alt={gName} className="w-full aspect-square rounded-3xl object-cover shadow-luxury" />
+                    <img src={g.photo_url} alt={gName} loading="lazy" decoding="async" className="w-full aspect-square rounded-3xl object-cover shadow-luxury" />
                   ) : (
                     <div className="w-full aspect-square rounded-3xl bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center text-4xl">🙏</div>
                   )}

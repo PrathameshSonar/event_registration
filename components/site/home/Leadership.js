@@ -29,7 +29,7 @@ export default function Leadership({ guest, flip = false, primary = true }) {
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_100%,hsla(24,90%,55%,0.28),transparent_60%)]" />
                 {guest.photo_url && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={guest.photo_url} alt={name} className="absolute inset-x-0 bottom-0 mx-auto h-[95%] w-auto object-contain object-bottom drop-shadow-[0_20px_40px_rgba(0,0,0,0.35)]" />
+                  <img src={guest.photo_url} alt={name} loading="lazy" decoding="async" className="absolute inset-x-0 bottom-0 mx-auto h-[95%] w-auto object-contain object-bottom drop-shadow-[0_20px_40px_rgba(0,0,0,0.35)]" />
                 )}
                 <span className="pointer-events-none absolute inset-4 rounded-[22px] ring-1 ring-gold/30" />
               </div>
