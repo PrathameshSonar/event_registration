@@ -8,7 +8,9 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 export const dynamic = 'force-dynamic';
 
 export async function GET(_request, { params }) {
-    const { response } = await authorize();
+    // Offline proofs can be ID cards / cheque images — gate to the same permission
+    // that lets you act on offline payments, not merely "logged in".
+    const { response } = await authorize({ requirePermission: 'payments:verify' });
     if (response) return response;
 
     const { id } = await params;

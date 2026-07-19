@@ -11,7 +11,7 @@ import { MESSAGE_KINDS } from '@/lib/messageKinds';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
-    const { response } = await authorize();
+    const { response } = await authorize({ requirePermission: 'registrations:view' });
     if (response) return response;
 
     const id = new URL(request.url).searchParams.get('registrationId');

@@ -10,7 +10,14 @@ import { logAudit } from '@/lib/auditLog';
 
 export const dynamic = 'force-dynamic';
 
-const VALID_STATUSES = ['pending', 'completed', 'failed', 'refunded', 'enquired', 'contacted', 'amount_mismatch', 'closed'];
+// Statuses an admin may set MANUALLY from the ledger dropdown / enquiry pipeline.
+// `completed` and `refunded` are deliberately NOT here: flipping a row to Paid or
+// Refunded from a dropdown records no money (amount_paid stays 0, no real refund),
+// which silently corrupts the books — the source of the "Paid with ₹0" anomalies.
+// Completion must go through a money-recording path (Razorpay capture, offline
+// Approve, or walk-in Record ₹); refunds go through the Refund button. Likewise
+// `amount_mismatch` is system-derived (a shortfall assertion), never hand-set.
+const VALID_STATUSES = ['pending', 'failed', 'enquired', 'contacted', 'closed'];
 const TERMINAL_STATUSES = ['completed', 'failed', 'refunded', 'amount_mismatch'];
 
 // Personal/contact fields an admin may correct (NOT money/status — those have

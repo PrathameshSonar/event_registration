@@ -444,8 +444,8 @@ Answers the question an operator asks constantly: **"did they actually get it?"*
 
 **Admin (session required; most `requireAdmin: true`):**
 - `POST /api/admin/login`, `POST /api/admin/logout`.
-- `GET /api/admin/data` — dashboard data (any role). Also returns a **`stats`** block (`donations`, `donationsTotal`, `checkedInRegs`) for the Dashboard tiles; each member is `null` unless the session holds `settings:manage` / `scanlog:view` respectively.
-- `PATCH /api/admin/registrations` — change status (`{id,status}`, rejects terminal/locked) OR edit personal/contact/custom fields (`{id,updates}`, allowed on any row).
+- `GET /api/admin/data` — dashboard data. **RBAC-scoped:** the raw `registrations` (PII) array is returned **only** with `registrations:view` — a role without it gets `[]` (the real PII boundary; the tab-hide is cosmetic). The **`stats`** block members are each `null` unless the session holds the matching permission: `donations`/`donationsTotal` → `settings:manage`, `checkedInRegs` → `scanlog:view`, `dashboard` (server-computed summary numbers, so a `dashboard:view`-only volunteer sees the tiles without PII) → `dashboard:view`.
+- `PATCH /api/admin/registrations` — change status (`{id,status}`, rejects terminal/locked; **`completed`/`refunded`/`amount_mismatch` are NOT settable here** — completion goes through a money-recording path, refunds through `/api/admin/refund`) OR edit personal/contact/custom fields (`{id,updates}`, allowed on any row).
 - `POST /api/admin/cancel-registration` — **admin only.** `{id, reason}` (reason required) → `cancelled`. Releases the seat, notifies the registrant, returns the tier's waitlist. **Never refunds** — see §11.
 - `POST /api/admin/refund` — Razorpay refund (full/partial); full → `refunded`.
 - `POST /api/admin/resend-confirmation` — re-send the confirmation email/WhatsApp for a completed reg.
@@ -464,7 +464,7 @@ Answers the question an operator asks constantly: **"did they actually get it?"*
 - `POST /api/admin/resend-balance` — re-send balance link.
 - `POST /api/admin/reconcile-balance` — "Sync payment" against Razorpay (advance/pending/mismatch/awaiting_payment).
 - `POST /api/admin/request-enquiry-payment` — convert an enquiry: set the tier price + send a payment link.
-- `GET|POST /api/admin/registration-notes` — enquiry contact-notes history (GET any role; POST admin).
+- `GET|POST /api/admin/registration-notes` — enquiry contact-notes history (GET `registrations:view`; POST `enquiries:manage`).
 - `POST /api/admin/verify-payment` — offline verification (approve/reject/cheque steps/reverse/record).
 - `GET /api/admin/payment-proof/[id]` — signed URL to an offline proof file.
 - `GET|PATCH /api/admin/app-settings` — **all** global config, driven by the registry in [lib/appSettings.js](lib/appSettings.js): `bank_details`, `branding`, `seo`, `email_templates`, `whatsapp_templates`, `qr`. GET any role; PATCH needs `settings:manage` and busts the matching cache tag. See §19c / §19d.
@@ -647,6 +647,12 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
 
 Keep newest first. Add an entry for every meaningful change.
 
+- **2026-07-19 (later)**
+  - **RBAC audit fixes — read-scoping + a data-integrity hole.** No SQL.
+    - 🔴 **PII was returned to every logged-in volunteer.** `GET /api/admin/data` streamed the **entire `registrations` table** (name/phone/email/DOB/address/payment) to *any* authenticated session, regardless of permission — the UI hid the Registrations tab, but the data was one fetch away. Now the raw rows are returned **only** with `registrations:view`; a role without it gets `[]`. Dashboard tiles for a `dashboard:view`-only volunteer are fed by a new **server-computed `stats.dashboard`** aggregate (numbers only, no PII), and the row-level analytics (DashboardAnalytics / Sales-by-Category / per-category chips) are hidden without `registrations:view`. See §17 `/api/admin/data`.
+    - 🔴 **Other reads were open to any authenticated user** — now permission-gated: `checkins` GET → `scanlog:view`; `payment-proof/[id]` → `payments:verify`; `registration-activity` + `registration-notes` GET → `registrations:view`; `qr/[id]` → `registrations:view` (was `requireAdmin:false`). Writes were already correctly gated; this closes the read side.
+    - 🔴 **The status dropdown could fabricate "Paid" with ₹0.** Flipping a `pending` row to **✔ Paid** (or **⏪ Refunded**) from the ledger dropdown recorded **no money** (`amount_paid` stayed 0, no ticket via the money flow, no real refund) yet made the row QR-eligible and seat-holding — the source of the health check's "Paid with ₹0 recorded" anomalies. Removed `completed`/`refunded`/`amount_mismatch` from the dropdown **and** from the server's `VALID_STATUSES`. Completion must now go through a money-recording path (Razorpay capture, offline **Approve**, or walk-in **Record ₹**); refunds through the **Refund** button. ⚠️ Existing "Paid with ₹0" rows are pre-existing bad data — clean them separately.
+    - ✅ Verified clean: every one of the 44 admin routes has an `authorize()` guard; UI tab/button gating already matched permissions; queries are parameterized (no injection); secrets stay masked.
 - **2026-07-19**
   - **Admin auth hardening — the shared env password is gone.** Login is now **database-only**: every admin/volunteer is an `admin_users` row with a scrypt-hashed password. Removed the `ADMIN_PASSWORD` (and the already-dead `VIEWER_PASSWORD`) login fallback from [app/api/admin/login/route.js](app/api/admin/login/route.js) — a shared secret in env can't be attributed to a person or rotated per user, and an env-login session had no `uid`, so its actions logged as a faceless "admin".
     - **Bootstrap/recovery is a local CLI, not a secret in env:** new **`npm run create-admin`** ([scripts/create-admin.mjs](scripts/create-admin.mjs)) hashes a password and upserts an `admin_users` row using the service-role key from `.env.local` (no dependency; loads `.env.local`/`.env` itself; hidden password prompt; supports `--username/--password/--name/--role`). Re-running an existing username **resets** it — this is also the break-glass if all accounts are lost.

@@ -636,17 +636,22 @@ export default function AdminDashboard() {
 
     // Dashboard figures are GLOBAL (whole dataset), not tied to the registrations
     // filter bar — so the overview stays meaningful on its own tab.
-    const globalCompleted = registrations.filter(r => r.payment_status === 'completed').length;
-    const globalRevenue = registrations.filter(r => r.payment_status === 'completed').reduce((s, r) => s + Number(r.total_amount || 0), 0);
-    const globalTotal = registrations.length;
+    // A volunteer with `dashboard:view` but NOT `registrations:view` receives no
+    // rows (PII boundary in /api/admin/data); for them the tiles fall back to the
+    // server-computed `stats.dashboard` numbers so they still see the summary.
+    const dash = stats.dashboard;
+    const hasRows = registrations.length > 0;
+    const globalCompleted = hasRows ? registrations.filter(r => r.payment_status === 'completed').length : (dash?.completed ?? 0);
+    const globalRevenue = hasRows ? registrations.filter(r => r.payment_status === 'completed').reduce((s, r) => s + Number(r.total_amount || 0), 0) : (dash?.revenue ?? 0);
+    const globalTotal = hasRows ? registrations.length : (dash?.total ?? 0);
     // "Today" = local midnight onward, so it matches what the operator sees on a wall clock.
     const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
     const todayRegs = registrations.filter(r => new Date(r.created_at) >= startOfToday);
-    const todayCount = todayRegs.length;
-    const todayPaid = todayRegs.filter(r => r.payment_status === 'completed').length;
-    const todayRevenue = todayRegs.filter(r => r.payment_status === 'completed').reduce((s, r) => s + Number(r.total_amount || 0), 0);
-    const globalToVerify = registrations.filter(r => r.payment_status === 'payment_review' || r.payment_status === 'cheque_received').length;
-    const globalNewEnquiries = registrations.filter(r => r.payment_status === 'enquired').length;
+    const todayCount = hasRows ? todayRegs.length : (dash?.todayCount ?? 0);
+    const todayPaid = hasRows ? todayRegs.filter(r => r.payment_status === 'completed').length : (dash?.todayPaid ?? 0);
+    const todayRevenue = hasRows ? todayRegs.filter(r => r.payment_status === 'completed').reduce((s, r) => s + Number(r.total_amount || 0), 0) : (dash?.todayRevenue ?? 0);
+    const globalToVerify = hasRows ? registrations.filter(r => r.payment_status === 'payment_review' || r.payment_status === 'cheque_received').length : (dash?.toVerify ?? 0);
+    const globalNewEnquiries = hasRows ? registrations.filter(r => r.payment_status === 'enquired').length : (dash?.newEnquiries ?? 0);
     const globalCategoryMetrics = registrations.reduce((acc, reg) => {
         if (reg.payment_status === 'completed' || reg.payment_status === 'enquired' || reg.payment_status === 'contacted') {
             const catTitle = reg.categories?.title || 'Deleted Tier';
@@ -672,7 +677,10 @@ export default function AdminDashboard() {
                 disabled={saving}
                 className={`py-1 px-2.5 rounded-full text-xs font-semibold cursor-pointer outline-none border hover:shadow-sm transition-all focus:ring-2 focus:ring-orange-500 disabled:opacity-50 ${statusClasses(reg.payment_status)}`}
             >
-                <option value="completed">✔ Paid</option><option value="enquired">💬 Enquired</option><option value="contacted">📞 Contacted</option><option value="pending">⏳ Pending</option><option value="failed">✖ Failed</option><option value="refunded">⏪ Refunded</option>
+                {/* Paid/Refunded are intentionally absent — marking Paid records no
+                    money and Refunded returns none. Use Record ₹ / Approve to complete,
+                    and the Refund button to refund. See registrations/route.js. */}
+                <option value="pending">⏳ Pending</option><option value="enquired">💬 Enquired</option><option value="contacted">📞 Contacted</option><option value="failed">✖ Failed</option>
             </select>
         ) : (
             <span className={`inline-flex items-center py-1 px-2.5 rounded-full text-xs font-semibold border ${statusClasses(reg.payment_status)}`} title={locked ? 'Locked financial state' : undefined}>
@@ -940,6 +948,9 @@ export default function AdminDashboard() {
 
                         {isAdmin && <HealthPanel />}
 
+                        {/* Row-level analytics need the raw registrations; a volunteer
+                            without registrations:view gets the summary tiles above only. */}
+                        {can('registrations:view') && (<>
                         <DashboardAnalytics registrations={registrations} categories={categoriesList} donations={stats.donations} />
 
                         {/* Sales per category */}
@@ -993,6 +1004,7 @@ export default function AdminDashboard() {
                                 ))}
                             </div>
                         </div>
+                        </>)}
                     </div>
                 )}
 

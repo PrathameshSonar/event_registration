@@ -11,10 +11,20 @@ export type PaymentStatus =
 
 // Dashboard figures that aren't derivable from the registrations array. A null
 // member means the current role isn't allowed to see it, so the tile is hidden.
+export interface DashboardAggregates {
+    completed: number; revenue: number; total: number;
+    todayCount: number; todayPaid: number; todayRevenue: number;
+    toVerify: number; newEnquiries: number;
+}
+
 export interface AdminStats {
     donations: { amount: number; created_at: string }[] | null;
     donationsTotal: number | null;
     checkedInRegs: number | null;
+    // Server-computed summary numbers for a volunteer who can see the dashboard
+    // but NOT the raw registration rows. null when the caller holds registrations:view
+    // (the client computes tiles from rows in that case) or lacks dashboard:view.
+    dashboard?: DashboardAggregates | null;
 }
 
 export interface Registration {

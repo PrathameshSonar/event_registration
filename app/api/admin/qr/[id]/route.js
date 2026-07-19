@@ -8,7 +8,7 @@ import { getQrConfig } from '@/lib/settingsServer';
 export const dynamic = 'force-dynamic';
 
 export async function GET(_request, { params }) {
-    const { response } = await authorize({ requireAdmin: false });
+    const { response } = await authorize({ requirePermission: 'registrations:view' });
     if (response) return response;
 
     const { id } = await params;

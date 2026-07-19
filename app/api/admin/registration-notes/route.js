@@ -10,7 +10,9 @@ import { logAudit } from '@/lib/auditLog';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
-    const { response } = await authorize();
+    // enquiries:manage expands to include registrations:view, so the enquiry
+    // pipeline still reads notes; a role with neither can't.
+    const { response } = await authorize({ requirePermission: 'registrations:view' });
     if (response) return response;
 
     const registrationId = new URL(request.url).searchParams.get('registrationId');

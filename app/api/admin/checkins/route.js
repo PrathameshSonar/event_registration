@@ -13,7 +13,7 @@ const DEFAULT_LIMIT = 300;
 const MAX_LIMIT = 1000;
 
 export async function GET(request) {
-    const { response } = await authorize();
+    const { response } = await authorize({ requirePermission: 'scanlog:view' });
     if (response) return response;
 
     const { searchParams } = new URL(request.url);
