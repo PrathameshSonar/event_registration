@@ -550,12 +550,6 @@ CREATE TABLE IF NOT EXISTS event_testimonials (
     name         TEXT,
     location     TEXT,
     quote        TEXT NOT NULL,
---   schedule_intro → paragraph shown above the schedule preview (translatable).
---   schedule_days → per-day metadata keyed to day_label: [{label,date,theme}].
-ALTER TABLE events
-    ADD COLUMN IF NOT EXISTS peak_day_label TEXT,
-    ADD COLUMN IF NOT EXISTS peak_day_note  TEXT,
-    ADD COLUMN IF NOT EXISTS s
     is_published BOOLEAN DEFAULT true,
     sort_order   INTEGER DEFAULT 0,
     translations JSONB DEFAULT '{}'::jsonb,
@@ -581,7 +575,13 @@ ALTER TABLE events           ADD COLUMN IF NOT EXISTS about_images JSONB DEFAULT
 
 -- Phase 9 homepage parity (peak-day highlight + schedule intro/per-day themes).
 --   peak_day_label / peak_day_note → the "Pramukh Din" highlight card (translatable
---     via translations, like other event text).chedule_intro TEXT,
+--     via translations, like other event text).
+--   schedule_intro → paragraph shown above the schedule preview (translatable).
+--   schedule_days → per-day metadata keyed to day_label: [{label,date,theme}].
+ALTER TABLE events
+    ADD COLUMN IF NOT EXISTS peak_day_label TEXT,
+    ADD COLUMN IF NOT EXISTS peak_day_note  TEXT,
+    ADD COLUMN IF NOT EXISTS schedule_intro TEXT,
     ADD COLUMN IF NOT EXISTS schedule_days  JSONB DEFAULT '[]'::jsonb,
     -- Venue facility cards on /event: [{icon,title,note}] (Parking / Meals / …).
     ADD COLUMN IF NOT EXISTS facilities     JSONB DEFAULT '[]'::jsonb;
