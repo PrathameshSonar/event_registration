@@ -17,11 +17,12 @@ export async function GET() {
     const { response } = await authorize({ requireAdmin: true });
     if (response) return response;
 
-    const [regRes, catRes, evRes, cpRes] = await Promise.all([
+    const [regRes, catRes, evRes, cpRes, adminRes] = await Promise.all([
         supabaseAdmin.from('registrations').select('id, first_name, last_name, phone, payment_status, amount_paid, amount_due, total_amount, category_id, attendees_count, balance_link_url, qr_sent_at, ticket_email_status, ticket_wa_status, created_at, payment_method, razorpay_payment_id'),
         supabaseAdmin.from('categories').select('id, title, price, max_capacity, is_enquiry_only'),
         supabaseAdmin.from('events').select('id, title, is_active'),
         supabaseAdmin.from('checkpoints').select('id, name'),
+        supabaseAdmin.from('admin_users').select('id', { count: 'exact', head: true }).eq('role', 'admin').eq('active', true),
     ]);
     const regs = regRes.data || [];
     const cats = catRes.data || [];
@@ -92,7 +93,10 @@ export async function GET() {
     check(process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET, 'Razorpay keys', 'NEXT_PUBLIC_RAZORPAY_KEY_ID + RAZORPAY_KEY_SECRET set');
     check(process.env.RAZORPAY_WEBHOOK_SECRET, 'Razorpay webhook secret', 'RAZORPAY_WEBHOOK_SECRET set (webhook events must also be enabled in the Razorpay dashboard)');
     check(process.env.SESSION_SECRET, 'Session secret', 'SESSION_SECRET set');
-    check(process.env.ADMIN_PASSWORD, 'Admin password', 'ADMIN_PASSWORD set');
+    // Login is now database-only (no shared env password). At least one active
+    // admin account must exist, or nobody can get in — create one with
+    // `npm run create-admin`.
+    check((adminRes.count || 0) > 0, 'Admin account', `${adminRes.count || 0} active admin account(s) — create with \`npm run create-admin\``);
     // Provider-neutral on purpose: ask lib/email.js whether email is configured
     // rather than naming a vendor's env var here, so swapping provider can't leave
     // this check falsely red. (EMAIL_* is preferred; RESEND_* still works.)

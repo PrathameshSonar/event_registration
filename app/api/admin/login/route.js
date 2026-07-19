@@ -1,6 +1,5 @@
 // app/api/admin/login/route.js
 import { NextResponse } from 'next/server';
-import crypto from 'crypto';
 import { createAdminSession } from '@/lib/adminSession';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { verifyPassword } from '@/lib/passwordHash';
@@ -10,13 +9,6 @@ export const dynamic = 'force-dynamic';
 
 const MAX_FAILS = 5;            // consecutive failures before lockout
 const LOCK_MINUTES = 15;       // cooldown once locked
-
-function safeEqual(a, b) {
-    const bufA = Buffer.from(a || '', 'utf8');
-    const bufB = Buffer.from(b || '', 'utf8');
-    if (bufA.length !== bufB.length) return false;
-    return crypto.timingSafeEqual(bufA, bufB);
-}
 
 function clientIp(request) {
     const fwd = request.headers.get('x-forwarded-for');
@@ -48,8 +40,8 @@ async function clearThrottle(ip) {
 export async function POST(request) {
     try {
         const { username, password } = await request.json();
-        if (!password) {
-            return NextResponse.json({ error: 'Password required.' }, { status: 400 });
+        if (!username || !String(username).trim() || !password) {
+            return NextResponse.json({ error: 'Username and password required.' }, { status: 400 });
         }
 
         const ip = clientIp(request);
@@ -61,45 +53,31 @@ export async function POST(request) {
             return NextResponse.json({ error: `Too many attempts. Try again in ${mins} minute(s).` }, { status: 429 });
         }
 
-        // ── Named account path: a username was supplied ──────────────────────
-        if (username && String(username).trim()) {
-            let user = null;
-            try {
-                const { data } = await supabaseAdmin
-                    .from('admin_users')
-                    .select('id, username, name, password_hash, role, active, permissions')
-                    .eq('username', String(username).trim().toLowerCase())
-                    .single();
-                user = data || null;
-            } catch { user = null; }
+        // ── Named account login (the only path) ──────────────────────────────
+        // Every admin/volunteer is a row in `admin_users` with a scrypt-hashed
+        // password. There is deliberately NO shared env-password fallback: a
+        // shared secret in env can't be attributed to a person or rotated per
+        // user. Bootstrap / recover the first account with `npm run create-admin`.
+        let user = null;
+        try {
+            const { data } = await supabaseAdmin
+                .from('admin_users')
+                .select('id, username, name, password_hash, role, active, permissions')
+                .eq('username', String(username).trim().toLowerCase())
+                .single();
+            user = data || null;
+        } catch { user = null; }
 
-            if (!user || user.active === false || !verifyPassword(password, user.password_hash)) {
-                await recordFail(ip, throttle);
-                return NextResponse.json({ error: 'Incorrect username or password.' }, { status: 401 });
-            }
-
-            await clearThrottle(ip);
-            try { await supabaseAdmin.from('admin_users').update({ last_login_at: new Date().toISOString() }).eq('id', user.id); } catch { /* best effort */ }
-            const permissions = effectivePermissions(user.role, user.permissions);
-            await createAdminSession({ role: user.role, username: user.username, name: user.name || user.username, uid: user.id, permissions });
-            return NextResponse.json({ role: user.role, name: user.name || user.username, permissions }, { status: 200 });
-        }
-
-        // ── Shared-password path (env ADMIN_PASSWORD) → admin ──
-        const adminPassword = process.env.ADMIN_PASSWORD;
-        if (!adminPassword) {
-            console.error('ADMIN_PASSWORD is not configured.');
-            return NextResponse.json({ error: 'Server auth not configured.' }, { status: 500 });
-        }
-
-        if (!safeEqual(password, adminPassword)) {
+        if (!user || user.active === false || !verifyPassword(password, user.password_hash)) {
             await recordFail(ip, throttle);
-            return NextResponse.json({ error: 'Incorrect password' }, { status: 401 });
+            return NextResponse.json({ error: 'Incorrect username or password.' }, { status: 401 });
         }
 
         await clearThrottle(ip);
-        await createAdminSession('admin');
-        return NextResponse.json({ role: 'admin', permissions: effectivePermissions('admin', null) }, { status: 200 });
+        try { await supabaseAdmin.from('admin_users').update({ last_login_at: new Date().toISOString() }).eq('id', user.id); } catch { /* best effort */ }
+        const permissions = effectivePermissions(user.role, user.permissions);
+        await createAdminSession({ role: user.role, username: user.username, name: user.name || user.username, uid: user.id, permissions });
+        return NextResponse.json({ role: user.role, name: user.name || user.username, permissions }, { status: 200 });
     } catch (error) {
         console.error('Admin login error:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

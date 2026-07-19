@@ -71,8 +71,8 @@ export async function DELETE(request) {
     if (response) return response;
     const { id, password, force } = await request.json();
     if (!id) return NextResponse.json({ error: 'Missing id.' }, { status: 400 });
-    if (!verifyAdminPassword(password)) {
-        return NextResponse.json({ error: 'Re-enter the admin password to authorize deletion.' }, { status: 403 });
+    if (!(await verifyAdminPassword(session, password))) {
+        return NextResponse.json({ error: 'Re-enter your account password to authorize deletion.' }, { status: 403 });
     }
     if (!force) {
         const { count } = await supabaseAdmin

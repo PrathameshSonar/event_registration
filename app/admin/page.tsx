@@ -151,7 +151,7 @@ export default function AdminDashboard() {
             const res = await fetch('/api/admin/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: username.trim() || undefined, password }),
+                body: JSON.stringify({ username: username.trim(), password }),
             });
             const data = await res.json();
             if (!res.ok) { setError(data.error || 'Login failed'); return; }
@@ -235,7 +235,7 @@ export default function AdminDashboard() {
     // Prompt for the admin password to authorize a destructive action.
     const confirmWithPassword = async (message: string): Promise<string | null> => {
         if (!(await confirmDialog({ title: 'Confirm', message, danger: true, confirmLabel: 'Continue' }))) return null;
-        const pwd = await promptDialog({ title: 'Admin password', message: 'Re-enter the admin password to authorize this deletion:', inputType: 'password', required: true, confirmLabel: 'Authorize' });
+        const pwd = await promptDialog({ title: 'Your password', message: 'Re-enter your account password to authorize this deletion:', inputType: 'password', required: true, confirmLabel: 'Authorize' });
         return pwd && pwd.length ? pwd : null;
     };
 
@@ -539,7 +539,7 @@ export default function AdminDashboard() {
         setSaving(false);
     };
     const handleDeleteCategory = async (id: string, title: string) => {
-        const password = await promptDialog({ title: 'Delete tier', message: `Enter admin password to delete "${title}":`, inputType: 'password', required: true, confirmLabel: 'Delete' });
+        const password = await promptDialog({ title: 'Delete tier', message: `Enter your account password to delete "${title}":`, inputType: 'password', required: true, confirmLabel: 'Delete' });
         if (!password) return;
         setSaving(true);
         // First attempt (no force — server checks for paid registrations)
@@ -749,9 +749,9 @@ export default function AdminDashboard() {
                 <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
                     <div className="w-16 h-16 bg-neutral-900 rounded-full flex items-center justify-center mx-auto mb-6"><Lock className="text-white w-8 h-8" /></div>
                     <h1 className="text-2xl font-bold mb-2">Admin Access</h1>
-                    <p className="text-sm text-neutral-500 mb-6">Sign in with your account, or leave the username blank to use the shared password.</p>
+                    <p className="text-sm text-neutral-500 mb-6">Sign in with your account username and password.</p>
                     <form onSubmit={handleLogin} className="space-y-4">
-                        <input type="text" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username (optional)" className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600" />
+                        <input type="text" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600" />
                         <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600" />
                         {error && <p className="text-red-500 text-sm">{error}</p>}
                         <button type="submit" className="w-full bg-neutral-900 text-white font-medium py-3 rounded-lg hover:bg-orange-600 transition">Unlock Terminal</button>

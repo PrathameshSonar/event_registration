@@ -4,7 +4,7 @@
 >
 > **⚠️ KEEP THIS UPDATED.** Whenever a feature, route, column, env var, or flow changes, update the relevant section **and** the Changelog at the bottom. This file is meant to stay accurate.
 >
-> Last updated: 2026-07-14.
+> Last updated: 2026-07-19.
 
 ---
 
@@ -89,7 +89,7 @@ All in `.env.example`. `NEXT_PUBLIC_*` are exposed to the browser; everything el
 | `WHATSAPP_API_URL` / `WHATSAPP_ACCESS_TOKEN` | WhatsApp Cloud API (optional) |
 | `SCANNER_PIN` | PIN for `/scan` staff |
 | `SESSION_SECRET` | Signs admin session JWT (`openssl rand -base64 32`) |
-| `ADMIN_PASSWORD` / `VIEWER_PASSWORD` | Two admin roles |
+| *(no admin password in env)* | Admins are named `admin_users` rows (scrypt-hashed). Bootstrap/recover with `npm run create-admin`. |
 | `CRON_SECRET` | Auth for `/api/cron/reconcile` (Bearer). **Required or cron 401s** |
 | `RECONCILE_WINDOW_DAYS` | Optional; reconcile look-back window (default 30) |
 
@@ -292,7 +292,7 @@ Goal: DB matches Razorpay's reality; no silent under-recording or underpayment.
 
 ## 11. Admin dashboard
 
-[app/admin/page.tsx](app/admin/page.tsx). Login at `/admin` — either a named `admin_users` account (username + password) or the shared env password (→ `admin`). Roles are **`admin`** (full access, always) and **`volunteer`** (exactly the permissions an admin ticks; see the RBAC entry in §23). The old read-only `viewer` role was removed.
+[app/admin/page.tsx](app/admin/page.tsx). Login at `/admin` — **named `admin_users` accounts only** (username + password, scrypt-hashed). There is **no shared env password**: a shared secret in env can't be attributed to a person or rotated per user. The first account (and break-glass recovery) is created with **`npm run create-admin`** ([scripts/create-admin.mjs](scripts/create-admin.mjs), run locally against the service-role key). Roles are **`admin`** (full access, always) and **`volunteer`** (exactly the permissions an admin ticks; see the RBAC entry in §23). The old read-only `viewer` role was removed. ⚠️ **If every admin account is lost, nobody can log in** — recover by re-running `npm run create-admin`.
 
 **Auto-refresh:** the registrations list silently re-fetches every 30s while on the Dashboard or Registrations tab (paused while a detail modal is open, or when toggled off via the **Auto ON/OFF** chip in the header). A manual **Refresh** button + "Updated HH:MM:SS" sit in the top header. So new registrations appear without reloading the page. (`refreshRegistrations()` updates only the registrations array — no loading flicker, no Settings disruption.)
 
@@ -325,7 +325,7 @@ Global overview (all figures **global**, never tied to the Registrations filter 
 - Notification is **best-effort** ([notifyCancelled](lib/notify.js)): a mail/WhatsApp failure is logged but never leaves the row half-cancelled.
 
 ### Settings (admin / `settings:manage`) — sidebar sub-tabs
-Event Setup, Ticket Tiers, Media Gallery, Entry Checkpoints, Form Fields ([components/FormFieldsManager.js](components/FormFieldsManager.js)), Home Page Content ([components/HomeContentManager.js](components/HomeContentManager.js) — schedule/guests/highlights/faqs/hero/contact), Payment Details, Admin Users, Waitlist, Donations, **Sponsors**, **Message Log**, Feedback. Destructive deletes (events/tiers/media) require **re-entering the admin password**.
+Event Setup, Ticket Tiers, Media Gallery, Entry Checkpoints, Form Fields ([components/FormFieldsManager.js](components/FormFieldsManager.js)), Home Page Content ([components/HomeContentManager.js](components/HomeContentManager.js) — schedule/guests/highlights/faqs/hero/contact), Payment Details, Admin Users, Waitlist, Donations, **Sponsors**, **Message Log**, Feedback. Destructive deletes (events/tiers/media) require **re-entering the signed-in user's own account password** (verified against their `admin_users` hash — no env secret; see [verifyAdminPassword](lib/adminGuard.js)).
 
 - **Sponsors** ([components/SponsorsManager.js](components/SponsorsManager.js)) — sponsorship deals are negotiated **offline** and recorded by an admin (name, tier, amount, logo, contact, notes). There is deliberately **no public sponsor form and no Razorpay flow** — a company committing a large sponsorship doesn't self-serve through a checkout — and sponsors are **not rendered on the public site**. Shows total committed + sponsor count.
 - **Message Log** — see §12b. Gated on `audit:view`, so the sub-tab hides for a volunteer who has `settings:manage` but not `audit:view`.
@@ -646,6 +646,13 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
 ## 23. Changelog
 
 Keep newest first. Add an entry for every meaningful change.
+
+- **2026-07-19**
+  - **Admin auth hardening — the shared env password is gone.** Login is now **database-only**: every admin/volunteer is an `admin_users` row with a scrypt-hashed password. Removed the `ADMIN_PASSWORD` (and the already-dead `VIEWER_PASSWORD`) login fallback from [app/api/admin/login/route.js](app/api/admin/login/route.js) — a shared secret in env can't be attributed to a person or rotated per user, and an env-login session had no `uid`, so its actions logged as a faceless "admin".
+    - **Bootstrap/recovery is a local CLI, not a secret in env:** new **`npm run create-admin`** ([scripts/create-admin.mjs](scripts/create-admin.mjs)) hashes a password and upserts an `admin_users` row using the service-role key from `.env.local` (no dependency; loads `.env.local`/`.env` itself; hidden password prompt; supports `--username/--password/--name/--role`). Re-running an existing username **resets** it — this is also the break-glass if all accounts are lost.
+    - **Destructive-delete re-auth now checks your OWN password.** [verifyAdminPassword](lib/adminGuard.js) is now `async (session, password)` and verifies against the signed-in user's `admin_users` hash (was: the env `ADMIN_PASSWORD`). Wired through the three delete routes (events/tiers/media). More secure *and* attributable, and it works for a volunteer with `settings:manage` using their own password.
+    - **Health/launch check** swapped the `ADMIN_PASSWORD set` item for **"≥1 active admin account exists"** (counts `admin_users`), since that — not an env var — is now what "can anyone log in?" depends on. Login UI copy + `.env.example` updated; **no SQL** (uses the existing `admin_users` table).
+    - ⚠️ **Deploy note:** create at least one admin (`npm run create-admin`) **before** removing `ADMIN_PASSWORD` from Vercel, or you'll lock yourself out. `SESSION_SECRET` is still required.
 
 - **2026-07-14 (later still)**
   - **Phase 3, part 2 — Email templates, WhatsApp templates, QR config, gateway status.** See **§19d**. New Settings → **Templates & Config**. No SQL (all new `app_settings` keys).
