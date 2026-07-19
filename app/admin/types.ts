@@ -63,6 +63,8 @@ export interface Category {
     advance_percent: number;
     allow_enquiry: boolean;
     is_recommended?: boolean;
+    tagline?: string | null;
+    perks?: string[];
     min_age: number | null;
     max_age: number | null;
     translations: Record<string, Record<string, string>> | null;
@@ -85,6 +87,7 @@ export interface EventItem {
     youtube_url: string | null;
     travel_info: string | null;
     stats?: { value: string; label: string }[];
+    about_images?: string[];
     translations: Record<string, Record<string, string>> | null;
 }
 

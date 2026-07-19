@@ -6,7 +6,7 @@ import { logAudit } from '@/lib/auditLog';
 
 export const dynamic = 'force-dynamic';
 
-const COLS = ['icon', 'title', 'description', 'section', 'sort_order', 'translations'];
+const COLS = ['icon', 'title', 'description', 'section', 'image_url', 'sort_order', 'translations'];
 function pick(input = {}) {
     const out = {};
     for (const k of COLS) if (input[k] !== undefined) out[k] = input[k] === '' ? null : input[k];

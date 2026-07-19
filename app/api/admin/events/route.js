@@ -65,7 +65,7 @@ export async function PATCH(request) {
             'instagram_url', 'facebook_url', 'youtube_url',
             'travel_info',
             'livestream_url', 'livestream_banner',
-            'stats',
+            'stats', 'about_images',
             'translations',
         ];
         const sanitized = {};

@@ -87,3 +87,7 @@ Registration → `/register/[id]` + `CheckoutForm` (restyled). Donations → `/d
   - Navbar/Footer are **not yet wired into the root layout** (would double up with HomeContent's inline header) — that swap happens in Phase 4 during the homepage rebuild.
   - i18n: components use `t(key) || fallback`; the full key set (countdown_*, nav_*, footer_*, section_*) lands in Phase 4 when all homepage copy is added at once.
   - Next: Phase 3 (schema top-ups: Guruji bullets/quote, bento/pillar images, schedule desc, category tagline) → Phase 4 (homepage rebuild).
+- 2026-07-19 — **Phase 3 (schema top-ups) done, build-verified. Re-run `supabase/run_all.sql`.**
+  - Additive columns: `event_guests.bullets`(jsonb)+`quote`(text); `event_highlights.image_url`; `event_schedule.description`; `categories.tagline`+`perks`(jsonb); `events.about_images`(jsonb). All whitelisted in their routes + typed.
+  - Admin editing wired: CategoryRow (tagline + perks-per-line), EventRow (About bento MediaPicker grid), HomeContentManager (guest Leadership bullets+quote when featured, highlight card image, schedule one-line detail).
+  - Next: **Phase 4** — rebuild the homepage as the 14 luxury sections, wire the new Navbar/Footer into the layout, add the full i18n key set.

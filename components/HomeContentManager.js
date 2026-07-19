@@ -60,6 +60,8 @@ export default function HomeContentManager(props) {
   const [gPhoto, setGPhoto] = useState("");
   const [gBio, setGBio] = useState("");
   const [gFeatured, setGFeatured] = useState(false);
+  const [gBullets, setGBullets] = useState("");
+  const [gQuote, setGQuote] = useState("");
   const [gTr, setGTr] = useState({});
 
   // New testimonial / devotee quote
@@ -77,6 +79,7 @@ export default function HomeContentManager(props) {
   const [sTime, setSTime] = useState("");
   const [sTitle, setSTitle] = useState("");
   const [sDay, setSDay] = useState("");
+  const [sDesc, setSDesc] = useState("");
   const [sTr, setSTr] = useState({});
 
   // New highlight (section groups it into a distinct homepage block)
@@ -84,6 +87,7 @@ export default function HomeContentManager(props) {
   const [hTitle, setHTitle] = useState("");
   const [hDesc, setHDesc] = useState("");
   const [hSection, setHSection] = useState("highlights");
+  const [hImage, setHImage] = useState("");
   const [hTr, setHTr] = useState({});
 
   // datetime-local wants "YYYY-MM-DDTHH:mm"
@@ -190,12 +194,14 @@ export default function HomeContentManager(props) {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         event_id: eventId, name: gName, role: gRole, photo_url: gPhoto, bio: gBio,
-        is_featured: gFeatured, translations: buildTranslations(gTr),
+        is_featured: gFeatured, quote: gQuote,
+        bullets: gBullets.split("\n").map((s) => s.trim()).filter(Boolean),
+        translations: buildTranslations(gTr),
       }),
     });
     setBusy(false);
     if (!res.ok) { toast.error("Could not add guest."); return; }
-    setGName(""); setGRole(""); setGPhoto(""); setGBio(""); setGFeatured(false); setGTr({});
+    setGName(""); setGRole(""); setGPhoto(""); setGBio(""); setGFeatured(false); setGBullets(""); setGQuote(""); setGTr({});
     await loadLists(eventId);
   };
   const delGuest = async (id) => {
@@ -278,9 +284,9 @@ export default function HomeContentManager(props) {
     await fetch("/api/admin/schedule", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event_id: eventId, time_label: sTime, title: sTitle, day_label: sDay, translations: buildTranslations(sTr) }),
+      body: JSON.stringify({ event_id: eventId, time_label: sTime, title: sTitle, day_label: sDay, description: sDesc, translations: buildTranslations(sTr) }),
     });
-    setSTime(""); setSTitle(""); setSDay(""); setSTr({});
+    setSTime(""); setSTitle(""); setSDay(""); setSDesc(""); setSTr({});
     await loadLists(eventId);
     setBusy(false);
   };
@@ -299,9 +305,9 @@ export default function HomeContentManager(props) {
     await fetch("/api/admin/highlights", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event_id: eventId, icon: hIcon, title: hTitle, description: hDesc, section: hSection, translations: buildTranslations(hTr) }),
+      body: JSON.stringify({ event_id: eventId, icon: hIcon, title: hTitle, description: hDesc, section: hSection, image_url: hImage, translations: buildTranslations(hTr) }),
     });
-    setHIcon("🪔"); setHTitle(""); setHDesc(""); setHSection("highlights"); setHTr({});
+    setHIcon("🪔"); setHTitle(""); setHDesc(""); setHSection("highlights"); setHImage(""); setHTr({});
     await loadLists(eventId);
     setBusy(false);
   };
@@ -544,6 +550,7 @@ export default function HomeContentManager(props) {
           <input type="text" placeholder="Time (e.g. 6:00 PM)" value={sTime} onChange={(e) => setSTime(e.target.value)} className={inputCls} />
           <input type="text" placeholder="Day (e.g. Day 1)" value={sDay} onChange={(e) => setSDay(e.target.value)} className={inputCls} />
           <div className="md:col-span-2"><TranslatableField label="Title" field="title" value={sTitle} onValue={setSTitle} tr={sTr} onTr={mkSetTr(setSTr)} placeholder="Title" /></div>
+          <input type="text" placeholder="One-line detail (optional)" value={sDesc} onChange={(e) => setSDesc(e.target.value)} className={`${inputCls} md:col-span-2`} />
           <button type="submit" disabled={busy || !sTitle.trim()} className="md:col-span-2 flex items-center justify-center gap-2 bg-neutral-900 hover:bg-orange-600 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-lg text-sm transition"><Plus className="w-4 h-4" /> Add Schedule Item</button>
         </form>
       </div>
@@ -580,6 +587,12 @@ export default function HomeContentManager(props) {
             <input type="checkbox" checked={gFeatured} onChange={(e) => setGFeatured(e.target.checked)} className="w-4 h-4 text-amber-600 rounded border-neutral-300 focus:ring-amber-600" />
             ★ Feature as the Leadership hero (large section above the lineup — e.g. Guruji)
           </label>
+          {gFeatured && (
+            <>
+              <div className="md:col-span-2"><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Leadership bullet points <span className="font-normal text-neutral-400 normal-case">(one per line — shown next to the portrait)</span></label><textarea value={gBullets} onChange={(e) => setGBullets(e.target.value)} rows={4} placeholder={"Practitioner of Baglamukhi & Sri Vidya sadhana\nGuide to hundreds of Yajmaans each year"} className={inputCls} /></div>
+              <div className="md:col-span-2"><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Pull-quote <span className="font-normal text-neutral-400 normal-case">(optional — a line in their words)</span></label><textarea value={gQuote} onChange={(e) => setGQuote(e.target.value)} rows={2} placeholder="“Sadhana is not the absence of the world…”" className={inputCls} /></div>
+            </>
+          )}
           <button type="submit" disabled={busy || !gName.trim()} className="md:col-span-2 flex items-center justify-center gap-2 bg-neutral-900 hover:bg-orange-600 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-lg text-sm transition"><Plus className="w-4 h-4" /> Add Guest</button>
         </form>
       </div>
@@ -641,6 +654,10 @@ export default function HomeContentManager(props) {
           </div>
           <div><TranslatableField label="Title" field="title" value={hTitle} onValue={setHTitle} tr={hTr} onTr={mkSetTr(setHTr)} placeholder="Title" /></div>
           <div><TranslatableField label="Short description" field="description" value={hDesc} onValue={setHDesc} tr={hTr} onTr={mkSetTr(setHTr)} placeholder="Short description" /></div>
+          <div className="md:col-span-2 flex gap-2 items-center">
+            <input type="url" placeholder="Card image URL (optional — used by Pillar cards)" value={hImage} onChange={(e) => setHImage(e.target.value)} className={`${inputCls} flex-1`} />
+            <MediaPicker onSelected={(url) => setHImage(url)} />
+          </div>
           <button type="submit" disabled={busy || !hTitle.trim()} className="md:col-span-2 flex items-center justify-center gap-2 bg-neutral-900 hover:bg-orange-600 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-lg text-sm transition"><Plus className="w-4 h-4" /> Add Card</button>
         </form>
       </div>

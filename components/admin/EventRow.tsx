@@ -36,6 +36,10 @@ export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
     const [stats, setStats] = useState<{ value: string; label: string }[]>(
         Array.isArray(event.stats) ? event.stats : [],
     );
+    // "About Mahayagya" bento image URLs (ordered).
+    const [aboutImages, setAboutImages] = useState<string[]>(
+        Array.isArray(event.about_images) ? event.about_images : [],
+    );
     const [isChanged, setIsChanged] = useState(false);
 
     // Non-English translations, seeded from the translations JSONB.
@@ -57,6 +61,7 @@ export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
             hero_image_url: heroImageUrl || null,
             // Drop blank rows so the public strip never shows an empty stat.
             stats: stats.filter((s) => s.value.trim() || s.label.trim()),
+            about_images: aboutImages.filter(Boolean),
             translations: buildTranslations(tr) as Record<string, Record<string, string>>,
         });
         setIsChanged(false);
@@ -119,6 +124,24 @@ export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
                                     <input value={s.value} onChange={(e) => setStat(i, 'value', e.target.value)} placeholder="36+" className="w-24 px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-white focus:outline-none focus:border-orange-500 transition" />
                                     <input value={s.label} onChange={(e) => setStat(i, 'label', e.target.value)} placeholder="Homa Kundas" className="flex-1 px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-white focus:outline-none focus:border-orange-500 transition" />
                                     <button type="button" onClick={() => removeStat(i)} className="text-neutral-400 hover:text-red-600 p-1.5 rounded hover:bg-red-50 transition"><Trash2 className="w-4 h-4" /></button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* "About Mahayagya" bento images (homepage). */}
+                    <div className="border border-neutral-200 rounded-lg p-4 bg-neutral-50/60">
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider">About Images <span className="font-normal text-neutral-400 normal-case">(homepage “About” image grid — optional, 3–4 works best)</span></label>
+                            <MediaPicker onSelected={(url: string) => { setAboutImages((p) => [...p, url]); track(); }} />
+                        </div>
+                        {aboutImages.length === 0 && <p className="text-xs text-neutral-400">No images yet — add temple / lamp / deity photos from the library.</p>}
+                        <div className="flex flex-wrap gap-2">
+                            {aboutImages.map((url, i) => (
+                                <div key={i} className="relative group">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={url} alt="" className="w-16 h-16 object-cover rounded-lg border border-neutral-200" />
+                                    <button type="button" onClick={() => { setAboutImages((p) => p.filter((_, idx) => idx !== i)); track(); }} className="absolute -top-1.5 -right-1.5 bg-white border border-neutral-300 rounded-full p-0.5 text-neutral-400 hover:text-red-600 shadow-sm"><Trash2 className="w-3 h-3" /></button>
                                 </div>
                             ))}
                         </div>

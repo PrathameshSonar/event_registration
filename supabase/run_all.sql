@@ -549,6 +549,21 @@ CREATE TABLE IF NOT EXISTS event_testimonials (
 CREATE INDEX IF NOT EXISTS event_testimonials_event_idx ON event_testimonials(event_id);
 GRANT ALL ON event_testimonials TO service_role;
 
+-- Luxury-homepage replica top-ups (2026-07-19, Phase 3). All additive/optional:
+--   event_guests.bullets/quote → the "Leadership/Guruji" hero shows a bullet list
+--                                 + a pull-quote.
+--   event_highlights.image_url → pillar/highlight cards can carry an image.
+--   event_schedule.description → each schedule item shows a one-line detail.
+--   categories.tagline/perks   → tier cards show a tagline + a perks bullet list.
+--   events.about_images        → the "About Mahayagya" bento image grid.
+ALTER TABLE event_guests     ADD COLUMN IF NOT EXISTS bullets JSONB DEFAULT '[]'::jsonb,
+                             ADD COLUMN IF NOT EXISTS quote   TEXT;
+ALTER TABLE event_highlights ADD COLUMN IF NOT EXISTS image_url TEXT;
+ALTER TABLE event_schedule   ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE categories       ADD COLUMN IF NOT EXISTS tagline TEXT,
+                             ADD COLUMN IF NOT EXISTS perks   JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE events           ADD COLUMN IF NOT EXISTS about_images JSONB DEFAULT '[]'::jsonb;
+
 
 -- 8) ── Homepage hero background image (per event) ──────────────────────────
 ALTER TABLE events

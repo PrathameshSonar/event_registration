@@ -570,6 +570,15 @@ CREATE TABLE IF NOT EXISTS event_testimonials (
 CREATE INDEX IF NOT EXISTS event_testimonials_event_idx ON event_testimonials(event_id);
 GRANT ALL ON event_testimonials TO service_role;
 
+-- Luxury-homepage replica top-ups (2026-07-19, Phase 3) — additive/optional.
+ALTER TABLE event_guests     ADD COLUMN IF NOT EXISTS bullets JSONB DEFAULT '[]'::jsonb,
+                             ADD COLUMN IF NOT EXISTS quote   TEXT;
+ALTER TABLE event_highlights ADD COLUMN IF NOT EXISTS image_url TEXT;
+ALTER TABLE event_schedule   ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE categories       ADD COLUMN IF NOT EXISTS tagline TEXT,
+                             ADD COLUMN IF NOT EXISTS perks   JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE events           ADD COLUMN IF NOT EXISTS about_images JSONB DEFAULT '[]'::jsonb;
+
 
 -- 8) ── Homepage hero image + "Plan Your Visit" (per event) ──────────────────
 ALTER TABLE events
