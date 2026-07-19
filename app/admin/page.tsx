@@ -13,6 +13,7 @@ import { youtubeThumbnail } from '@/lib/youtube';
 import { buildTranslations } from '@/lib/i18n';
 import FormFieldsManager from '@/components/FormFieldsManager';
 import HomeContentManager from '@/components/HomeContentManager';
+import PageHeadersManager from '@/components/PageHeadersManager';
 import AuditLogPanel from '@/components/AuditLogPanel';
 import EnquiriesPanel from '@/components/EnquiriesPanel';
 import PaymentSettingsManager from '@/components/PaymentSettingsManager';
@@ -56,7 +57,7 @@ export default function AdminDashboard() {
     const can = (perm: string) => isAdmin || permissions.includes(perm);
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'enquiries' | 'scanlog' | 'settings' | 'audit'>('dashboard');
-    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'library' | 'branding' | 'templates' | 'checkpoints' | 'formfields' | 'homecontent' | 'payment' | 'users' | 'waitlist' | 'donations' | 'sponsors' | 'messages' | 'feedback'>('events');
+    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'library' | 'branding' | 'pageheaders' | 'templates' | 'checkpoints' | 'formfields' | 'homecontent' | 'payment' | 'users' | 'waitlist' | 'donations' | 'sponsors' | 'messages' | 'feedback'>('events');
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -1209,6 +1210,7 @@ export default function AdminDashboard() {
                             <button onClick={() => setSettingsSubTab('formfields')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'formfields' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ListFilter className="w-4 h-4" /> Form Fields</button>
                             <button onClick={() => setSettingsSubTab('homecontent')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'homecontent' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><CalendarDays className="w-4 h-4" /> Home Page Content</button>
                             <button onClick={() => setSettingsSubTab('branding')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'branding' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><Palette className="w-4 h-4" /> Branding &amp; SEO</button>
+                            <button onClick={() => setSettingsSubTab('pageheaders')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'pageheaders' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ImageIcon className="w-4 h-4" /> Page Headers</button>
                             <button onClick={() => setSettingsSubTab('templates')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'templates' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><FileCode className="w-4 h-4" /> Templates &amp; Config</button>
                             <button onClick={() => setSettingsSubTab('payment')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'payment' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><IndianRupee className="w-4 h-4" /> Payment Details</button>
                             <button onClick={() => setSettingsSubTab('users')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'users' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><Users className="w-4 h-4" /> Admin Users</button>
@@ -1429,6 +1431,7 @@ export default function AdminDashboard() {
                             {settingsSubTab === 'waitlist' && <WaitlistManager />}
                             {settingsSubTab === 'library' && <MediaLibraryManager />}
                             {settingsSubTab === 'branding' && <BrandingManager />}
+                            {settingsSubTab === 'pageheaders' && <PageHeadersManager />}
                             {settingsSubTab === 'templates' && <TemplatesConfigManager />}
                             {settingsSubTab === 'donations' && <DonationsManager />}
                             {settingsSubTab === 'sponsors' && <SponsorsManager events={eventsList} />}

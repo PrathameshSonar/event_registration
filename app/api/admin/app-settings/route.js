@@ -51,10 +51,10 @@ export async function PATCH(request) {
         }
         saved[key] = value;
 
-        // branding/seo are read through unstable_cache (1h) so the ROOT LAYOUT can
-        // use them without making every page dynamic. Without busting the tag here,
-        // a save wouldn't reach the public site for up to an hour.
-        if (key === 'branding' || key === 'seo') revalidateTag(key);
+        // These are read through unstable_cache (so a layout/page can use them
+        // without going dynamic). Without busting the tag here, a save wouldn't
+        // reach the public site until the cache revalidates on its own.
+        if (['branding', 'seo', 'page_heroes'].includes(key)) revalidateTag(key);
 
         await logAudit({
             session, request,

@@ -70,6 +70,16 @@ social-proof count. To restore on the homepage and/or the new full pages.
 ## Business logic — untouched, just re-skinned
 Registration → `/register/[id]` + `CheckoutForm` (restyled). Donations → `/donate`. Live → livestream. Lookup → `/my-pass`. Payments / QR / scanner / admin / RBAC / reconciliation — **unchanged**.
 
+## Gap analysis + image strategy (2026-07-19)
+**Missing pages:** `/about`, `/event`, `/registration` (tier list), `/gallery`, `/live`, `/news`, `/faq`, `/contact` (+ form). **Every Emergent page has a hero bg image** + photo collages/portraits — image-rich throughout.
+
+**Admin changes the luxury theme needs:**
+1. **Page Headers** — per-page hero image + kicker + title + subtitle (new `page_heroes` app_settings key + admin panel + cached read + `<PageHero>` component). The #1 new admin need — makes every page image-rich & admin-controlled.
+2. **Contact form** — `POST /api/contact` + admin "Messages" view.
+3. **Restore** lineup / videos / venue map / travel_info / downloads rendering (data + editors already exist) — mostly on `/event`.
+4. Reuse grouped `event_highlights` (sections `about`, `values`) for About cards — no new tables.
+5. Every content card supports an image (largely done Phase 3).
+
 ## Phased execution
 1. **Foundation** *(this phase)* — fonts + port full theme into v4 `@theme` + component classes, keeping admin branding intact; add `framer-motion` + `embla-carousel-react` deps.
 2. **Nav + Footer + helpers** (Countdown, Kicker, Reveal, carousel, masonry, ScrollToTop).
@@ -135,3 +145,7 @@ Registration → `/register/[id]` + `CheckoutForm` (restyled). Donations → `/d
   - **Scope decisions locked (2026-07-19):** target = **Hybrid** (keep rich homepage + add a few key pages), restore dropped features **on the new full pages**, finish 5b before building pages.
   - Deferred: the MUI-heavy **CheckoutForm** internals (functional + framed by the luxury register shell; a full MUI→luxury re-theme is a later polish pass).
   - Next: **Phase 7 (hybrid)** — build `/event`, `/gallery`, `/registration` pages + homepage "See full…" preview links; **Phase 8** — restore videos/lineup/venue/travel/downloads onto those pages.
+- 2026-07-19 — **Phase 7 foundation + /gallery DONE, build-verified.**
+  - **Page-hero system (the #1 admin change for the luxury theme):** new `page_heroes` app_settings key ([lib/appSettings.js](lib/appSettings.js)) — image+kicker+title+subtitle per page; cached `getPageHeroes()` ([lib/siteEvent.js](lib/siteEvent.js)); reusable `<PageHero>` ([components/site/PageHero.js](components/site/PageHero.js)); admin **Settings → Page Headers** ([components/PageHeadersManager.js](components/PageHeadersManager.js)); PATCH busts the `page_heroes` cache tag. Every page falls back to an i18n default when a field is blank.
+  - **`/gallery` page** ([app/(site)/gallery/page.tsx](app/(site)/gallery/page.tsx) + `GalleryPageContent`) — PageHero + masonry (images) + **video grid (restores YouTube videos)**. Static `○` (5m ISR).
+  - Next: `/event` (overview + full schedule + priests/**lineup** + **venue map** + **travel**), `/registration` (tier list), `/about`, `/contact` (+ form), `/live`, `/news`, `/faq`; homepage previews get "See full…" links; nav → routes.
