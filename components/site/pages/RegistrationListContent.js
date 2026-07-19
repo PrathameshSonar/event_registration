@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, ArrowRight } from "lucide-react";
+import { Check, ArrowRight, Search } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { pick } from "@/lib/i18n";
 import PageHero from "@/components/site/PageHero";
@@ -44,6 +44,8 @@ export default function RegistrationListContent({ categories, seatsTaken, hero }
                 const desc = pick(c, "description", lang);
                 const perks = Array.isArray(c.perks) ? c.perks : [];
                 const priceLabel = c.price > 0 ? `₹${Number(c.price).toLocaleString("en-IN")}` : (t("category_enquire_price") || "Enquire");
+                // Availability bar: only for tiers that declare a real capacity.
+                const filledPct = cap > 0 ? Math.min(100, Math.round(((seats[c.id] || 0) / cap) * 100)) : null;
 
                 return (
                   <Reveal key={c.id} className="h-full">
@@ -64,7 +66,23 @@ export default function RegistrationListContent({ categories, seatsTaken, hero }
                       {tagline && <span className="kicker">{tagline}</span>}
                       <h3 className="mt-3 font-display text-2xl text-brown">{title}</h3>
                       <p className="mt-3 font-display text-3xl text-vermillion">{priceLabel}</p>
+                      {c.price > 0 && <p className="mt-1 text-xs text-brown/50">{t("reg_price_note") || "per Yajmaan · one-time"}</p>}
                       {desc && <p className="mt-3 text-brown/70 text-sm leading-relaxed">{desc}</p>}
+
+                      {filledPct !== null && !isFull && (
+                        <div className="mt-5">
+                          <div className="flex items-center justify-between text-[11px] font-semibold text-brown/60">
+                            <span>{t("reg_availability") || "Availability"}</span>
+                            <span>{filledPct}% {t("reg_filled") || "filled"}</span>
+                          </div>
+                          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-gold/15">
+                            <div className={`h-full rounded-full ${filledPct >= 85 ? "bg-vermillion" : "bg-gradient-to-r from-gold to-amber2"}`} style={{ width: `${Math.max(4, filledPct)}%` }} />
+                          </div>
+                          {remaining > 0 && remaining <= 10 && (
+                            <p className="mt-1.5 text-[11px] font-semibold text-vermillion">{(t("reg_seats_left") || "Only {n} seats left").replace("{n}", String(remaining))}</p>
+                          )}
+                        </div>
+                      )}
 
                       {perks.length > 0 && (
                         <ul className="mt-6 space-y-2.5 flex-1">
@@ -96,11 +114,17 @@ export default function RegistrationListContent({ categories, seatsTaken, hero }
             </div>
           )}
 
-          <div className="mt-12 text-center">
-            <Link href="/my-pass" className="text-sm inline-flex items-center gap-1 font-semibold text-vermillion hover:text-lotus">
-              {t("section_register_lookup") || "Find my registration"} <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
+          <Reveal className="mt-14">
+            <div className="luxury-card mx-auto max-w-2xl p-8 flex flex-col sm:flex-row items-center justify-between gap-6 text-center sm:text-left">
+              <div>
+                <h3 className="font-display text-xl text-brown">{t("reg_lookup_title") || "Already registered?"}</h3>
+                <p className="mt-1 text-sm text-brown/65">{t("reg_lookup_desc") || "Look up your pass, QR code and payment status any time."}</p>
+              </div>
+              <Link href="/my-pass" className="btn-outline-gold shrink-0">
+                <Search className="h-4 w-4" /> {t("section_register_lookup") || "Find my registration"}
+              </Link>
+            </div>
+          </Reveal>
         </div>
       </section>
 

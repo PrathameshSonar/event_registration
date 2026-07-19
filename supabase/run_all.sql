@@ -478,14 +478,17 @@ GRANT ALL ON category_field_settings TO service_role;
 -- 7) ── Homepage: countdown, helpline, schedule, ritual highlights ──────────
 ALTER TABLE events
     ADD COLUMN IF NOT EXISTS start_at TIMESTAMPTZ,
-    ADD COLUMN IF NOT EXISTS end_at   TIMESTAMPTZ,   -- event end (for a correct multi-day "Add to Calendar")
-    -- NOTE: contact phone / email / address + social links moved OUT of the event
-    -- into app_settings (key 'contact') — see lib/appSettings.js. These legacy
-    -- columns are kept for older rows but are no longer read or written.
-    ADD COLUMN IF NOT EXISTS contact_phone TEXT,
-    ADD COLUMN IF NOT EXISTS instagram_url TEXT,
-    ADD COLUMN IF NOT EXISTS facebook_url  TEXT,
-    ADD COLUMN IF NOT EXISTS youtube_url   TEXT;
+    ADD COLUMN IF NOT EXISTS end_at   TIMESTAMPTZ;   -- event end (for a correct multi-day "Add to Calendar")
+
+-- Contact phone / email / address + social links now live in app_settings
+-- (key 'contact') — see lib/appSettings.js. Drop the legacy event columns; any old
+-- values are intentionally discarded. Re-running is safe (IF EXISTS is a no-op once
+-- dropped). contact_email was only ever on `sponsors`, so it is not touched here.
+ALTER TABLE events
+    DROP COLUMN IF EXISTS contact_phone,
+    DROP COLUMN IF EXISTS instagram_url,
+    DROP COLUMN IF EXISTS facebook_url,
+    DROP COLUMN IF EXISTS youtube_url;
 
 CREATE TABLE IF NOT EXISTS event_schedule (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -584,8 +587,10 @@ CREATE TABLE IF NOT EXISTS contact_messages (
     email      TEXT,
     subject    TEXT,
     message    TEXT,
+    is_read    BOOLEAN DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT now()
 );
+ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT false;
 GRANT ALL ON contact_messages TO service_role;
 
 

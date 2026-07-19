@@ -30,20 +30,19 @@ function useNavLinks() {
 }
 
 function Logo({ line1, line2, subtitle, logoUrl }) {
-  if (logoUrl) {
-    return (
-      <Link href="/" className="group flex items-center">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={logoUrl} alt={line1} className="h-11 sm:h-12 w-auto object-contain" />
-      </Link>
-    );
-  }
+  // The mark is the admin logo image if set, otherwise the flame badge. The
+  // wordmark text renders BESIDE the mark either way — logo + wordmark together.
   return (
     <Link href="/" className="group flex items-center gap-3 sm:gap-4">
-      <span className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[hsl(43,82%,55%)] via-[hsl(24,90%,50%)] to-[hsl(10,70%,42%)] shadow-gold">
-        <Flame className="h-6 w-6 sm:h-7 sm:w-7 text-white drop-shadow" strokeWidth={1.6} />
-        <span className="pointer-events-none absolute -inset-1 rounded-2xl ring-1 ring-gold/40" />
-      </span>
+      {logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={logoUrl} alt={line1} className="h-12 sm:h-14 w-auto object-contain shrink-0" />
+      ) : (
+        <span className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[hsl(43,82%,55%)] via-[hsl(24,90%,50%)] to-[hsl(10,70%,42%)] shadow-gold">
+          <Flame className="h-6 w-6 sm:h-7 sm:w-7 text-white drop-shadow" strokeWidth={1.6} />
+          <span className="pointer-events-none absolute -inset-1 rounded-2xl ring-1 ring-gold/40" />
+        </span>
+      )}
       <span className="leading-tight">
         <span className="block font-display text-[15px] sm:text-[17px] font-semibold tracking-[0.14em] text-brown">{line1}</span>
         {line2 && <span className="block font-display text-[15px] sm:text-[17px] font-semibold tracking-[0.14em] text-vermillion -mt-0.5">{line2}</span>}

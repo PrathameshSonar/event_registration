@@ -6,18 +6,20 @@
 "use client";
 
 import Link from "next/link";
-import { MapPin, ArrowRight } from "lucide-react";
+import { MapPin, ArrowRight, Download } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { pick } from "@/lib/i18n";
 import PageHero from "@/components/site/PageHero";
 import Reveal from "@/components/site/Reveal";
 import SectionKicker from "@/components/site/SectionKicker";
+import LuxuryHeading from "@/components/site/LuxuryHeading";
 
-export default function EventPageContent({ event, schedule, guests, hero }) {
+export default function EventPageContent({ event, schedule, guests, downloads, hero }) {
   const { t, lang } = useLanguage();
   const h = hero || {};
   const rows = schedule || [];
   const lineup = (guests || []);
+  const docs = downloads || [];
   const overview = pick(event, "long_description", lang) || pick(event, "short_description", lang);
   const venue = pick(event, "venue", lang);
   const travel = pick(event, "travel_info", lang);
@@ -58,7 +60,7 @@ export default function EventPageContent({ event, schedule, guests, hero }) {
           <div className="container-luxury">
             <Reveal className="text-center max-w-xl mx-auto mb-12">
               <SectionKicker>{t("section_schedule_kicker") || "Three Sacred Days"}</SectionKicker>
-              <h2 className="mt-5 display-section text-brown">{t("section_schedule_title") || "Daily Schedule"}</h2>
+              <LuxuryHeading className="mt-5" main={t("section_schedule_title") || "Daily Schedule"} accent={t("section_schedule_accent")} />
             </Reveal>
             <div className="grid gap-6 lg:grid-cols-3">
               {days.map((d) => (
@@ -93,7 +95,7 @@ export default function EventPageContent({ event, schedule, guests, hero }) {
           <div className="container-luxury">
             <Reveal className="text-center max-w-xl mx-auto mb-12">
               <SectionKicker>{t("section_lineup_title") || "The Lineup"}</SectionKicker>
-              <h2 className="mt-5 display-section text-brown">{t("section_lineup_desc") || "Saints, artists and priests"}</h2>
+              <LuxuryHeading className="mt-5" main={t("section_lineup_desc") || "Saints, artists and priests"} accent={t("section_lineup_accent")} />
             </Reveal>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
               {lineup.map((g) => {
@@ -143,6 +145,30 @@ export default function EventPageContent({ event, schedule, guests, hero }) {
                 />
               </div>
             </Reveal>
+          </div>
+        </section>
+      )}
+
+      {docs.length > 0 && (
+        <section className="section-y bg-morning-sun">
+          <div className="container-luxury">
+            <Reveal className="text-center max-w-xl mx-auto mb-12">
+              <SectionKicker>{t("downloads_kicker") || "Resources"}</SectionKicker>
+              <LuxuryHeading className="mt-5" main={t("downloads_title") || "Downloads"} accent={t("downloads_accent") || "& documents"} />
+            </Reveal>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto">
+              {docs.map((d) => (
+                <Reveal key={d.id}>
+                  <a href={d.url} target="_blank" rel="noopener noreferrer" download className="luxury-card h-full p-5 flex items-center gap-4 hover:-translate-y-0.5 transition">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gold-shine text-white shadow-gold"><Download className="h-5 w-5" /></span>
+                    <span className="min-w-0">
+                      <span className="block font-semibold text-brown truncate">{d.title || d.filename || t("download_cta") || "Download"}</span>
+                      {d.description && <span className="block text-xs text-brown/60 truncate">{d.description}</span>}
+                    </span>
+                  </a>
+                </Reveal>
+              ))}
+            </div>
           </div>
         </section>
       )}

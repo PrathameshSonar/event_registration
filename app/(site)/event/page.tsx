@@ -24,5 +24,12 @@ export default async function EventPage() {
     guests = g.data || [];
   }
 
-  return <EventPageContent event={event} schedule={schedule} guests={guests} hero={heroes?.event || {}} />;
+  // Public documents (brochures, schedules…) flagged is_download in the Media Library.
+  const { data: downloads } = await supabaseAdmin
+    .from('media_library')
+    .select('id, url, filename, title, description, mime')
+    .eq('is_download', true).not('url', 'is', null)
+    .order('sort_order');
+
+  return <EventPageContent event={event} schedule={schedule} guests={guests} downloads={downloads || []} hero={heroes?.event || {}} />;
 }

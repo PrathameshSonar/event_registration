@@ -1,6 +1,6 @@
 // components/site/home/DonateLive.js
 // Split section: an "Offer a Seva" donation banner (→ /donate) and a live-stream
-// promo (→ #livestream). The live banner only invites when a stream URL exists.
+// promo (→ /live). The live banner only invites when a stream URL exists.
 "use client";
 
 import Link from "next/link";
@@ -49,7 +49,7 @@ export default function DonateLive({ event }) {
                 <h3 className="mt-5 font-display text-3xl">{t("section_live_title") || "Watch every mantra, wherever you are"}</h3>
                 <p className="mt-4 text-ivory/80 max-w-md">{t("section_live_desc") || "The event is streamed live in high quality for devotees across the world."}</p>
                 <div className="mt-8 flex flex-wrap gap-3">
-                  <a href="#livestream" className="btn-gold"><Play className="h-4 w-4" /> {t("live_watch") || "Watch Live"}</a>
+                  <Link href="/live" className="btn-gold"><Play className="h-4 w-4" /> {t("live_watch") || "Watch Live"}</Link>
                 </div>
               </div>
             </div>

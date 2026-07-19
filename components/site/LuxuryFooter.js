@@ -24,6 +24,9 @@ export default function LuxuryFooter({ event, contact }) {
   const branding = useBranding();
   const { t } = useLanguage();
   const brandName = branding?.site_name || "BaglaBhairav";
+  const line1 = branding?.brand_line1 || brandName;
+  const line2 = branding?.brand_line2 || "";
+  const subtitle = branding?.brand_subtitle || "";
 
   const phone = contact?.phone;
   const location = contact?.address || event?.venue;
@@ -65,13 +68,17 @@ export default function LuxuryFooter({ event, contact }) {
             <div className="flex items-center gap-4">
               {branding?.logo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={branding.logo_url} alt={brandName} className="h-14 w-auto object-contain" />
+                <img src={branding.logo_url} alt={brandName} className="h-14 w-auto object-contain shrink-0" />
               ) : (
-                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-gold via-amber2 to-lotus shadow-gold">
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-gold via-amber2 to-lotus shadow-gold">
                   <Flame className="h-6 w-6 text-white drop-shadow" strokeWidth={1.6} />
                 </span>
               )}
-              <div className="font-display tracking-[0.14em] text-ivory text-[17px]">{brandName}</div>
+              <div className="leading-tight">
+                <div className="font-display tracking-[0.14em] text-ivory text-[17px]">{line1}</div>
+                {line2 && <div className="font-display tracking-[0.14em] text-gold-400 text-[17px] -mt-0.5">{line2}</div>}
+                {subtitle && <div className="mt-0.5 font-cormorant italic text-[13px] text-ivory/60">{subtitle}</div>}
+              </div>
             </div>
             <p className="mt-6 text-sm leading-relaxed text-ivory/70">{t("footer_about") || "A sanctum dedicated to devotion and dharma. Every ritual, offering and seva sustains an unbroken lineage."}</p>
             {socials.length > 0 && (

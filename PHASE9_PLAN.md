@@ -93,7 +93,12 @@ Settings today = a flat list of ~17 sub-tabs. Regroup the sidebar into labelled 
 - ✅ **§A homepage previews** — "See full…" links added (About→/about+/event, Schedule→/event#schedule, Gallery→/gallery, News→/news, Faq→/faq+/contact, Registration→/registration); peak-day card rendered in AboutMahayagya; schedule intro + per-day date/theme rendered in SchedulePreview (from `schedule_days`). `home_*` i18n keys in en/hi/mr.
 - ✅ **Contact & Social consolidation** (user request) — contact phone/email/address + Instagram/Facebook/YouTube MOVED OUT of the event into `app_settings.contact` (new registry entry + `getContact()` cached reader). New **Settings → Contact & Social** admin section (`ContactSocialManager`). Removed social from Event Setup and phone from Home Content. Footer / Contact page / FloatingActions now read `getContact()`. Legacy event columns kept but unread.
 - ✅ **Donations admin** — surfaced Razorpay payment ref (table + CSV) and a paid/anonymous/pending breakdown (clarifies that anonymous *is* counted; the list also shows unpaid rows).
-- ⬜ Next: **/about + /registration richness (G,H)** → inner-page heading accents → Contact Messages view + Downloads (C).
+- ✅ **9H /registration** — price note, availability progress bars, "Already registered?" lookup card.
+- ✅ **9G /about** — value cards (new `event_highlights` section `about`), Previous Mahayagyas (archived events), gallery snippet.
+- ✅ **9C Contact Messages** — `/api/admin/contact-messages` + ContactMessagesManager inbox (`contact_messages.is_read` added; re-run run_all.sql).
+- ✅ **9C Downloads** — `media_library.is_download` docs rendered as a Downloads section on /event.
+- ✅ **Logo + wordmark together** (nav + footer); **broken `#livestream` anchors → /live**; **inner-page heading accents** (/about, /event).
+- ⬜ Remaining/optional: PageHero title accents (heroes still single-line by design); /event overview info-cards + rituals + facility cards; /live updates feed; /news newsletter; /donate seva categories + sponsorship aside; /contact info-as-cards (§I OPTIONAL items).
 
 ## E. Suggested sequence
 1. **Fonts (B)** first — systematic; every section then inherits the correct look.

@@ -14,6 +14,7 @@ import { buildTranslations } from '@/lib/i18n';
 import FormFieldsManager from '@/components/FormFieldsManager';
 import HomeContentManager from '@/components/HomeContentManager';
 import ContactSocialManager from '@/components/ContactSocialManager';
+import ContactMessagesManager from '@/components/ContactMessagesManager';
 import PageHeadersManager from '@/components/PageHeadersManager';
 import AuditLogPanel from '@/components/AuditLogPanel';
 import EnquiriesPanel from '@/components/EnquiriesPanel';
@@ -58,7 +59,7 @@ export default function AdminDashboard() {
     const can = (perm: string) => isAdmin || permissions.includes(perm);
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'enquiries' | 'scanlog' | 'settings' | 'audit'>('dashboard');
-    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'library' | 'branding' | 'pageheaders' | 'templates' | 'checkpoints' | 'formfields' | 'homecontent' | 'contactsocial' | 'payment' | 'users' | 'waitlist' | 'donations' | 'sponsors' | 'messages' | 'feedback'>('events');
+    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'library' | 'branding' | 'pageheaders' | 'templates' | 'checkpoints' | 'formfields' | 'homecontent' | 'contactsocial' | 'contactmessages' | 'payment' | 'users' | 'waitlist' | 'donations' | 'sponsors' | 'messages' | 'feedback'>('events');
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -1225,6 +1226,7 @@ export default function AdminDashboard() {
                                 ] },
                                 { group: 'Communications', items: [
                                     { k: 'contactsocial', Icon: Phone, label: 'Contact & Social' },
+                                    { k: 'contactmessages', Icon: Mail, label: 'Contact Messages' },
                                     { k: 'templates', Icon: FileCode, label: 'Templates & Config' },
                                     { k: 'messages', Icon: Mail, label: 'Message Log', gate: 'audit:view' },
                                     { k: 'feedback', Icon: MessageSquare, label: 'Feedback' },
@@ -1452,6 +1454,7 @@ export default function AdminDashboard() {
 
                             {settingsSubTab === 'homecontent' && <HomeContentManager events={eventsList} />}
                             {settingsSubTab === 'contactsocial' && <ContactSocialManager />}
+                            {settingsSubTab === 'contactmessages' && <ContactMessagesManager />}
                             {settingsSubTab === 'payment' && <PaymentSettingsManager />}
                             {settingsSubTab === 'users' && <AdminUsersManager />}
                             {settingsSubTab === 'waitlist' && <WaitlistManager />}

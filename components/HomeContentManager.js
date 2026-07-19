@@ -644,6 +644,7 @@ export default function HomeContentManager(props) {
               <option value="highlights">Section: Highlights</option>
               <option value="pillars">Section: Pillars</option>
               <option value="blessings">Section: Blessings</option>
+              <option value="about">Section: About values (Mission / Vision…)</option>
             </select>
           </div>
           <div><TranslatableField label="Title" field="title" value={hTitle} onValue={setHTitle} tr={hTr} onTr={mkSetTr(setHTr)} placeholder="Title" /></div>

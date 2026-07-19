@@ -509,12 +509,8 @@ GRANT ALL ON category_field_settings TO service_role;
 -- 7) ── Homepage: countdown, helpline, socials, schedule, highlights, guests ─
 ALTER TABLE events
     ADD COLUMN IF NOT EXISTS start_at TIMESTAMPTZ,
-    ADD COLUMN IF NOT EXISTS end_at   TIMESTAMPTZ,
-    -- Legacy: contact + social moved to app_settings (key 'contact'). Kept for old rows.
-    ADD COLUMN IF NOT EXISTS contact_phone TEXT,
-    ADD COLUMN IF NOT EXISTS instagram_url TEXT,
-    ADD COLUMN IF NOT EXISTS facebook_url  TEXT,
-    ADD COLUMN IF NOT EXISTS youtube_url   TEXT;
+    ADD COLUMN IF NOT EXISTS end_at   TIMESTAMPTZ;
+-- Contact + social links live in app_settings (key 'contact'), not on the event.
 
 CREATE TABLE IF NOT EXISTS event_schedule (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -589,6 +585,7 @@ ALTER TABLE events
 CREATE TABLE IF NOT EXISTS contact_messages (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name       TEXT, email TEXT, subject TEXT, message TEXT,
+    is_read    BOOLEAN DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT now()
 );
 GRANT ALL ON contact_messages TO service_role;

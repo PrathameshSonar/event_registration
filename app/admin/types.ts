@@ -80,11 +80,7 @@ export interface EventItem {
     is_active: boolean;
     show_in_archive: boolean;
     start_at: string | null;
-    contact_phone: string | null;
     hero_image_url: string | null;
-    instagram_url: string | null;
-    facebook_url: string | null;
-    youtube_url: string | null;
     travel_info: string | null;
     stats?: { value: string; label: string }[];
     about_images?: string[];

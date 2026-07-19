@@ -47,7 +47,7 @@ export default function LiveBanner() {
 
     return (
         <Link
-            href="/#livestream"
+            href="/live"
             className="sticky top-0 z-50 flex items-center justify-center gap-2.5 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 text-sm font-semibold transition"
         >
             <span className="inline-flex items-center gap-1.5 bg-white/20 rounded-full px-2 py-0.5 text-[11px] font-bold tracking-wide flex-shrink-0">
