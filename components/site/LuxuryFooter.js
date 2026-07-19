@@ -5,7 +5,8 @@
 "use client";
 
 import Link from "next/link";
-import { Flame, Phone, Mail, MapPin, MessageCircle, Instagram, Youtube, Facebook } from "lucide-react";
+import { Flame, Phone, Mail, MapPin, MessageCircle } from "lucide-react";
+import { InstagramIcon, YoutubeIcon, FacebookIcon } from "@/components/site/BrandIcons";
 import { useBranding } from "@/components/BrandingProvider";
 import { useLanguage } from "@/components/LanguageProvider";
 
@@ -28,9 +29,9 @@ export default function LuxuryFooter({ event = null }) {
   const location = event?.venue;
   const email = event?.contact_email;
   const socials = [
-    { Icon: Instagram, href: event?.instagram_url, label: "instagram" },
-    { Icon: Youtube, href: event?.youtube_url, label: "youtube" },
-    { Icon: Facebook, href: event?.facebook_url, label: "facebook" },
+    { Icon: InstagramIcon, href: event?.instagram_url, label: "instagram" },
+    { Icon: YoutubeIcon, href: event?.youtube_url, label: "youtube" },
+    { Icon: FacebookIcon, href: event?.facebook_url, label: "facebook" },
   ].filter((s) => s.href);
 
   return (
@@ -58,7 +59,7 @@ export default function LuxuryFooter({ event = null }) {
       <div className="h-px w-full bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
 
       {/* Main footer */}
-      <div className="container-luxury py-16">
+      <div id="contact" className="container-luxury py-16 scroll-mt-24">
         <div className="grid gap-12 lg:grid-cols-4">
           <div className="lg:col-span-2 max-w-md">
             <div className="flex items-center gap-4">

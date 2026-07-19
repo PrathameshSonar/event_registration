@@ -91,3 +91,11 @@ Registration → `/register/[id]` + `CheckoutForm` (restyled). Donations → `/d
   - Additive columns: `event_guests.bullets`(jsonb)+`quote`(text); `event_highlights.image_url`; `event_schedule.description`; `categories.tagline`+`perks`(jsonb); `events.about_images`(jsonb). All whitelisted in their routes + typed.
   - Admin editing wired: CategoryRow (tagline + perks-per-line), EventRow (About bento MediaPicker grid), HomeContentManager (guest Leadership bullets+quote when featured, highlight card image, schedule one-line detail).
   - Next: **Phase 4** — rebuild the homepage as the 14 luxury sections, wire the new Navbar/Footer into the layout, add the full i18n key set.
+- 2026-07-19 — **Phase 4 (homepage rebuild) DONE, build-verified. `/` still static `○`.**
+  - `components/HomeContent.js` rewritten as a lean **composer**; the 14 sections live in `components/site/home/*` (Hero, Livestream, AboutMahayagya, Leadership, Pillars, Rituals, Benefits, SchedulePreview, RegistrationCta, DonateLive, Testimonials, Gallery, News, Faq, FinalCta) — one file per section (clean split).
+  - Every section is **admin-data-driven** (pick() + our schema) and **hides itself when empty** — no hardcoded content. Icons resolve Lucide-name → component via new `lib/lucideIcons.js`, else render as emoji.
+  - Navbar/Footer rendered by HomeContent (scoped to home for now). Social brand icons inlined in `components/site/BrandIcons.js` (our lucide 1.18 dropped Facebook/Instagram/Youtube).
+  - Removed the now-unused `downloads`/`registeredCount` from `app/page.tsx` (the luxury design has no Downloads section / social-proof pill — can re-add later).
+  - Full i18n chrome keys (nav_*, hero_*, section_*_kicker, section_register/faq/final_*, footer_*) added to **en/hi/mr**.
+  - ⚠️ **Visual QA needed** — build passing ≠ pixel-correct. Run `npm run dev` and eyeball the hero/nav overlay, fonts, colours, mobile.
+  - Next: **Phase 5** — re-skin register / donate / checkout / my-pass / legal in the luxury theme + put Navbar/Footer in a shared layout.

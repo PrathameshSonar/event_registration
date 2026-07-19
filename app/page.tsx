@@ -95,16 +95,6 @@ export default async function Home() {
         testimonials = testiRes.data || [];
     }
 
-    // 3c. Public downloads — documents an admin flagged for the homepage. Only
-    // public documents can ever appear here (a private file has no URL at all).
-    const { data: downloads } = await supabaseAdmin
-        .from('media_library')
-        .select('id, title, filename, url, mime, size_bytes')
-        .eq('is_download', true)
-        .eq('visibility', 'public')
-        .eq('kind', 'document')
-        .order('sort_order');
-
     // 4. Seat counts — requires service-role key (RLS blocks anon reads on registrations)
     const { data: regs } = await supabaseAdmin
         .from('registrations')
@@ -115,17 +105,6 @@ export default async function Home() {
     regs?.forEach(reg => {
         seatsTaken[reg.category_id] = (seatsTaken[reg.category_id] || 0) + (reg.attendees_count || 1);
     });
-
-    // Social proof: paid registrations for this event's tiers.
-    let registeredCount = 0;
-    if (pageData?.id && categories.length) {
-        const { count } = await supabaseAdmin
-            .from('registrations')
-            .select('id', { count: 'exact', head: true })
-            .eq('payment_status', 'completed')
-            .in('category_id', categories.map((c: any) => c.id));
-        registeredCount = count || 0;
-    }
 
     // Event structured data (JSON-LD) so Google can show a rich event result.
     const pricedTiers = categories.filter((c) => Number(c.price) > 0).map((c) => Number(c.price));
@@ -159,8 +138,6 @@ export default async function Home() {
                 guests={guests}
                 news={news}
                 testimonials={testimonials}
-                downloads={downloads || []}
-                registeredCount={registeredCount}
             />
         </>
     );
