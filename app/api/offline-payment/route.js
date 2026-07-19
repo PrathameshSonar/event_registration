@@ -12,6 +12,7 @@ import { upsertProfile } from '@/lib/profiles';
 import { notifyOfflineSubmitted } from '@/lib/notify';
 import { ageError } from '@/lib/age';
 import { sanitizeAttendees } from '@/lib/attendees';
+import { isRegistrationOpen } from '@/lib/registrationStatus';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,10 +71,11 @@ export async function POST(request) {
 
         const { data: category, error: catError } = await supabaseAdmin
             .from('categories')
-            .select('id, title, price, is_enquiry_only, is_full, max_attendees_per_reg, min_age, max_age')
+            .select('id, title, price, is_enquiry_only, is_full, max_attendees_per_reg, min_age, max_age, events(registration_open, end_at)')
             .eq('id', categoryId)
             .single();
         if (catError || !category) return bad('Selected category does not exist.');
+        if (!isRegistrationOpen(category.events)) return bad('Registrations are now closed.');
         if (category.is_enquiry_only) return bad('This category is enquiry-only.');
         if (category.is_full) return bad('Registrations for this category are full.');
         const ageErr = ageError(category, attendee.dob);

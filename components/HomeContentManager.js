@@ -25,6 +25,7 @@ export default function HomeContentManager(props) {
   const [startAt, setStartAt] = useState("");
   const [endAt, setEndAt] = useState("");
   const [heroImage, setHeroImage] = useState("");
+  const [registrationOpen, setRegistrationOpen] = useState(true);
   const [evDirty, setEvDirty] = useState(false);
   const [savingEv, setSavingEv] = useState(false);
 
@@ -248,13 +249,14 @@ export default function HomeContentManager(props) {
     setStartAt(toLocalInput(ev?.start_at));
     setEndAt(toLocalInput(ev?.end_at));
     setHeroImage(ev?.hero_image_url || "");
+    setRegistrationOpen(ev?.registration_open !== false);
     setEvDirty(false);
     setLsUrl(ev?.livestream_url || "");
     setLsBanner(ev?.livestream_banner || "");
     setLsLive(!!ev?.livestream_is_live);
     setLsDirty(false);
     if (eventId) loadLists(eventId);
-  }, [eventId, ev?.start_at, ev?.end_at, ev?.hero_image_url, ev?.livestream_url, ev?.livestream_banner, ev?.livestream_is_live, loadLists]);
+  }, [eventId, ev?.start_at, ev?.end_at, ev?.registration_open, ev?.hero_image_url, ev?.livestream_url, ev?.livestream_banner, ev?.livestream_is_live, loadLists]);
 
   const saveEventFields = async () => {
     setSavingEv(true);
@@ -266,6 +268,7 @@ export default function HomeContentManager(props) {
         updates: {
           start_at: startAt ? new Date(startAt).toISOString() : null,
           end_at: endAt ? new Date(endAt).toISOString() : null,
+          registration_open: registrationOpen,
           hero_image_url: heroImage.trim() || null,
         },
       }),
@@ -395,6 +398,23 @@ export default function HomeContentManager(props) {
             <p className="text-xs text-neutral-400 mt-1">For a multi-day event, set the last day — the .ics will span all days.</p>
           </div>
         </div>
+
+        <div className={`mt-4 flex items-start justify-between gap-4 rounded-xl border p-4 transition ${registrationOpen ? "bg-white border-neutral-200" : "bg-amber-50 border-amber-300"}`}>
+          <div>
+            <p className="text-sm font-bold text-neutral-800">Registration {registrationOpen ? "open" : "closed"}</p>
+            <p className="text-xs text-neutral-500 mt-0.5 max-w-md">Master switch for public sign-ups. When off, all “Register” buttons disappear and the register pages show a closed notice — event details stay visible. Registration also closes automatically once the Event end date has passed.</p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={registrationOpen}
+            onClick={() => { setRegistrationOpen((v) => !v); setEvDirty(true); }}
+            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${registrationOpen ? "bg-green-600" : "bg-neutral-300"}`}
+          >
+            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${registrationOpen ? "translate-x-5" : "translate-x-0.5"}`} />
+          </button>
+        </div>
+
         <p className="text-xs text-neutral-400 mt-3">The WhatsApp helpline / contact phone and social links are managed in <span className="font-semibold text-neutral-500">Settings → Contact &amp; Social</span>.</p>
         <button onClick={saveEventFields} disabled={!evDirty || savingEv} className={`mt-4 flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition ${evDirty ? "bg-orange-600 text-white hover:bg-orange-700" : "bg-neutral-100 text-neutral-400 cursor-not-allowed border border-neutral-200"}`}>
           <Save className="w-4 h-4" /> {evDirty ? "Save" : "Saved"}

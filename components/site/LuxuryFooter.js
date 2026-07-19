@@ -9,6 +9,7 @@ import { Flame, Phone, Mail, MapPin, MessageCircle } from "lucide-react";
 import { InstagramIcon, YoutubeIcon, FacebookIcon } from "@/components/site/BrandIcons";
 import { useBranding } from "@/components/BrandingProvider";
 import { useLanguage } from "@/components/LanguageProvider";
+import { useRegistrationOpen } from "@/components/RegistrationProvider";
 
 const NAV = [
   { key: "nav_about", fallback: "About", to: "/about" },
@@ -23,6 +24,7 @@ const NAV = [
 export default function LuxuryFooter({ event, contact }) {
   const branding = useBranding();
   const { t } = useLanguage();
+  const registrationOpen = useRegistrationOpen();
   const brandName = branding?.site_name || "BaglaBhairav";
   const line1 = branding?.brand_line1 || brandName;
   const line2 = branding?.brand_line2 || "";
@@ -51,7 +53,7 @@ export default function LuxuryFooter({ event, contact }) {
             </h2>
           </div>
           <div className="flex flex-col sm:flex-row md:justify-end gap-3">
-            <Link href="/registration" className="btn-gold">{t("nav_register") || "Register Now"}</Link>
+            {registrationOpen && <Link href="/registration" className="btn-gold">{t("nav_register") || "Register Now"}</Link>}
             <Link href="/donate" className="btn-outline-gold border-gold/60 !text-ivory hover:!bg-gold/15">
               {t("footer_offer_seva") || "Offer Seva"}
             </Link>

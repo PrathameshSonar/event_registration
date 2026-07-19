@@ -8,6 +8,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { validateSubmission } from '@/lib/formFieldsServer';
 import { upsertProfile } from '@/lib/profiles';
 import { ageError } from '@/lib/age';
+import { isRegistrationOpen } from '@/lib/registrationStatus';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,11 +46,12 @@ export async function POST(request) {
         // payable tier that also offers "Enquire Now").
         const { data: category, error: catError } = await supabaseAdmin
             .from('categories')
-            .select('id, is_enquiry_only, allow_enquiry, min_age, max_age')
+            .select('id, is_enquiry_only, allow_enquiry, min_age, max_age, events(registration_open, end_at)')
             .eq('id', categoryId)
             .single();
 
         if (catError || !category) return badRequest('Selected category does not exist.');
+        if (!isRegistrationOpen(category.events)) return badRequest('Registrations are now closed.');
         if (!category.is_enquiry_only && !category.allow_enquiry) return badRequest('This category does not accept enquiries.');
         const ageErr = ageError(category, attendee.dob);
         if (ageErr) return badRequest(ageErr);

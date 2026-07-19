@@ -5,11 +5,13 @@
 
 import { Calendar, MapPin, ArrowRight, Sparkles } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
+import { useRegistrationOpen } from "@/components/RegistrationProvider";
 import { pick } from "@/lib/i18n";
 import LuxuryCountdown from "@/components/site/LuxuryCountdown";
 
 export default function Hero({ event, hasCategories }) {
   const { t, lang } = useLanguage();
+  const registrationOpen = useRegistrationOpen();
 
   const title = pick(event, "title", lang) || t("hero_event_fallback");
   const desc = pick(event, "short_description", lang) || t("hero_desc_fallback");
@@ -54,7 +56,7 @@ export default function Hero({ event, hasCategories }) {
           </div>
 
           <div className="mt-10 flex flex-wrap items-center gap-4">
-            {hasCategories && (
+            {hasCategories && registrationOpen && (
               <a href="/registration" className="btn-gold">
                 {t("hero_register_cta") || "Register Now"} <ArrowRight className="h-4 w-4" />
               </a>

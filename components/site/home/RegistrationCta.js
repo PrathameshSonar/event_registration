@@ -7,6 +7,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
+import { useRegistrationOpen } from "@/components/RegistrationProvider";
 import { pick } from "@/lib/i18n";
 import Reveal from "@/components/site/Reveal";
 import SectionKicker from "@/components/site/SectionKicker";
@@ -14,6 +15,7 @@ import LuxuryHeading from "@/components/site/LuxuryHeading";
 
 export default function RegistrationCta({ categories = [], seatsTaken = {}, onWaitlist }) {
   const { t, lang } = useLanguage();
+  const registrationOpen = useRegistrationOpen();
   if (!categories.length) return null;
 
   return (
@@ -24,11 +26,13 @@ export default function RegistrationCta({ categories = [], seatsTaken = {}, onWa
           <Reveal>
             <SectionKicker light>{t("section_register_kicker") || "Reserve your seat"}</SectionKicker>
             <LuxuryHeading dark className="mt-5" main={t("section_register_title") || "Choose how you wish"} accent={t("section_register_accent")} />
-            <p className="mt-6 text-ivory/75 leading-relaxed max-w-md">{t("section_register_desc") || "Each tier offers a different depth of involvement. Seats are limited."}</p>
+            <p className="mt-6 text-ivory/75 leading-relaxed max-w-md">{registrationOpen ? (t("section_register_desc") || "Each tier offers a different depth of involvement. Seats are limited.") : (t("register_closed_desc") || "Registration for this event is now closed. Browse the tiers below and reach out for any questions.")}</p>
             <div className="mt-8 flex flex-wrap gap-4">
-              <Link href="/registration" className="btn-gold">
-                {t("home_all_categories") || "See all categories"} <ArrowRight className="h-4 w-4" />
-              </Link>
+              {registrationOpen && (
+                <Link href="/registration" className="btn-gold">
+                  {t("home_all_categories") || "See all categories"} <ArrowRight className="h-4 w-4" />
+                </Link>
+              )}
               <Link href="/my-pass" className="btn-outline-gold border-gold/60 !text-ivory hover:!bg-white/10">
                 {t("section_register_lookup") || "Find my registration"}
               </Link>
@@ -58,12 +62,16 @@ export default function RegistrationCta({ categories = [], seatsTaken = {}, onWa
                     <h3 className={`mt-2 font-display text-xl ${featured ? "text-brown" : "text-ivory"}`}>{title}</h3>
                     <p className={`mt-4 font-display text-3xl ${featured ? "text-brown" : "text-gold-400"}`}>{priceLabel}</p>
                     <span className={`mt-6 inline-flex items-center gap-1 text-sm font-semibold ${featured ? "text-brown" : "text-gold-400"}`}>
-                      {isFull ? (t("category_full") || "Full") : c.is_enquiry_only ? (t("category_enquire") || "Enquire") : (t("category_register") || "Reserve")}
-                      {!isFull && <ArrowRight className="h-4 w-4" />}
+                      {!registrationOpen ? (t("register_closed_short") || "Registrations closed") : isFull ? (t("category_full") || "Full") : c.is_enquiry_only ? (t("category_enquire") || "Enquire") : (t("category_register") || "Reserve")}
+                      {registrationOpen && !isFull && <ArrowRight className="h-4 w-4" />}
                     </span>
                   </>
                 );
 
+                // Registration closed → cards are details only (not clickable).
+                if (!registrationOpen) {
+                  return <div key={c.id} className={`${cardBase} opacity-90`}>{inner}</div>;
+                }
                 return isFull ? (
                   <button key={c.id} onClick={() => onWaitlist?.(c)} className={`${cardBase} text-left hover:-translate-y-1`}>{inner}</button>
                 ) : (

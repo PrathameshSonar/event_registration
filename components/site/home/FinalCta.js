@@ -5,12 +5,14 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
+import { useRegistrationOpen } from "@/components/RegistrationProvider";
 import { pick } from "@/lib/i18n";
 import SectionKicker from "@/components/site/SectionKicker";
 import LuxuryHeading from "@/components/site/LuxuryHeading";
 
 export default function FinalCta({ event, hasCategories }) {
   const { t, lang } = useLanguage();
+  const registrationOpen = useRegistrationOpen();
   const dates = pick(event, "date_time", lang);
 
   return (
@@ -26,7 +28,7 @@ export default function FinalCta({ event, hasCategories }) {
               <p className="mt-5 text-white/85 max-w-md">{t("section_final_desc") || "Reserve early to receive the tier of your choice."}</p>
             </div>
             <div className="md:justify-self-end space-y-3 w-full md:w-auto">
-              {hasCategories && (
+              {hasCategories && registrationOpen && (
                 <Link href="/registration" className="w-full md:w-auto justify-center inline-flex btn-maroon">
                   {t("hero_register_cta") || "Register Now"} <ArrowRight className="h-4 w-4" />
                 </Link>

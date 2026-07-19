@@ -80,6 +80,7 @@ export interface EventItem {
     is_active: boolean;
     show_in_archive: boolean;
     start_at: string | null;
+    registration_open?: boolean | null;
     hero_image_url: string | null;
     travel_info: string | null;
     stats?: { value: string; label: string }[];

@@ -3,12 +3,13 @@
 // (site) layout; this only renders the page content in the luxury theme.
 "use client";
 
-import { Check } from 'lucide-react';
+import Link from 'next/link';
+import { Check, Lock } from 'lucide-react';
 import CheckoutForm from './CheckoutForm';
 import { useLanguage } from './LanguageProvider';
 import { pick } from '@/lib/i18n';
 
-export default function RegisterPageContent({ category, paymentSettings = null }) {
+export default function RegisterPageContent({ category, paymentSettings = null, registrationOpen = true }) {
     const { t, lang } = useLanguage();
 
     const catTitle = pick(category, 'title', lang);
@@ -52,10 +53,22 @@ export default function RegisterPageContent({ category, paymentSettings = null }
                     </div>
                 </div>
 
-                <div className="luxury-card p-6 md:p-8">
-                    <h2 className="font-display text-lg text-brown mb-6 border-b border-gold/15 pb-4">{t('register_attendee_info')}</h2>
-                    <CheckoutForm category={category} paymentSettings={paymentSettings} />
-                </div>
+                {registrationOpen ? (
+                    <div className="luxury-card p-6 md:p-8">
+                        <h2 className="font-display text-lg text-brown mb-6 border-b border-gold/15 pb-4">{t('register_attendee_info')}</h2>
+                        <CheckoutForm category={category} paymentSettings={paymentSettings} />
+                    </div>
+                ) : (
+                    <div className="luxury-card p-8 md:p-10 text-center">
+                        <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gold/10 text-vermillion"><Lock className="h-6 w-6" /></span>
+                        <h2 className="mt-5 font-display text-2xl text-brown">{t('register_closed_title') || 'Registrations are closed'}</h2>
+                        <p className="mt-3 text-brown/65 max-w-md mx-auto">{t('register_closed_desc') || 'Registration for this event is no longer open. Explore the event details or reach out to us for any questions.'}</p>
+                        <div className="mt-8 flex flex-wrap justify-center gap-3">
+                            <Link href="/event" className="btn-gold">{t('nav_event_details') || 'Event Details'}</Link>
+                            <Link href="/contact" className="btn-outline-gold">{t('nav_contact') || 'Contact'}</Link>
+                        </div>
+                    </div>
+                )}
             </div>
         </section>
     );

@@ -3,6 +3,7 @@
 import { supabase } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getPageHeroes } from '@/lib/siteEvent';
+import { isRegistrationOpen } from '@/lib/registrationStatus';
 import RegistrationListContent from '@/components/site/pages/RegistrationListContent';
 
 export const revalidate = 120;
@@ -10,9 +11,10 @@ export const metadata = { title: 'Registration' };
 
 export default async function RegistrationPage() {
   const [{ data: event }, heroes] = await Promise.all([
-    supabase.from('events').select('id').eq('is_active', true).single(),
+    supabase.from('events').select('id, registration_open, end_at').eq('is_active', true).single(),
     getPageHeroes(),
   ]);
+  const registrationOpen = isRegistrationOpen(event);
 
   let categories: any[] = [];
   const seatsTaken: Record<string, number> = {};
@@ -28,5 +30,5 @@ export default async function RegistrationPage() {
     regs?.forEach((r) => { seatsTaken[r.category_id] = (seatsTaken[r.category_id] || 0) + (r.attendees_count || 1); });
   }
 
-  return <RegistrationListContent categories={categories} seatsTaken={seatsTaken} hero={heroes?.registration || {}} />;
+  return <RegistrationListContent categories={categories} seatsTaken={seatsTaken} registrationOpen={registrationOpen} hero={heroes?.registration || {}} />;
 }

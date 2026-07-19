@@ -5,14 +5,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, ArrowRight, Search } from "lucide-react";
+import { Check, ArrowRight, Search, Lock } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { pick } from "@/lib/i18n";
 import PageHero from "@/components/site/PageHero";
 import Reveal from "@/components/site/Reveal";
 import WaitlistModal from "@/components/WaitlistModal";
 
-export default function RegistrationListContent({ categories, seatsTaken, hero }) {
+export default function RegistrationListContent({ categories, seatsTaken, registrationOpen = true, hero }) {
   const { t, lang } = useLanguage();
   const [waitlistCat, setWaitlistCat] = useState(null);
   const cats = categories || [];
@@ -30,6 +30,12 @@ export default function RegistrationListContent({ categories, seatsTaken, hero }
 
       <section className="section-y mandala-bg">
         <div className="container-luxury">
+          {!registrationOpen && cats.length > 0 && (
+            <div className="mx-auto max-w-2xl mb-10 rounded-2xl border border-gold/30 bg-gold/10 px-6 py-5 text-center">
+              <p className="font-display text-lg text-brown">{t("register_closed_title") || "Registrations are closed"}</p>
+              <p className="mt-1 text-sm text-brown/65">{t("register_closed_desc") || "Registration for this event is no longer open. The tiers below are shown for reference."}</p>
+            </div>
+          )}
           {cats.length === 0 ? (
             <p className="text-center text-brown/50">{t("category_soon") || "Registrations opening soon."}</p>
           ) : (
@@ -96,7 +102,11 @@ export default function RegistrationListContent({ categories, seatsTaken, hero }
                       )}
 
                       <div className="mt-8">
-                        {isFull ? (
+                        {!registrationOpen ? (
+                          <span className="flex w-full items-center justify-center gap-2 rounded-full border border-gold/25 bg-cream/60 py-3 text-sm font-semibold text-brown/50">
+                            <Lock className="h-4 w-4" /> {t("register_closed_short") || "Registrations closed"}
+                          </span>
+                        ) : isFull ? (
                           <button onClick={() => setWaitlistCat(c)} className="btn-outline-gold w-full justify-center">
                             🔔 {t("category_join_waitlist") || "Join the waitlist"}
                           </button>

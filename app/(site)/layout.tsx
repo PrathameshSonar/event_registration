@@ -8,15 +8,18 @@
 // are cached (unstable_cache) so this layout does NOT turn static pages dynamic.
 import LuxuryNavbar from "@/components/site/LuxuryNavbar";
 import LuxuryFooter from "@/components/site/LuxuryFooter";
+import { RegistrationProvider } from "@/components/RegistrationProvider";
 import { getSiteEvent, getContact } from "@/lib/siteEvent";
+import { isRegistrationOpen } from "@/lib/registrationStatus";
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   const [event, contact] = await Promise.all([getSiteEvent(), getContact()]);
+  const registrationOpen = isRegistrationOpen(event);
   return (
-    <>
+    <RegistrationProvider open={registrationOpen}>
       <LuxuryNavbar />
       <main className="min-h-screen bg-ivory text-brown">{children}</main>
       <LuxuryFooter event={event} contact={contact} />
-    </>
+    </RegistrationProvider>
   );
 }

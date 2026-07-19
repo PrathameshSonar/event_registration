@@ -478,7 +478,11 @@ GRANT ALL ON category_field_settings TO service_role;
 -- 7) ── Homepage: countdown, helpline, schedule, ritual highlights ──────────
 ALTER TABLE events
     ADD COLUMN IF NOT EXISTS start_at TIMESTAMPTZ,
-    ADD COLUMN IF NOT EXISTS end_at   TIMESTAMPTZ;   -- event end (for a correct multi-day "Add to Calendar")
+    ADD COLUMN IF NOT EXISTS end_at   TIMESTAMPTZ,   -- event end (for a correct multi-day "Add to Calendar")
+    -- Master switch to stop public registration. Registration also auto-closes
+    -- once end_at is in the past (event completed → details-only). See
+    -- lib/registrationStatus.js.
+    ADD COLUMN IF NOT EXISTS registration_open BOOLEAN DEFAULT true;
 
 -- Contact phone / email / address + social links now live in app_settings
 -- (key 'contact') — see lib/appSettings.js. Drop the legacy event columns; any old

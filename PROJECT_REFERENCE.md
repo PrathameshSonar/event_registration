@@ -647,6 +647,11 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
 
 Keep newest first. Add an entry for every meaningful change.
 
+- **2026-07-19 (Stop registrations / details-only mode)**
+  - **Master registration switch.** New `events.registration_open` (BOOLEAN, default true) + auto-close once `end_at` is in the past. Pure helper [lib/registrationStatus.js](lib/registrationStatus.js) `isRegistrationOpen(event)` (client+server safe). **Re-run `run_all.sql`.**
+  - **Server enforcement (the real guarantee):** `/api/razorpay`, `/api/offline-payment`, `/api/enquiry`, and the `/register/[id]` page all load the category's event (`categories.events(registration_open, end_at)`) and reject/close when registration is off — no sign-up can be created even if a CTA is missed.
+  - **UI:** a client [RegistrationProvider](components/RegistrationProvider.js) (fed by the (site) layout via `getSiteEvent`) hides every "Register" CTA when closed — navbar, footer, hero, final CTA, floating bar. Tier cards (homepage + /registration) still render as **details** but the action becomes "Registrations closed"; `/register/[id]` shows a closed panel with Event Details / Contact links. So the event stays fully browsable with no register option — the "after the event" behaviour.
+  - **Admin:** a **Registration open/closed** toggle in Home Page Content (event fields). Event-update now `revalidateTag('site-event')` so the nav/footer reflect a toggle immediately. i18n `register_closed_*` (en/hi/mr).
 - **2026-07-19 (Phase 9 §I — Seva categories, facilities, navbar polish)**
   - **Seva categories on /donate** — new `app_settings.seva_categories` (array of `{icon,title,desc,amount}`) + admin **Settings → Payments & Seva → Seva Categories** ([SevaCategoriesManager](components/SevaCategoriesManager.js)) + public reader `GET /api/seva-categories`. The donate page shows pickable Seva cards (Annadaan/Deep Daan…) that set the amount + prefill the message; falls back to plain presets when empty. Added a **sponsorship aside** → /contact. Note: `withDefaults` is now array-safe (seva_categories is the first array-typed setting).
   - **Venue facility cards on /event** — new `events.facilities` jsonb (`[{icon,title,note}]`, whitelisted; editor is a repeater in Event Setup). Renders Parking/Meals/… cards. **Re-run `run_all.sql`**.

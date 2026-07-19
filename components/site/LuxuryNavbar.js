@@ -10,6 +10,7 @@ import { usePathname } from "next/navigation";
 import { Menu, X, Flame } from "lucide-react";
 import { useBranding } from "@/components/BrandingProvider";
 import { useLanguage } from "@/components/LanguageProvider";
+import { useRegistrationOpen } from "@/components/RegistrationProvider";
 import LangToggle from "@/components/LangToggle";
 
 // Nav links map to our structure (single-page homepage sections + real routes).
@@ -58,6 +59,7 @@ export default function LuxuryNavbar() {
   const pathname = usePathname();
   const branding = useBranding();
   const { t } = useLanguage();
+  const registrationOpen = useRegistrationOpen();
   const links = useNavLinks();
   const brandName = branding?.site_name || "BaglaBhairav";
   const line1 = branding?.brand_line1 || brandName;
@@ -97,9 +99,11 @@ export default function LuxuryNavbar() {
           <Link href="/donate" className="btn-outline-gold h-11 px-5 text-[15px] whitespace-nowrap">
             {t("nav_donate") || "Donate"}
           </Link>
-          <Link href="/registration" className="btn-gold h-11 px-5 text-[15px] whitespace-nowrap">
-            {t("nav_register") || "Register Now"}
-          </Link>
+          {registrationOpen && (
+            <Link href="/registration" className="btn-gold h-11 px-5 text-[15px] whitespace-nowrap">
+              {t("nav_register") || "Register Now"}
+            </Link>
+          )}
         </div>
 
         <button
@@ -128,7 +132,7 @@ export default function LuxuryNavbar() {
               <LangToggle />
               <div className="flex flex-1 gap-3">
                 <Link href="/donate" className="btn-outline-gold h-12 flex-1 text-[15px]">{t("nav_donate") || "Donate"}</Link>
-                <Link href="/registration" className="btn-gold h-12 flex-1 text-[15px]">{t("nav_register") || "Register"}</Link>
+                {registrationOpen && <Link href="/registration" className="btn-gold h-12 flex-1 text-[15px]">{t("nav_register") || "Register"}</Link>}
               </div>
             </div>
           </div>

@@ -2,6 +2,7 @@
 // Create / set-active / delete events. Admin only.
 // DELETE requires re-authentication with the admin password.
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { authorize, verifyAdminPassword } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAudit } from '@/lib/auditLog';
@@ -77,11 +78,16 @@ export async function PATCH(request) {
         // into null instead of an explicit false.
         if (updates.show_in_archive !== undefined) sanitized.show_in_archive = !!updates.show_in_archive;
         if (updates.livestream_is_live !== undefined) sanitized.livestream_is_live = !!updates.livestream_is_live;
+        if (updates.registration_open !== undefined) sanitized.registration_open = !!updates.registration_open;
         const { error } = await supabaseAdmin.from('events').update(sanitized).eq('id', id);
         if (error) {
             console.error('Event update error:', error.code, error.message);
             return NextResponse.json({ error: 'Update failed.' }, { status: 500 });
         }
+        // The (site) layout reads the active event (venue + registration switch)
+        // through the cached getSiteEvent — bust it so nav/footer CTAs reflect a
+        // registration open/close toggle without waiting for the 5-min revalidate.
+        revalidateTag('site-event');
         await logAudit({
             session, request,
             action: 'event.update', entity: 'event', entityId: id,

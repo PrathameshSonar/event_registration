@@ -3,6 +3,7 @@
 "use client";
 
 import { useLanguage } from "./LanguageProvider";
+import { useRegistrationOpen } from "./RegistrationProvider";
 
 function waLink(phone) {
   if (!phone) return null;
@@ -13,6 +14,7 @@ function waLink(phone) {
 
 export default function FloatingActions({ phone, hasCategories }) {
   const { t } = useLanguage();
+  const registrationOpen = useRegistrationOpen();
   const wa = waLink(phone);
 
   return (
@@ -34,7 +36,7 @@ export default function FloatingActions({ phone, hasCategories }) {
       )}
 
       {/* Sticky mobile register bar */}
-      {hasCategories && (
+      {hasCategories && registrationOpen && (
         <div className="fixed z-40 bottom-0 inset-x-0 md:hidden bg-white/95 backdrop-blur border-t border-orange-100 p-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
           <a
             href="#categories"

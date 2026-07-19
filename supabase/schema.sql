@@ -509,7 +509,8 @@ GRANT ALL ON category_field_settings TO service_role;
 -- 7) ── Homepage: countdown, helpline, socials, schedule, highlights, guests ─
 ALTER TABLE events
     ADD COLUMN IF NOT EXISTS start_at TIMESTAMPTZ,
-    ADD COLUMN IF NOT EXISTS end_at   TIMESTAMPTZ;
+    ADD COLUMN IF NOT EXISTS end_at   TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS registration_open BOOLEAN DEFAULT true;  -- master registration switch (also auto-closes after end_at)
 -- Contact + social links live in app_settings (key 'contact'), not on the event.
 
 CREATE TABLE IF NOT EXISTS event_schedule (
