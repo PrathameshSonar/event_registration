@@ -1,16 +1,32 @@
 // components/site/pages/NewsPageContent.js — full news list (published event_news).
 "use client";
 
-import { FileText } from "lucide-react";
+import { useState } from "react";
+import { FileText, BellRing } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
+import { toast } from "@/lib/uiStore";
 import { pick } from "@/lib/i18n";
 import PageHero from "@/components/site/PageHero";
 import Reveal from "@/components/site/Reveal";
 
-export default function NewsPageContent({ items, hero }) {
+export default function NewsPageContent({ items, eventId, hero }) {
   const { t, lang } = useLanguage();
   const h = hero || {};
   const list = items || [];
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const subscribe = async (e) => {
+    e.preventDefault();
+    if (!email.trim()) { toast.error(t("news_sub_err") || "Enter your email."); return; }
+    setBusy(true);
+    const res = await fetch("/api/reminders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventId, email }) });
+    setBusy(false);
+    if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d.error || t("news_sub_fail") || "Could not subscribe."); return; }
+    setDone(true);
+    toast.success(t("news_sub_done") || "You're subscribed — we'll keep you posted.");
+  };
 
   return (
     <>
@@ -47,6 +63,22 @@ export default function NewsPageContent({ items, hero }) {
               })}
             </div>
           )}
+
+          <Reveal className="mt-14">
+            <div className="luxury-card mx-auto max-w-2xl p-8 md:p-10 text-center">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gold-shine text-white shadow-gold"><BellRing className="h-6 w-6" /></span>
+              <h3 className="mt-5 font-display text-2xl text-brown">{t("news_sub_title") || "Never miss an update"}</h3>
+              <p className="mt-2 text-brown/65 text-sm max-w-md mx-auto">{t("news_sub_desc") || "Get event announcements, schedule changes and reminders straight to your inbox."}</p>
+              {done ? (
+                <p className="mt-6 font-semibold text-vermillion">🙏 {t("news_sub_thanks") || "You're on the list."}</p>
+              ) : (
+                <form onSubmit={subscribe} className="mt-6 flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t("news_sub_ph") || "you@example.com"} className="flex-1 h-12 px-4 rounded-full border border-gold/25 bg-white text-sm focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20" />
+                  <button type="submit" disabled={busy} className="btn-gold justify-center disabled:opacity-50">{busy ? (t("news_sub_busy") || "Subscribing…") : (t("news_sub_cta") || "Subscribe")}</button>
+                </form>
+              )}
+            </div>
+          </Reveal>
         </div>
       </section>
     </>

@@ -21,5 +21,5 @@ export default async function NewsPage() {
     items = data || [];
   }
 
-  return <NewsPageContent items={items} hero={heroes?.news || {}} />;
+  return <NewsPageContent items={items} eventId={event?.id || null} hero={heroes?.news || {}} />;
 }

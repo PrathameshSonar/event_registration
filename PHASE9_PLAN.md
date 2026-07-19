@@ -103,7 +103,11 @@ Settings today = a flat list of ~17 sub-tabs. Regroup the sidebar into labelled 
 - ✅ **§I /donate** — Seva categories (`app_settings.seva_categories` + SevaCategoriesManager + `/api/seva-categories`), pickable cards, sponsorship aside → /contact.
 - ✅ **§I /event facility cards** — `events.facilities` jsonb + Event Setup repeater; Parking/Meals/… cards.
 - ✅ **Navbar/live-banner polish** — trimmed nav (removed Live+News), glass opacity, luxury language popover, non-sticky live banner.
-- ⬜ Remaining/OPTIONAL only: PageHero title accents (single-line by design); /live updates feed (reuse event_news); /news newsletter (reuse event_reminders). Nice-to-haves — do on request.
+- ✅ **/live updates feed** — recent `event_news` shown as a timestamped feed beside the player.
+- ✅ **/news newsletter** — email opt-in card → `/api/reminders` (`event_reminders`).
+- ⬜ Remaining/OPTIONAL only: PageHero title accents (single-line by design); /news podcast card; /gallery category tabs. Minor — do on request.
+
+## Phase 9 = COMPLETE. Plus post-plan additions: Contact & Social decoupling, Donations payment-ref, **Stop-registrations master switch (manual + auto after event end, server-enforced)**.
 
 ## E. Suggested sequence
 1. **Fonts (B)** first — systematic; every section then inherits the correct look.
