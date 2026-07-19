@@ -48,7 +48,10 @@ export default function LiveBanner() {
     return (
         <Link
             href="/live"
-            className="sticky top-0 z-50 flex items-center justify-center gap-2.5 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 text-sm font-semibold transition"
+            // NOT sticky: the navbar is the sticky element (sticky top-0). If this
+            // bar were also sticky top-0 the glass navbar would ride up over it on
+            // scroll. Instead it sits at the very top and scrolls away cleanly.
+            className="relative z-40 flex items-center justify-center gap-2.5 bg-rose-600 text-white px-4 py-2.5 text-sm font-semibold"
         >
             <span className="inline-flex items-center gap-1.5 bg-white/20 rounded-full px-2 py-0.5 text-[11px] font-bold tracking-wide flex-shrink-0">
                 <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />

@@ -100,10 +100,11 @@
 }
 
 .glass-nav {
-  background: hsla(40, 50%, 98%, 0.72);
+  background: hsla(40, 50%, 98%, 0.92);
   backdrop-filter: saturate(140%) blur(18px);
   -webkit-backdrop-filter: saturate(140%) blur(18px);
   border-bottom: 1px solid hsla(43, 40%, 60%, 0.18);
+  box-shadow: 0 6px 24px -12px hsla(30, 40%, 30%, 0.18);
 }
 
 .mandala-bg {

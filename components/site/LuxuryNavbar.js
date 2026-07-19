@@ -16,14 +16,14 @@ import LangToggle from "@/components/LangToggle";
 // `t(key) || fallback` keeps it working before the i18n keys are added.
 function useNavLinks() {
   const { t } = useLanguage();
+  // News + Live intentionally kept OFF the primary nav (they live in the footer
+  // and the live banner) so the bar stays uncluttered.
   return [
     { label: t("nav_home") || "Home", to: "/" },
     { label: t("nav_about") || "About", to: "/about" },
     { label: t("nav_event_details") || "Event", to: "/event" },
     { label: t("nav_register") || "Registration", to: "/registration" },
     { label: t("nav_gallery") || "Gallery", to: "/gallery" },
-    { label: t("live_watch") || "Live", to: "/live" },
-    { label: t("nav_news") || "News", to: "/news" },
     { label: t("nav_faq") || "FAQ", to: "/faq" },
     { label: t("nav_contact") || "Contact", to: "/contact" },
   ];
