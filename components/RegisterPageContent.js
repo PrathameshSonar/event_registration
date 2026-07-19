@@ -1,13 +1,10 @@
 // components/RegisterPageContent.js
-// Client Component — wraps the register page, handles language switching.
+// The register page body (tier summary + CheckoutForm). Nav/footer come from the
+// (site) layout; this only renders the page content in the luxury theme.
 "use client";
 
-import { ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
 import CheckoutForm from './CheckoutForm';
 import { useLanguage } from './LanguageProvider';
-import LangToggle from './LangToggle';
-import Footer from './Footer';
 import { pick } from '@/lib/i18n';
 
 export default function RegisterPageContent({ category, paymentSettings = null }) {
@@ -18,41 +15,27 @@ export default function RegisterPageContent({ category, paymentSettings = null }
     const isEnquiry = category.is_enquiry_only === true;
 
     return (
-        <main className="min-h-screen bg-neutral-50 text-neutral-900 py-12 px-4">
-            <div className="max-w-2xl mx-auto">
-
-                <div className="flex justify-between items-center mb-8">
-                    <Link href="/" className="inline-flex items-center gap-2 text-sm text-neutral-600 hover:text-neutral-900 transition">
-                        <ArrowLeft className="w-4 h-4" />
-                        {t('register_back')}
-                    </Link>
-                    <LangToggle />
-                </div>
-
-                <div className="bg-white border border-neutral-200 rounded-xl p-6 md:p-8 mb-8">
-                    <span className="text-xs uppercase tracking-wider font-semibold text-orange-600 block mb-1">
-                        {t('register_selected_category')}
-                    </span>
+        <section className="section-y">
+            <div className="container-luxury max-w-2xl">
+                <div className="luxury-card p-6 md:p-8 mb-8">
+                    <span className="kicker block mb-2">{t('register_selected_category')}</span>
                     <div className="flex justify-between items-start gap-4 mb-3">
-                        <h2 className="text-2xl font-bold">{catTitle}</h2>
+                        <h1 className="font-display text-2xl md:text-3xl text-brown">{catTitle}</h1>
                         {category.price > 0 && (
-                            <div className="text-right">
-                                <div className="text-2xl font-black text-neutral-900">₹{category.price}</div>
-                                {isEnquiry && <div className="text-[11px] text-neutral-400 uppercase tracking-wider">Fee</div>}
+                            <div className="text-right shrink-0">
+                                <div className="font-display text-2xl text-vermillion">₹{Number(category.price).toLocaleString('en-IN')}</div>
+                                {isEnquiry && <div className="text-[11px] text-brown/40 uppercase tracking-wider">Fee</div>}
                             </div>
                         )}
                     </div>
-                    <p className="text-neutral-600 text-sm leading-relaxed">{catDesc}</p>
+                    {catDesc && <p className="text-brown/70 text-sm leading-relaxed whitespace-pre-wrap">{catDesc}</p>}
                 </div>
 
-                <div className="bg-white border border-neutral-200 rounded-xl p-6 md:p-8">
-                    <h3 className="text-lg font-bold mb-6 border-b border-neutral-100 pb-4">
-                        {t('register_attendee_info')}
-                    </h3>
+                <div className="luxury-card p-6 md:p-8">
+                    <h2 className="font-display text-lg text-brown mb-6 border-b border-gold/15 pb-4">{t('register_attendee_info')}</h2>
                     <CheckoutForm category={category} paymentSettings={paymentSettings} />
                 </div>
             </div>
-            <Footer />
-        </main>
+        </section>
     );
 }

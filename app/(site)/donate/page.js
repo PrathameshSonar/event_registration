@@ -4,7 +4,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/components/LanguageProvider";
-import LangToggle from "@/components/LangToggle";
 
 const PRESETS = [501, 1100, 2100, 5100, 11000];
 
@@ -82,39 +81,30 @@ export default function DonatePage() {
 
     if (done) {
         return (
-            <main className="min-h-screen bg-ivory flex items-center justify-center p-4 [color-scheme:light]">
-                <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8 text-center border border-gold-100">
+            <section className="section-y flex items-center justify-center">
+                <div className="luxury-card max-w-md w-full p-10 text-center">
                     <div className="text-5xl mb-3">🙏</div>
-                    <h1 className="font-serif text-2xl font-bold text-neutral-900 mb-1">{t("donate_thank_title", done.name || t("donate_anon_donor"))}</h1>
-                    <p className="text-neutral-600 text-sm mb-6">{t("donate_thank_desc", Number(done.amount).toLocaleString("en-IN"))} {email ? t("donate_thank_email") : ""}</p>
-                    <Link href="/" className="inline-block bg-neutral-900 text-white font-semibold px-6 py-3 rounded-xl hover:bg-orange-600 transition text-sm">{t("donate_back_home")}</Link>
+                    <h1 className="font-display text-2xl text-brown mb-2">{t("donate_thank_title", done.name || t("donate_anon_donor"))}</h1>
+                    <p className="text-brown/70 text-sm mb-6">{t("donate_thank_desc", Number(done.amount).toLocaleString("en-IN"))} {email ? t("donate_thank_email") : ""}</p>
+                    <Link href="/" className="btn-gold">{t("donate_back_home")}</Link>
                 </div>
-            </main>
+            </section>
         );
     }
 
     return (
-        <main className="min-h-screen bg-ivory text-neutral-900 [color-scheme:light]">
-            <header className="bg-white/90 border-b border-gold-200/70 sticky top-0 z-10 backdrop-blur-md">
-                <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
-                    <Link href="/" className="font-serif text-lg font-bold">BaglaBhairav</Link>
-                    <div className="flex items-center gap-4">
-                        <LangToggle />
-                        <Link href="/" className="text-sm text-neutral-500 hover:text-orange-600">← {t("footer_home")}</Link>
-                    </div>
-                </div>
-            </header>
-
-            <section className="bg-gradient-to-b from-orange-700 to-amber-700 text-white">
-                <div className="max-w-2xl mx-auto px-4 py-10 text-center">
-                    <div className="text-3xl mb-2">🪔</div>
-                    <h1 className="font-serif text-2xl md:text-3xl font-extrabold">{t("donate_hero_title")}</h1>
-                    <p className="text-amber-50/90 text-sm mt-2 max-w-md mx-auto">{t("donate_hero_desc")}</p>
+        <div>
+            <section className="relative overflow-hidden bg-[hsl(350,45%,16%)] text-ivory py-16 md:py-20">
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,hsla(32,95%,55%,0.18),transparent_60%)]" />
+                <div className="container-luxury max-w-2xl text-center relative z-10">
+                    <div className="text-3xl mb-3">🪔</div>
+                    <h1 className="display-section text-ivory">{t("donate_hero_title")}</h1>
+                    <p className="text-ivory/75 text-sm mt-3 max-w-md mx-auto">{t("donate_hero_desc")}</p>
                 </div>
             </section>
 
-            <div className="max-w-2xl mx-auto px-4 py-8">
-                <form onSubmit={donate} className="bg-white border border-gold-100 rounded-2xl shadow-warm p-6 space-y-5">
+            <div className="container-luxury max-w-2xl py-12">
+                <form onSubmit={donate} className="luxury-card p-8 space-y-5">
                     <div>
                         <label className="text-xs font-semibold text-neutral-500 mb-2 block">{t("donate_choose_amount")}</label>
                         <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
@@ -155,12 +145,12 @@ export default function DonatePage() {
                     </label>
 
                     {error && <p className="text-rose-600 text-sm">{error}</p>}
-                    <button type="submit" disabled={busy} className="w-full bg-neutral-900 hover:bg-orange-600 text-white font-bold py-3.5 rounded-xl transition disabled:opacity-50 text-sm">
+                    <button type="submit" disabled={busy} className="btn-gold w-full justify-center disabled:opacity-50">
                         {busy ? t("donate_processing") : t("donate_cta", (effectiveAmount || 0).toLocaleString("en-IN"))}
                     </button>
-                    <p className="text-[11px] text-neutral-400 text-center">{t("donate_secured")}</p>
+                    <p className="text-[11px] text-brown/40 text-center">{t("donate_secured")}</p>
                 </form>
             </div>
-        </main>
+        </div>
     );
 }

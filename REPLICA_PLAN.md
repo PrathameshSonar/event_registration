@@ -5,8 +5,24 @@
 > business logic (Supabase, Razorpay, QR, admin, RBAC, i18n). **Everything the
 > visitor sees must be admin-controlled**, not hardcoded.
 >
-> Decisions locked: **whole-site** theme · use **framer-motion + embla** for 1:1
-> fidelity · execute phase by phase, build-verifying each.
+> Decisions locked: **whole-site** theme · embla for the carousel · execute phase
+> by phase, build-verifying each.
+
+## ⚠️ SCOPE CORRECTION (2026-07-19) — multi-page + restore dropped features
+The reference is a **multi-page** site; the homepage sections are PREVIEWS that
+link to full pages. Our Phase-4 build made the homepage single-page with anchor
+links — WRONG. Also, the homepage rebuild dropped several sections our original
+had. Both are now in scope (Phases 7–8 below).
+
+**Reference pages the navbar links to (each its own route):**
+`/about`, `/event` (full schedule/details), `/registration` (tier list) +
+`/registration/[id]` (form) + `/registration/lookup`, `/gallery`, `/live`,
+`/news`, `/faq`, `/contact` (+ form), `/donations`. Homepage sections link out.
+
+**Dropped from our original in the Phase-4 rebuild (data + admin editors still exist — just not rendered):**
+Videos (YouTube `event_media`), non-featured guest **lineup**, **venue map**,
+**travel_info** ("Plan Your Visit"), **Downloads**, on-page **Contact** section,
+social-proof count. To restore on the homepage and/or the new full pages.
 
 ## Their stack vs ours
 | | Theirs (reference) | Ours |
@@ -61,6 +77,15 @@ Registration → `/register/[id]` + `CheckoutForm` (restyled). Donations → `/d
 4. **Homepage rebuild** — 14 sections, each wired to admin data + i18n, build-verified.
 5. **Re-skin** register / donate / checkout / lookup / legal in the new theme.
 6. **Polish** — animations, mobile, reduced-motion, lighthouse, static-page `○` check.
+7. **Multi-page structure (NEW)** — build the separate routes the reference has, and
+   turn the homepage sections into PREVIEWS that link to them:
+   - `/about`, `/event` (full schedule + rituals + guruji), `/gallery` (full grid),
+     `/live` (stream page), `/news` (list), `/faq` (full), `/contact` (info + form),
+     `/registration` (tier list page). All admin-data-driven + i18n + in the (site) group.
+   - Homepage previews gain "See full …" links; nav switches from anchors to routes.
+8. **Restore dropped homepage features (NEW)** — re-add (as sections and/or on the new
+   pages): **Videos** (YouTube event_media), **guest lineup** (non-featured guests),
+   **venue map**, **travel_info**, **Downloads**, on-page **Contact**.
 
 ## Key risks / notes
 - **Tailwind v3 → v4 translation** is the crux: their `tailwind.config.js` colors/shadows/gradients/animations must live in our `@theme`, and their `@apply`-based component classes must be re-expressed for v4. Must not break the admin **branding** override (brand/accent CSS vars).
@@ -105,3 +130,8 @@ Registration → `/register/[id]` + `CheckoutForm` (restyled). Donations → `/d
   - Fixed the Hero (removed the negative-margin overlay that put dark nav text on the dark hero — matches the reference's nav-above-hero bar).
   - ⚠️ The `app/register` move hit a Windows file lock (dev server running) — completed by moving the inner `[id]` folder. If you see a stray empty `app/register`, it's gone.
   - **Remaining (Phase 5b):** re-skin the page *contents* (register list, donate form, my-pass, legal, and the MUI-heavy CheckoutForm) into the luxury theme. They're now framed by the chrome + ivory bg but still use their old internal styling.
+- 2026-07-19 — **Phase 5b (page re-skins) DONE, build-verified.**
+  - Re-skinned to luxury + **removed the now-duplicate inline headers/footers** (they double-rendered under the (site) layout): legal pages (via new `components/site/LegalShell.js` + `.prose-legal`), `pitham`, `my-pass`, `donate`, `feedback`, `RegisterPageContent` (had its own `<Footer/>`!), `PreviousEventsContent` (own header + `<Footer/>`). Cleaned unused imports.
+  - **Scope decisions locked (2026-07-19):** target = **Hybrid** (keep rich homepage + add a few key pages), restore dropped features **on the new full pages**, finish 5b before building pages.
+  - Deferred: the MUI-heavy **CheckoutForm** internals (functional + framed by the luxury register shell; a full MUI→luxury re-theme is a later polish pass).
+  - Next: **Phase 7 (hybrid)** — build `/event`, `/gallery`, `/registration` pages + homepage "See full…" preview links; **Phase 8** — restore videos/lineup/venue/travel/downloads onto those pages.

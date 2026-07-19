@@ -1,10 +1,9 @@
-// app/my-pass/page.js — public "Find my registration" self-service page.
+// app/(site)/my-pass/page.js — public "Find my registration" self-service page.
+// Nav/footer come from the (site) layout.
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useLanguage } from "@/components/LanguageProvider";
-import LangToggle from "@/components/LangToggle";
 
 export default function MyPassPage() {
     const { t } = useLanguage();
@@ -33,43 +32,33 @@ export default function MyPassPage() {
     };
 
     return (
-        <main className="min-h-screen bg-ivory text-neutral-900 [color-scheme:light]">
-            <header className="bg-white/90 border-b border-gold-200/70 sticky top-0 z-10 backdrop-blur-md">
-                <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
-                    <Link href="/" className="font-serif text-lg font-bold">BaglaBhairav</Link>
-                    <div className="flex items-center gap-4">
-                        <LangToggle />
-                        <Link href="/" className="text-sm text-neutral-500 hover:text-orange-600">← {t("footer_home")}</Link>
-                    </div>
-                </div>
-            </header>
-
-            <div className="max-w-md mx-auto px-4 py-12">
-                <div className="text-center mb-6">
-                    <div className="text-4xl mb-2">🎟️</div>
-                    <h1 className="font-serif text-2xl font-bold">{t("mypass_title")}</h1>
-                    <p className="text-neutral-500 text-sm mt-2">{t("mypass_desc")}</p>
+        <section className="section-y">
+            <div className="container-luxury max-w-md">
+                <div className="text-center mb-8">
+                    <div className="text-4xl mb-3">🎟️</div>
+                    <h1 className="display-section text-brown">{t("mypass_title")}</h1>
+                    <p className="text-brown/70 text-sm mt-3">{t("mypass_desc")}</p>
                 </div>
 
                 {done ? (
-                    <div className="bg-white border border-gold-100 rounded-2xl shadow-warm p-6 text-center">
+                    <div className="luxury-card p-8 text-center">
                         <div className="text-3xl mb-2">📩</div>
-                        <h2 className="font-bold text-neutral-900 mb-1">{t("mypass_done_title")}</h2>
-                        <p className="text-sm text-neutral-500">{t("mypass_done_desc")}</p>
-                        <button onClick={() => { setDone(false); setPhone(""); }} className="mt-5 text-sm font-semibold text-orange-600 hover:underline">{t("mypass_try_another")}</button>
+                        <h2 className="font-display text-xl text-brown mb-1">{t("mypass_done_title")}</h2>
+                        <p className="text-sm text-brown/60">{t("mypass_done_desc")}</p>
+                        <button onClick={() => { setDone(false); setPhone(""); }} className="mt-5 text-sm font-semibold text-vermillion hover:underline">{t("mypass_try_another")}</button>
                     </div>
                 ) : (
-                    <form onSubmit={submit} className="bg-white border border-gold-100 rounded-2xl shadow-warm p-6 space-y-4">
+                    <form onSubmit={submit} className="luxury-card p-8 space-y-4">
                         <div>
-                            <label className="text-xs font-semibold text-neutral-500 mb-1 block">{t("mypass_phone_label")}</label>
-                            <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="numeric" maxLength={13} placeholder={t("mypass_phone_ph")} className="w-full px-4 py-3 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-500" />
+                            <label className="text-xs font-semibold text-brown/60 mb-1 block uppercase tracking-wider">{t("mypass_phone_label")}</label>
+                            <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="numeric" maxLength={13} placeholder={t("mypass_phone_ph")} className="w-full px-4 py-3 border border-gold/25 rounded-xl text-sm bg-white focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20" />
                         </div>
                         {error && <p className="text-rose-600 text-sm">{error}</p>}
-                        <button type="submit" disabled={busy} className="w-full bg-neutral-900 hover:bg-orange-600 text-white font-bold py-3 rounded-xl transition disabled:opacity-50 text-sm">{busy ? t("mypass_sending") : t("mypass_send")}</button>
-                        <p className="text-[11px] text-neutral-400 text-center">{t("mypass_security")}</p>
+                        <button type="submit" disabled={busy} className="btn-gold w-full justify-center disabled:opacity-50">{busy ? t("mypass_sending") : t("mypass_send")}</button>
+                        <p className="text-[11px] text-brown/40 text-center">{t("mypass_security")}</p>
                     </form>
                 )}
             </div>
-        </main>
+        </section>
     );
 }
