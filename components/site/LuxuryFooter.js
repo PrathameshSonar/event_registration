@@ -20,18 +20,18 @@ const NAV = [
   { key: "nav_contact", fallback: "Contact", to: "/contact" },
 ];
 
-export default function LuxuryFooter({ event }) {
+export default function LuxuryFooter({ event, contact }) {
   const branding = useBranding();
   const { t } = useLanguage();
   const brandName = branding?.site_name || "BaglaBhairav";
 
-  const phone = event?.contact_phone;
-  const location = event?.venue;
-  const email = event?.contact_email;
+  const phone = contact?.phone;
+  const location = contact?.address || event?.venue;
+  const email = contact?.email;
   const socials = [
-    { Icon: InstagramIcon, href: event?.instagram_url, label: "instagram" },
-    { Icon: YoutubeIcon, href: event?.youtube_url, label: "youtube" },
-    { Icon: FacebookIcon, href: event?.facebook_url, label: "facebook" },
+    { Icon: InstagramIcon, href: contact?.instagram_url, label: "instagram" },
+    { Icon: YoutubeIcon, href: contact?.youtube_url, label: "youtube" },
+    { Icon: FacebookIcon, href: contact?.facebook_url, label: "facebook" },
   ].filter((s) => s.href);
 
   return (

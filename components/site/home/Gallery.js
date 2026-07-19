@@ -2,6 +2,8 @@
 // Masonry gallery preview. Maps event_media images → the masonry's { src, alt }.
 "use client";
 
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import Reveal from "@/components/site/Reveal";
 import SectionKicker from "@/components/site/SectionKicker";
@@ -26,6 +28,11 @@ export default function Gallery({ mediaItems = [] }) {
           </Reveal>
         </div>
         <GalleryMasonry images={images} limit={9} />
+        {images.length > 9 && (
+          <div className="mt-10 text-center">
+            <Link href="/gallery" className="btn-outline-gold">{t("home_full_gallery") || "View full gallery"}</Link>
+          </div>
+        )}
       </div>
     </section>
   );

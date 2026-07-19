@@ -23,11 +23,17 @@ export default function DonationsManager() {
         return () => clearTimeout(t);
     }, []);
 
+    // Counts across ALL rows (anonymous included — anonymity only hides the name).
+    const rows = data.donations || [];
+    const paidCount = rows.filter((d) => d.status === "completed").length;
+    const pendingCount = rows.filter((d) => d.status !== "completed").length;
+    const anonPaid = rows.filter((d) => d.status === "completed" && d.is_anonymous).length;
+
     const exportCsv = () => {
         const completed = data.donations.filter((d) => d.status === "completed");
-        const head = ["Name", "Phone", "Email", "Amount", "Message", "Date"];
-        // An anonymous donor's name was never stored, so there is nothing to export.
-        const rows = completed.map((d) => [d.is_anonymous ? "Anonymous" : (d.name || ""), d.phone || "", d.email || "", d.amount, (d.message || "").replace(/"/g, "'"), fmt(d.created_at)]);
+        const head = ["Name", "Phone", "Email", "Amount", "Payment ID", "Order ID", "Message", "Date"];
+        // Anonymous only hides the name — phone/email/amount/payment refs are still exact records.
+        const rows = completed.map((d) => [d.is_anonymous ? "Anonymous" : (d.name || ""), d.phone || "", d.email || "", d.amount, d.razorpay_payment_id || "", d.razorpay_order_id || "", (d.message || "").replace(/"/g, "'"), fmt(d.created_at)]);
         const csv = [head, ...rows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
         const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
         const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `BaglaBhairav_Seva_${new Date().toISOString().split("T")[0]}.csv`; a.click();
@@ -45,7 +51,7 @@ export default function DonationsManager() {
 
             <div className="grid grid-cols-2 gap-4">
                 <div className="bg-white border border-neutral-200 rounded-xl p-5 flex items-center gap-3 shadow-sm"><div className="p-3 bg-green-100 text-green-600 rounded-lg"><IndianRupee className="w-5 h-5" /></div><div><p className="text-xs text-neutral-500">Total Raised</p><p className="text-2xl font-bold">₹{Number(data.total).toLocaleString("en-IN")}</p></div></div>
-                <div className="bg-white border border-neutral-200 rounded-xl p-5 flex items-center gap-3 shadow-sm"><div className="p-3 bg-orange-100 text-orange-600 rounded-lg"><IndianRupee className="w-5 h-5" /></div><div><p className="text-xs text-neutral-500">Contributions</p><p className="text-2xl font-bold">{data.completedCount}</p></div></div>
+                <div className="bg-white border border-neutral-200 rounded-xl p-5 flex items-center gap-3 shadow-sm"><div className="p-3 bg-orange-100 text-orange-600 rounded-lg"><IndianRupee className="w-5 h-5" /></div><div><p className="text-xs text-neutral-500">Contributions (paid)</p><p className="text-2xl font-bold">{paidCount}</p><p className="text-[11px] text-neutral-400 mt-0.5">{anonPaid > 0 ? `incl. ${anonPaid} anonymous` : "anonymous included"}{pendingCount > 0 ? ` · ${pendingCount} pending` : ""}</p></div></div>
             </div>
 
             <div className="border border-neutral-200 rounded-xl overflow-hidden">
@@ -66,7 +72,9 @@ export default function DonationsManager() {
                                         : <span className="font-semibold text-neutral-900">{d.name || "—"}</span>}
                                     <span className="block text-xs text-neutral-400">{d.phone}{d.email ? ` · ${d.email}` : ""}</span>
                                 </td>
-                                <td className="px-4 py-2.5 font-bold text-neutral-900">₹{Number(d.amount).toLocaleString("en-IN")}</td>
+                                <td className="px-4 py-2.5 font-bold text-neutral-900">₹{Number(d.amount).toLocaleString("en-IN")}
+                                    {d.razorpay_payment_id && <span className="block text-[10px] font-mono font-normal text-neutral-400">{d.razorpay_payment_id}</span>}
+                                </td>
                                 <td className="px-4 py-2.5 text-neutral-500 text-xs max-w-[200px] truncate">{d.message || "—"}</td>
                                 <td className="px-4 py-2.5">
                                     {d.status === "completed"

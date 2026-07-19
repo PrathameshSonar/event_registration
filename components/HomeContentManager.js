@@ -5,7 +5,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Trash2, Save, Clock, Sparkles, Phone, CalendarClock, Image as ImageIcon, HelpCircle, BellRing, Star, Radio, Newspaper, Eye, EyeOff, FileText, Quote } from "lucide-react";
+import { Plus, Trash2, Save, Clock, Sparkles, CalendarClock, Image as ImageIcon, HelpCircle, BellRing, Star, Radio, Newspaper, Eye, EyeOff, FileText, Quote } from "lucide-react";
 import { youtubeId } from "@/lib/youtube";
 import { toast } from "@/lib/uiStore";
 import MediaPicker from "@/components/MediaPicker";
@@ -24,7 +24,6 @@ export default function HomeContentManager(props) {
   // Event-level fields
   const [startAt, setStartAt] = useState("");
   const [endAt, setEndAt] = useState("");
-  const [phone, setPhone] = useState("");
   const [heroImage, setHeroImage] = useState("");
   const [evDirty, setEvDirty] = useState(false);
   const [savingEv, setSavingEv] = useState(false);
@@ -248,7 +247,6 @@ export default function HomeContentManager(props) {
   useEffect(() => {
     setStartAt(toLocalInput(ev?.start_at));
     setEndAt(toLocalInput(ev?.end_at));
-    setPhone(ev?.contact_phone || "");
     setHeroImage(ev?.hero_image_url || "");
     setEvDirty(false);
     setLsUrl(ev?.livestream_url || "");
@@ -256,7 +254,7 @@ export default function HomeContentManager(props) {
     setLsLive(!!ev?.livestream_is_live);
     setLsDirty(false);
     if (eventId) loadLists(eventId);
-  }, [eventId, ev?.start_at, ev?.end_at, ev?.contact_phone, ev?.hero_image_url, ev?.livestream_url, ev?.livestream_banner, ev?.livestream_is_live, loadLists]);
+  }, [eventId, ev?.start_at, ev?.end_at, ev?.hero_image_url, ev?.livestream_url, ev?.livestream_banner, ev?.livestream_is_live, loadLists]);
 
   const saveEventFields = async () => {
     setSavingEv(true);
@@ -268,7 +266,6 @@ export default function HomeContentManager(props) {
         updates: {
           start_at: startAt ? new Date(startAt).toISOString() : null,
           end_at: endAt ? new Date(endAt).toISOString() : null,
-          contact_phone: phone.trim() || null,
           hero_image_url: heroImage.trim() || null,
         },
       }),
@@ -397,11 +394,8 @@ export default function HomeContentManager(props) {
             <input type="datetime-local" value={endAt} onChange={(e) => { setEndAt(e.target.value); setEvDirty(true); }} className={inputCls} />
             <p className="text-xs text-neutral-400 mt-1">For a multi-day event, set the last day — the .ics will span all days.</p>
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-neutral-600 mb-1 flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" /> WhatsApp helpline number</label>
-            <input type="tel" placeholder="9876543210" value={phone} onChange={(e) => { setPhone(e.target.value); setEvDirty(true); }} className={inputCls} />
-          </div>
         </div>
+        <p className="text-xs text-neutral-400 mt-3">The WhatsApp helpline / contact phone and social links are managed in <span className="font-semibold text-neutral-500">Settings → Contact &amp; Social</span>.</p>
         <button onClick={saveEventFields} disabled={!evDirty || savingEv} className={`mt-4 flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition ${evDirty ? "bg-orange-600 text-white hover:bg-orange-700" : "bg-neutral-100 text-neutral-400 cursor-not-allowed border border-neutral-200"}`}>
           <Save className="w-4 h-4" /> {evDirty ? "Save" : "Saved"}
         </button>

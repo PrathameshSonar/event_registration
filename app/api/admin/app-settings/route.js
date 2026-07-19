@@ -53,8 +53,10 @@ export async function PATCH(request) {
 
         // These are read through unstable_cache (so a layout/page can use them
         // without going dynamic). Without busting the tag here, a save wouldn't
-        // reach the public site until the cache revalidates on its own.
+        // reach the public site until the cache revalidates on its own. Most tags
+        // match the key; `contact` is cached under "contact-info".
         if (['branding', 'seo', 'page_heroes'].includes(key)) revalidateTag(key);
+        if (key === 'contact') revalidateTag('contact-info');
 
         await logAudit({
             session, request,

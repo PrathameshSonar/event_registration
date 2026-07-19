@@ -510,6 +510,7 @@ GRANT ALL ON category_field_settings TO service_role;
 ALTER TABLE events
     ADD COLUMN IF NOT EXISTS start_at TIMESTAMPTZ,
     ADD COLUMN IF NOT EXISTS end_at   TIMESTAMPTZ,
+    -- Legacy: contact + social moved to app_settings (key 'contact'). Kept for old rows.
     ADD COLUMN IF NOT EXISTS contact_phone TEXT,
     ADD COLUMN IF NOT EXISTS instagram_url TEXT,
     ADD COLUMN IF NOT EXISTS facebook_url  TEXT,

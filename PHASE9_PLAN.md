@@ -90,7 +90,10 @@ Settings today = a flat list of ~17 sub-tabs. Regroup the sidebar into labelled 
 - ✅ **New admin fields (schema + editors)** — `events.peak_day_label/peak_day_note/schedule_intro/schedule_days` (EventRow: translatable fields + a per-day repeater) and `branding.brand_line1/line2/subtitle` (BrandingManager inputs + two-line logo in LuxuryNavbar). Re-run `run_all.sql`. Build-verified.
 - ✅ **§B fonts (homepage)** — new `<LuxuryHeading>` (Cinzel main + Cormorant-italic accent); all 12 homepage section headings converted + `section_*_accent` keys in en/hi/mr. Build-verified.
 - ✅ Fixed `countdown_mins`/`countdown_secs` key mismatch in LuxuryCountdown.
-- ⬜ Next: **§A homepage previews** ("See full…" links) + render peak-day card + schedule intro/themes → **/about + /registration richness (G,H)** → inner-page heading accents → Contact Messages view + Downloads (C).
+- ✅ **§A homepage previews** — "See full…" links added (About→/about+/event, Schedule→/event#schedule, Gallery→/gallery, News→/news, Faq→/faq+/contact, Registration→/registration); peak-day card rendered in AboutMahayagya; schedule intro + per-day date/theme rendered in SchedulePreview (from `schedule_days`). `home_*` i18n keys in en/hi/mr.
+- ✅ **Contact & Social consolidation** (user request) — contact phone/email/address + Instagram/Facebook/YouTube MOVED OUT of the event into `app_settings.contact` (new registry entry + `getContact()` cached reader). New **Settings → Contact & Social** admin section (`ContactSocialManager`). Removed social from Event Setup and phone from Home Content. Footer / Contact page / FloatingActions now read `getContact()`. Legacy event columns kept but unread.
+- ✅ **Donations admin** — surfaced Razorpay payment ref (table + CSV) and a paid/anonymous/pending breakdown (clarifies that anonymous *is* counted; the list also shows unpaid rows).
+- ⬜ Next: **/about + /registration richness (G,H)** → inner-page heading accents → Contact Messages view + Downloads (C).
 
 ## E. Suggested sequence
 1. **Fonts (B)** first — systematic; every section then inherits the correct look.

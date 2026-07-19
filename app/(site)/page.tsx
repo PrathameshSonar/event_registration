@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { supabase } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getBranding, getSeo } from '@/lib/branding';
+import { getContact } from '@/lib/siteEvent';
 import HomeContent from '@/components/HomeContent';
 
 export const revalidate = 60;
@@ -49,6 +50,9 @@ export default async function Home() {
         .select('*')
         .eq('is_active', true)
         .single();
+
+    // Contact + social links (app_settings, decoupled from the event).
+    const contact = await getContact();
 
     // 2. Registration tiers — only show categories for the active event
     let categories: any[] = [];
@@ -129,6 +133,7 @@ export default async function Home() {
             <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
             <HomeContent
                 pageData={pageData}
+                contact={contact}
                 categories={categories || []}
                 mediaItems={mediaItems || []}
                 seatsTaken={seatsTaken}

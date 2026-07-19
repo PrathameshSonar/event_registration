@@ -10,19 +10,20 @@ import PageHero from "@/components/site/PageHero";
 import Reveal from "@/components/site/Reveal";
 import SectionKicker from "@/components/site/SectionKicker";
 
-export default function ContactPageContent({ event, hero }) {
+export default function ContactPageContent({ event, contact, hero }) {
   const { t } = useLanguage();
   const h = hero || {};
   const [form, setForm] = useState({ name: "", email: "", subject: "", message: "" });
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
 
-  const phone = event?.contact_phone;
-  const venue = event?.venue;
+  const phone = contact?.phone;
+  const email = contact?.email;
+  const venue = contact?.address || event?.venue;
   const socials = [
-    { Icon: InstagramIcon, href: event?.instagram_url, label: "instagram" },
-    { Icon: YoutubeIcon, href: event?.youtube_url, label: "youtube" },
-    { Icon: FacebookIcon, href: event?.facebook_url, label: "facebook" },
+    { Icon: InstagramIcon, href: contact?.instagram_url, label: "instagram" },
+    { Icon: YoutubeIcon, href: contact?.youtube_url, label: "youtube" },
+    { Icon: FacebookIcon, href: contact?.facebook_url, label: "facebook" },
   ].filter((s) => s.href);
 
   const submit = async (e) => {
@@ -58,6 +59,7 @@ export default function ContactPageContent({ event, hero }) {
                   <li className="flex items-center gap-3 text-brown/80"><MessageCircle className="h-5 w-5 text-vermillion" /><a href={`https://wa.me/${String(phone).replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="hover:text-vermillion">{t("whatsapp_help") || "WhatsApp"}</a></li>
                 </>
               )}
+              {email && <li className="flex items-center gap-3 text-brown/80"><Mail className="h-5 w-5 text-vermillion" /><a href={`mailto:${email}`} className="hover:text-vermillion">{email}</a></li>}
             </ul>
             {socials.length > 0 && (
               <div className="mt-8 flex items-center gap-3">

@@ -3,19 +3,20 @@
 // previous-events, pitham, legal). Renders the luxury Navbar + Footer around the
 // page. Admin/scan live outside this group and never get this chrome.
 //
-// The footer's contact/socials come from getSiteEvent() — cached (unstable_cache)
-// so this layout does NOT turn the static legal pages dynamic.
+// The footer's contact/socials come from getContact() (app_settings, decoupled
+// from the event); the event only supplies the venue as an address fallback. Both
+// are cached (unstable_cache) so this layout does NOT turn static pages dynamic.
 import LuxuryNavbar from "@/components/site/LuxuryNavbar";
 import LuxuryFooter from "@/components/site/LuxuryFooter";
-import { getSiteEvent } from "@/lib/siteEvent";
+import { getSiteEvent, getContact } from "@/lib/siteEvent";
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
-  const event = await getSiteEvent();
+  const [event, contact] = await Promise.all([getSiteEvent(), getContact()]);
   return (
     <>
       <LuxuryNavbar />
       <main className="min-h-screen bg-ivory text-brown">{children}</main>
-      <LuxuryFooter event={event} />
+      <LuxuryFooter event={event} contact={contact} />
     </>
   );
 }

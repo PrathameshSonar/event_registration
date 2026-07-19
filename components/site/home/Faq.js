@@ -24,8 +24,9 @@ export default function Faq({ items = [] }) {
           <SectionKicker>{t("section_faq_kicker") || "Common Questions"}</SectionKicker>
           <LuxuryHeading className="mt-5" main={t("section_faq_title") || "Everything you need to know"} accent={t("section_faq_accent")} />
           <p className="mt-6 text-brown/70 leading-relaxed max-w-md">{t("section_faq_desc") || "A few of the most common questions from devotees."}</p>
-          <div className="mt-8">
-            <Link href="/#contact" className="text-sm inline-flex items-center gap-1 font-semibold text-vermillion hover:text-lotus">
+          <div className="mt-8 flex flex-wrap items-center gap-5">
+            <Link href="/faq" className="btn-outline-gold">{t("home_all_faqs") || "All FAQs"}</Link>
+            <Link href="/contact" className="text-sm inline-flex items-center gap-1 font-semibold text-vermillion hover:text-lotus">
               {t("section_faq_ask") || "Ask a question"} <ChevronRight className="h-4 w-4" />
             </Link>
           </div>

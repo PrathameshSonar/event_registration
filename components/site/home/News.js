@@ -2,6 +2,7 @@
 // Latest-news cards. event_news (already filtered to published by the server).
 "use client";
 
+import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { pick } from "@/lib/i18n";
@@ -20,6 +21,11 @@ export default function News({ items = [] }) {
           <Reveal>
             <SectionKicker>{t("section_news_kicker") || "Latest News"}</SectionKicker>
             <LuxuryHeading className="mt-5 max-w-xl" main={t("section_news_title") || "News & Announcements"} accent={t("section_news_accent")} />
+          </Reveal>
+          <Reveal>
+            <Link href="/news" className="inline-flex items-center gap-1 text-sm font-semibold text-vermillion hover:text-lotus">
+              {t("home_all_updates") || "All updates"} <ChevronRight className="h-4 w-4" />
+            </Link>
           </Reveal>
         </div>
 

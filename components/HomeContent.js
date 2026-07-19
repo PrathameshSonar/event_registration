@@ -27,7 +27,7 @@ import News from "@/components/site/home/News";
 import Faq from "@/components/site/home/Faq";
 import FinalCta from "@/components/site/home/FinalCta";
 
-export default function HomeContent({ pageData, categories, mediaItems, seatsTaken, schedule, highlights, faqs, guests, news, testimonials }) {
+export default function HomeContent({ pageData, contact, categories, mediaItems, seatsTaken, schedule, highlights, faqs, guests, news, testimonials }) {
   const [waitlistCat, setWaitlistCat] = useState(null);
 
   const hasCategories = Array.isArray(categories) && categories.length > 0;
@@ -50,7 +50,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
         <Pillars items={bySection("pillars")} />
         <Rituals items={bySection("highlights")} />
         <Benefits items={bySection("blessings")} />
-        <SchedulePreview items={schedule || []} />
+        <SchedulePreview items={schedule || []} event={pageData} />
         <RegistrationCta categories={categories || []} seatsTaken={seatsTaken || {}} onWaitlist={setWaitlistCat} />
         <DonateLive event={pageData} />
         <Testimonials items={testimonials || []} />
@@ -61,7 +61,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
       </div>
 
       {waitlistCat && <WaitlistModal category={waitlistCat} onClose={() => setWaitlistCat(null)} />}
-      <FloatingActions phone={pageData?.contact_phone} hasCategories={hasCategories} />
+      <FloatingActions phone={contact?.phone} hasCategories={hasCategories} />
     </>
   );
 }

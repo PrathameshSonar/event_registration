@@ -3,7 +3,8 @@
 // the right. Stats come from events.stats; images from events.about_images.
 "use client";
 
-import { Flame } from "lucide-react";
+import Link from "next/link";
+import { Flame, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { pick } from "@/lib/i18n";
 import Reveal from "@/components/site/Reveal";
@@ -15,8 +16,10 @@ export default function AboutMahayagya({ event }) {
   const aboutText = pick(event, "long_description", lang);
   const stats = Array.isArray(event?.stats) ? event.stats : [];
   const images = (Array.isArray(event?.about_images) ? event.about_images : []).filter(Boolean).slice(0, 4);
+  const peakLabel = pick(event, "peak_day_label", lang);
+  const peakNote = pick(event, "peak_day_note", lang);
 
-  if (!aboutText && !stats.length && !images.length) return null;
+  if (!aboutText && !stats.length && !images.length && !peakLabel) return null;
 
   return (
     <section id="about" className="section-y mandala-bg">
@@ -37,6 +40,23 @@ export default function AboutMahayagya({ event }) {
                 ))}
               </ul>
             )}
+
+            {peakLabel && (
+              <div className="mt-8 luxury-card px-6 py-5 flex items-center gap-4 border-l-4 border-l-vermillion">
+                <span className="text-2xl" aria-hidden>🔥</span>
+                <div>
+                  <p className="font-display text-lg text-vermillion">{peakLabel}</p>
+                  {peakNote && <p className="text-sm text-brown/70">{peakNote}</p>}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-8 flex flex-wrap items-center gap-5">
+              <Link href="/about" className="btn-outline-gold">{t("home_read_story") || "Read our story"}</Link>
+              <Link href="/event" className="inline-flex items-center gap-1 text-sm font-semibold text-vermillion hover:text-lotus">
+                {t("home_see_event") || "See full event"} <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
           </Reveal>
 
           {images.length > 0 && (

@@ -28,9 +28,7 @@ export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
     const [travelInfo, setTravelInfo] = useState(event.travel_info || '');
     // Non-translatable fields.
     const [mapUrl, setMapUrl] = useState(event.map_url || '');
-    const [instagramUrl, setInstagramUrl] = useState(event.instagram_url || '');
-    const [facebookUrl, setFacebookUrl] = useState(event.facebook_url || '');
-    const [youtubeUrl, setYoutubeUrl] = useState(event.youtube_url || '');
+    // Social links + contact phone now live in Settings → Contact & Social (one place).
     const [heroImageUrl, setHeroImageUrl] = useState(event.hero_image_url || '');
     // "By the numbers" strip — ordered {value,label} pairs.
     const [stats, setStats] = useState<{ value: string; label: string }[]>(
@@ -64,7 +62,6 @@ export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
             title, short_description: shortDesc, long_description: longDesc,
             date_time: dateTime || null, venue: venue || null, travel_info: travelInfo || null,
             map_url: mapUrl || null,
-            instagram_url: instagramUrl || null, facebook_url: facebookUrl || null, youtube_url: youtubeUrl || null,
             hero_image_url: heroImageUrl || null,
             // Drop blank rows so the public strip never shows an empty stat.
             stats: stats.filter((s) => s.value.trim() || s.label.trim()),
@@ -192,11 +189,7 @@ export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
                     </div>
 
                     <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Google Maps Link</label><input type="url" value={mapUrl} onChange={e => { setMapUrl(e.target.value); track(); }} placeholder="https://maps.google.com/..." className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Instagram URL</label><input type="url" value={instagramUrl} onChange={e => { setInstagramUrl(e.target.value); track(); }} placeholder="https://instagram.com/..." className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
-                        <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Facebook URL</label><input type="url" value={facebookUrl} onChange={e => { setFacebookUrl(e.target.value); track(); }} placeholder="https://facebook.com/..." className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
-                        <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">YouTube URL</label><input type="url" value={youtubeUrl} onChange={e => { setYoutubeUrl(e.target.value); track(); }} placeholder="https://youtube.com/@..." className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
-                    </div>
+                    <p className="text-xs text-neutral-400 -mt-1">Contact phone &amp; social links are managed in <span className="font-semibold text-neutral-500">Settings → Contact &amp; Social</span>.</p>
                     <div>
                         <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Hero Background Image</label>
                         <p className="text-xs text-neutral-400 mb-1.5">Shown behind the homepage hero title (a dark overlay is applied automatically). Optional — leave blank for the plain saffron gradient.</p>

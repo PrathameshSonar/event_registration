@@ -61,8 +61,7 @@ export async function PATCH(request) {
         const allowed = [
             'title', 'short_description', 'long_description',
             'date_time', 'venue', 'map_url',
-            'start_at', 'end_at', 'contact_phone', 'hero_image_url',
-            'instagram_url', 'facebook_url', 'youtube_url',
+            'start_at', 'end_at', 'hero_image_url',
             'travel_info',
             'livestream_url', 'livestream_banner',
             'stats', 'about_images',

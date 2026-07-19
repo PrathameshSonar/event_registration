@@ -12,7 +12,7 @@ export async function GET() {
 
     const { data, error } = await supabaseAdmin
         .from('donations')
-        .select('id, name, phone, email, amount, message, status, created_at')
+        .select('id, name, phone, email, amount, message, status, is_anonymous, razorpay_order_id, razorpay_payment_id, created_at')
         .order('created_at', { ascending: false })
         .limit(1000);
     if (error) return NextResponse.json({ error: 'Failed to load donations.' }, { status: 500 });

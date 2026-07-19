@@ -7,12 +7,13 @@ import {
     Trash2, Plus, Image as ImageIcon, Video, CalendarDays,
     Ticket, Calendar as CalendarIcon, Search, LogOut, QrCode, Check,
     LayoutDashboard, ScrollText, RefreshCw, MessageSquare, Send, UserPlus, Megaphone,
-    Gift, UserCheck, Handshake, Mail, FolderOpen, Palette, FileCode
+    Gift, UserCheck, Handshake, Mail, FolderOpen, Palette, FileCode, Phone
 } from 'lucide-react';
 import { youtubeThumbnail } from '@/lib/youtube';
 import { buildTranslations } from '@/lib/i18n';
 import FormFieldsManager from '@/components/FormFieldsManager';
 import HomeContentManager from '@/components/HomeContentManager';
+import ContactSocialManager from '@/components/ContactSocialManager';
 import PageHeadersManager from '@/components/PageHeadersManager';
 import AuditLogPanel from '@/components/AuditLogPanel';
 import EnquiriesPanel from '@/components/EnquiriesPanel';
@@ -57,7 +58,7 @@ export default function AdminDashboard() {
     const can = (perm: string) => isAdmin || permissions.includes(perm);
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'enquiries' | 'scanlog' | 'settings' | 'audit'>('dashboard');
-    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'library' | 'branding' | 'pageheaders' | 'templates' | 'checkpoints' | 'formfields' | 'homecontent' | 'payment' | 'users' | 'waitlist' | 'donations' | 'sponsors' | 'messages' | 'feedback'>('events');
+    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'library' | 'branding' | 'pageheaders' | 'templates' | 'checkpoints' | 'formfields' | 'homecontent' | 'contactsocial' | 'payment' | 'users' | 'waitlist' | 'donations' | 'sponsors' | 'messages' | 'feedback'>('events');
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -1223,6 +1224,7 @@ export default function AdminDashboard() {
                                     { k: 'sponsors', Icon: Handshake, label: 'Sponsors' },
                                 ] },
                                 { group: 'Communications', items: [
+                                    { k: 'contactsocial', Icon: Phone, label: 'Contact & Social' },
                                     { k: 'templates', Icon: FileCode, label: 'Templates & Config' },
                                     { k: 'messages', Icon: Mail, label: 'Message Log', gate: 'audit:view' },
                                     { k: 'feedback', Icon: MessageSquare, label: 'Feedback' },
@@ -1449,6 +1451,7 @@ export default function AdminDashboard() {
                             {settingsSubTab === 'formfields' && <FormFieldsManager categories={categoriesList} />}
 
                             {settingsSubTab === 'homecontent' && <HomeContentManager events={eventsList} />}
+                            {settingsSubTab === 'contactsocial' && <ContactSocialManager />}
                             {settingsSubTab === 'payment' && <PaymentSettingsManager />}
                             {settingsSubTab === 'users' && <AdminUsersManager />}
                             {settingsSubTab === 'waitlist' && <WaitlistManager />}
