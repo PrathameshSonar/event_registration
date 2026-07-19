@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-    Lock, Download, Users, IndianRupee, Activity, Eye, X, Settings, ListFilter,
+    Lock, Download, Users, IndianRupee, Activity, Eye, EyeOff, X, Settings, ListFilter,
     Trash2, Plus, Image as ImageIcon, Video, CalendarDays,
     Ticket, Calendar as CalendarIcon, Search, LogOut, QrCode, Check,
     LayoutDashboard, ScrollText, RefreshCw, MessageSquare, Send, UserPlus, Megaphone,
@@ -52,8 +52,12 @@ import { TERMINAL_STATUSES, STATUS_LABEL, PAYMENT_MODE_LABEL, ENQUIRY_STATUSES, 
 export default function AdminDashboard() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [role, setRole] = useState<Role | null>(null);
     const [permissions, setPermissions] = useState<string[]>([]);
+    // True while the initial cookie session-check is in flight, so a refresh shows
+    // a brief loader instead of flashing the login screen before rehydrating.
+    const [checkingSession, setCheckingSession] = useState(true);
     const isAdmin = role === 'admin';
     const isVolunteer = role === 'volunteer';
     // Permission check for the UI. Admin always passes; volunteers use their granted list.
@@ -211,6 +215,25 @@ export default function AdminDashboard() {
         } finally {
             setRefreshing(false);
         }
+    }, []);
+
+    // On mount, rehydrate the session from the httpOnly cookie. Without this, a
+    // page refresh resets the in-memory `role` to null and bounces the admin back
+    // to the login screen even though the 8-hour session cookie is still valid.
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await fetch('/api/admin/session');
+                if (res.ok) {
+                    const d = await res.json();
+                    setRole(d.role);
+                    setPermissions(Array.isArray(d.permissions) ? d.permissions : []);
+                    fetchAllData();
+                }
+            } catch { /* not authenticated — show login */ }
+            finally { setCheckingSession(false); }
+        })();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Auto-refresh new registrations every 30s while viewing the Dashboard or
@@ -754,6 +777,17 @@ export default function AdminDashboard() {
         setSelectedIds(next);
     };
 
+    // ----- Session check in progress (avoid flashing the login screen on refresh) -----
+    if (checkingSession) {
+        return (
+            <div className="min-h-screen bg-neutral-100 flex items-center justify-center p-4 text-neutral-900 [color-scheme:light]">
+                <div className="flex items-center gap-3 text-neutral-500">
+                    <RefreshCw className="w-5 h-5 animate-spin" /> <span className="text-sm font-medium">Checking session…</span>
+                </div>
+            </div>
+        );
+    }
+
     // ----- Login screen -----
     if (!role) {
         return (
@@ -764,7 +798,12 @@ export default function AdminDashboard() {
                     <p className="text-sm text-neutral-500 mb-6">Sign in with your account username and password.</p>
                     <form onSubmit={handleLogin} className="space-y-4">
                         <input type="text" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600" />
-                        <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600" />
+                        <div className="relative">
+                            <input type={showPassword ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="w-full px-4 py-3 pr-12 bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-orange-600" />
+                            <button type="button" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700">
+                                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                            </button>
+                        </div>
                         {error && <p className="text-red-500 text-sm">{error}</p>}
                         <button type="submit" className="w-full bg-neutral-900 text-white font-medium py-3 rounded-lg hover:bg-orange-600 transition">Unlock Terminal</button>
                     </form>
