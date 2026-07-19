@@ -18,12 +18,14 @@ function useNavLinks() {
   const { t } = useLanguage();
   return [
     { label: t("nav_home") || "Home", to: "/" },
-    { label: t("nav_pitham") || "About", to: "/pitham" },
-    { label: t("nav_schedule") || "Schedule", to: "/#schedule" },
-    { label: t("nav_gallery") || "Gallery", to: "/#gallery" },
-    { label: t("nav_faq") || "FAQ", to: "/#faq" },
-    { label: t("nav_past_events") || "Past Events", to: "/previous-events" },
-    { label: t("nav_contact") || "Contact", to: "/#contact" },
+    { label: t("nav_about") || "About", to: "/about" },
+    { label: t("nav_event_details") || "Event", to: "/event" },
+    { label: t("nav_register") || "Registration", to: "/registration" },
+    { label: t("nav_gallery") || "Gallery", to: "/gallery" },
+    { label: t("live_watch") || "Live", to: "/live" },
+    { label: t("nav_news") || "News", to: "/news" },
+    { label: t("nav_faq") || "FAQ", to: "/faq" },
+    { label: t("nav_contact") || "Contact", to: "/contact" },
   ];
 }
 
@@ -90,7 +92,7 @@ export default function LuxuryNavbar() {
           <Link href="/donate" className="btn-outline-gold h-11 px-5 text-[15px] whitespace-nowrap">
             {t("nav_donate") || "Donate"}
           </Link>
-          <Link href="/#categories" className="btn-gold h-11 px-5 text-[15px] whitespace-nowrap">
+          <Link href="/registration" className="btn-gold h-11 px-5 text-[15px] whitespace-nowrap">
             {t("nav_register") || "Register Now"}
           </Link>
         </div>
@@ -121,7 +123,7 @@ export default function LuxuryNavbar() {
               <LangToggle />
               <div className="flex flex-1 gap-3">
                 <Link href="/donate" className="btn-outline-gold h-12 flex-1 text-[15px]">{t("nav_donate") || "Donate"}</Link>
-                <Link href="/#categories" className="btn-gold h-12 flex-1 text-[15px]">{t("nav_register") || "Register"}</Link>
+                <Link href="/registration" className="btn-gold h-12 flex-1 text-[15px]">{t("nav_register") || "Register"}</Link>
               </div>
             </div>
           </div>

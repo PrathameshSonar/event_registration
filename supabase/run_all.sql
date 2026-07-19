@@ -564,6 +564,17 @@ ALTER TABLE categories       ADD COLUMN IF NOT EXISTS tagline TEXT,
                              ADD COLUMN IF NOT EXISTS perks   JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE events           ADD COLUMN IF NOT EXISTS about_images JSONB DEFAULT '[]'::jsonb;
 
+-- Contact-form submissions from the public /contact page.
+CREATE TABLE IF NOT EXISTS contact_messages (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name       TEXT,
+    email      TEXT,
+    subject    TEXT,
+    message    TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+GRANT ALL ON contact_messages TO service_role;
+
 
 -- 8) ── Homepage hero background image (per event) ──────────────────────────
 ALTER TABLE events

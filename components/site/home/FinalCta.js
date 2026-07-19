@@ -26,7 +26,7 @@ export default function FinalCta({ event, hasCategories }) {
             </div>
             <div className="md:justify-self-end space-y-3 w-full md:w-auto">
               {hasCategories && (
-                <Link href="#categories" className="w-full md:w-auto justify-center inline-flex btn-maroon">
+                <Link href="/registration" className="w-full md:w-auto justify-center inline-flex btn-maroon">
                   {t("hero_register_cta") || "Register Now"} <ArrowRight className="h-4 w-4" />
                 </Link>
               )}

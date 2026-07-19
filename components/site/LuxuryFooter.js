@@ -11,13 +11,13 @@ import { useBranding } from "@/components/BrandingProvider";
 import { useLanguage } from "@/components/LanguageProvider";
 
 const NAV = [
-  { key: "nav_home", fallback: "Home", to: "/" },
-  { key: "nav_pitham", fallback: "About", to: "/pitham" },
-  { key: "nav_schedule", fallback: "Schedule", to: "/#schedule" },
-  { key: "nav_register", fallback: "Register", to: "/#categories" },
-  { key: "nav_gallery", fallback: "Gallery", to: "/#gallery" },
-  { key: "nav_faq", fallback: "FAQ", to: "/#faq" },
-  { key: "nav_past_events", fallback: "Past Events", to: "/previous-events" },
+  { key: "nav_about", fallback: "About", to: "/about" },
+  { key: "nav_event_details", fallback: "Event", to: "/event" },
+  { key: "nav_register", fallback: "Registration", to: "/registration" },
+  { key: "nav_gallery", fallback: "Gallery", to: "/gallery" },
+  { key: "nav_news", fallback: "News", to: "/news" },
+  { key: "nav_faq", fallback: "FAQ", to: "/faq" },
+  { key: "nav_contact", fallback: "Contact", to: "/contact" },
 ];
 
 export default function LuxuryFooter({ event }) {
@@ -48,7 +48,7 @@ export default function LuxuryFooter({ event }) {
             </h2>
           </div>
           <div className="flex flex-col sm:flex-row md:justify-end gap-3">
-            <Link href="/#categories" className="btn-gold">{t("nav_register") || "Register Now"}</Link>
+            <Link href="/registration" className="btn-gold">{t("nav_register") || "Register Now"}</Link>
             <Link href="/donate" className="btn-outline-gold border-gold/60 !text-ivory hover:!bg-gold/15">
               {t("footer_offer_seva") || "Offer Seva"}
             </Link>

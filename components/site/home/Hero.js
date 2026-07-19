@@ -55,7 +55,7 @@ export default function Hero({ event, hasCategories }) {
 
           <div className="mt-10 flex flex-wrap items-center gap-4">
             {hasCategories && (
-              <a href="#categories" className="btn-gold">
+              <a href="/registration" className="btn-gold">
                 {t("hero_register_cta") || "Register Now"} <ArrowRight className="h-4 w-4" />
               </a>
             )}
