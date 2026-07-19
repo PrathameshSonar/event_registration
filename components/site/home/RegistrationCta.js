@@ -10,6 +10,7 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { pick } from "@/lib/i18n";
 import Reveal from "@/components/site/Reveal";
 import SectionKicker from "@/components/site/SectionKicker";
+import LuxuryHeading from "@/components/site/LuxuryHeading";
 
 export default function RegistrationCta({ categories = [], seatsTaken = {}, onWaitlist }) {
   const { t, lang } = useLanguage();
@@ -22,7 +23,7 @@ export default function RegistrationCta({ categories = [], seatsTaken = {}, onWa
         <div className="grid lg:grid-cols-[1fr_1.4fr] gap-14 items-center">
           <Reveal>
             <SectionKicker light>{t("section_register_kicker") || "Reserve your seat"}</SectionKicker>
-            <h2 className="mt-5 display-section text-ivory">{t("section_register_title") || "Choose how you wish to participate"}</h2>
+            <LuxuryHeading dark className="mt-5" main={t("section_register_title") || "Choose how you wish"} accent={t("section_register_accent")} />
             <p className="mt-6 text-ivory/75 leading-relaxed max-w-md">{t("section_register_desc") || "Each tier offers a different depth of involvement. Seats are limited."}</p>
             <div className="mt-8 flex flex-wrap gap-4">
               <Link href="/my-pass" className="btn-outline-gold border-gold/60 !text-ivory hover:!bg-white/10">

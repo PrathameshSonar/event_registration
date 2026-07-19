@@ -5,7 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/components/LanguageProvider";
 
-const PRESETS = [501, 1100, 2100, 5100, 11000];
+const PRESETS = [1100, 2100, 5100, 11000];
 
 function loadRazorpay() {
     return new Promise((resolve) => {

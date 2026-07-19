@@ -7,6 +7,7 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { pick } from "@/lib/i18n";
 import Reveal from "@/components/site/Reveal";
 import SectionKicker from "@/components/site/SectionKicker";
+import LuxuryHeading from "@/components/site/LuxuryHeading";
 import TestimonialsCarousel from "@/components/site/TestimonialsCarousel";
 
 export default function Testimonials({ items = [] }) {
@@ -25,7 +26,7 @@ export default function Testimonials({ items = [] }) {
       <div className="container-luxury">
         <Reveal className="text-center max-w-xl mx-auto mb-14">
           <SectionKicker>{t("section_testimonials_kicker") || "Voices of Devotees"}</SectionKicker>
-          <h2 className="mt-5 display-section text-brown">{t("section_testimonials_title") || "Words from Devotees"}</h2>
+          <LuxuryHeading className="mt-5" main={t("section_testimonials_title") || "Words from Devotees"} accent={t("section_testimonials_accent")} />
         </Reveal>
         <TestimonialsCarousel items={slides} />
       </div>

@@ -5,6 +5,7 @@
 import { useLanguage } from "@/components/LanguageProvider";
 import Reveal from "@/components/site/Reveal";
 import SectionKicker from "@/components/site/SectionKicker";
+import LuxuryHeading from "@/components/site/LuxuryHeading";
 import GalleryMasonry from "@/components/site/GalleryMasonry";
 
 export default function Gallery({ mediaItems = [] }) {
@@ -21,7 +22,7 @@ export default function Gallery({ mediaItems = [] }) {
         <div className="flex flex-wrap items-end justify-between gap-6 mb-12">
           <Reveal>
             <SectionKicker>{t("section_gallery_kicker") || "Moments"}</SectionKicker>
-            <h2 className="mt-5 display-section text-brown max-w-xl">{t("section_gallery") || "Gallery"}</h2>
+            <LuxuryHeading className="mt-5 max-w-xl" main={t("section_gallery") || "Gallery"} accent={t("section_gallery_accent")} />
           </Reveal>
         </div>
         <GalleryMasonry images={images} limit={9} />

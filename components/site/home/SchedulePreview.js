@@ -7,6 +7,7 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { pick } from "@/lib/i18n";
 import Reveal from "@/components/site/Reveal";
 import SectionKicker from "@/components/site/SectionKicker";
+import LuxuryHeading from "@/components/site/LuxuryHeading";
 
 export default function SchedulePreview({ items = [] }) {
   const { t, lang } = useLanguage();
@@ -27,7 +28,7 @@ export default function SchedulePreview({ items = [] }) {
         <div className="grid lg:grid-cols-[1fr_1.2fr] gap-14">
           <Reveal>
             <SectionKicker>{t("section_schedule_kicker") || "The programme"}</SectionKicker>
-            <h2 className="mt-5 display-section text-brown">{t("section_schedule_title") || "Daily Schedule"}</h2>
+            <LuxuryHeading className="mt-5" main={t("section_schedule_title") || "Daily Schedule"} accent={t("section_schedule_accent")} />
             <p className="mt-6 text-brown/70 leading-relaxed">{t("section_schedule_desc") || "A carefully curated sequence of rites from dawn to dusk."}</p>
           </Reveal>
 

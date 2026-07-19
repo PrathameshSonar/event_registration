@@ -8,6 +8,7 @@ import { pick } from "@/lib/i18n";
 import { getLucideIcon } from "@/lib/lucideIcons";
 import Reveal from "@/components/site/Reveal";
 import SectionKicker from "@/components/site/SectionKicker";
+import LuxuryHeading from "@/components/site/LuxuryHeading";
 
 export default function Benefits({ items = [] }) {
   const { t, lang } = useLanguage();
@@ -18,7 +19,7 @@ export default function Benefits({ items = [] }) {
       <div className="container-luxury">
         <Reveal className="text-center max-w-2xl mx-auto">
           <SectionKicker>{t("section_blessings_kicker") || "Blessings & Benefits"}</SectionKicker>
-          <h2 className="mt-5 display-section text-brown">{t("section_blessings_title") || "What every devotee carries home"}</h2>
+          <LuxuryHeading className="mt-5" main={t("section_blessings_title") || "Blessings & Benefits"} accent={t("section_blessings_accent")} />
           <p className="mt-5 text-brown/70">{t("section_blessings_desc") || "The blessings extend far beyond the days of the event."}</p>
         </Reveal>
 

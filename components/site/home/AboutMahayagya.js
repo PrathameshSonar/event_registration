@@ -8,6 +8,7 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { pick } from "@/lib/i18n";
 import Reveal from "@/components/site/Reveal";
 import SectionKicker from "@/components/site/SectionKicker";
+import LuxuryHeading from "@/components/site/LuxuryHeading";
 
 export default function AboutMahayagya({ event }) {
   const { t, lang } = useLanguage();
@@ -23,7 +24,7 @@ export default function AboutMahayagya({ event }) {
         <div className="grid gap-10 lg:grid-cols-2 lg:gap-16 items-center">
           <Reveal>
             <SectionKicker>{t("section_about_kicker") || "Why this gathering"}</SectionKicker>
-            <h2 className="mt-5 display-section text-brown">{t("section_about_title") || "About the Mahayagya"}</h2>
+            <LuxuryHeading className="mt-5" main={t("section_about_title") || "About the Mahayagya"} accent={t("section_about_accent")} />
             {aboutText && <p className="mt-6 text-brown/80 max-w-xl leading-[1.8] whitespace-pre-wrap" style={{ fontSize: "1.125rem" }}>{aboutText}</p>}
 
             {stats.length > 0 && (

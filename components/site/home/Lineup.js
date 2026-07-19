@@ -9,6 +9,7 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { pick } from "@/lib/i18n";
 import Reveal from "@/components/site/Reveal";
 import SectionKicker from "@/components/site/SectionKicker";
+import LuxuryHeading from "@/components/site/LuxuryHeading";
 
 export default function Lineup({ guests }) {
   const { t, lang } = useLanguage();
@@ -20,7 +21,7 @@ export default function Lineup({ guests }) {
       <div className="container-luxury">
         <Reveal className="text-center max-w-xl mx-auto mb-12">
           <SectionKicker>{t("section_lineup_home_desc") || "Revered Guests"}</SectionKicker>
-          <h2 className="mt-5 display-section text-brown">{t("section_lineup_home_title") || "Chief Guests & Saints"}</h2>
+          <LuxuryHeading className="mt-5" main={t("section_lineup_home_title") || "Chief Guests"} accent={t("section_lineup_home_accent")} />
         </Reveal>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">

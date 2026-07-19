@@ -7,6 +7,7 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { pick } from "@/lib/i18n";
 import Reveal from "@/components/site/Reveal";
 import SectionKicker from "@/components/site/SectionKicker";
+import LuxuryHeading from "@/components/site/LuxuryHeading";
 
 export default function News({ items = [] }) {
   const { t, lang } = useLanguage();
@@ -18,7 +19,7 @@ export default function News({ items = [] }) {
         <div className="flex flex-wrap items-end justify-between gap-6 mb-12">
           <Reveal>
             <SectionKicker>{t("section_news_kicker") || "Latest News"}</SectionKicker>
-            <h2 className="mt-5 display-section text-brown max-w-xl">{t("section_news_title") || "News & Announcements"}</h2>
+            <LuxuryHeading className="mt-5 max-w-xl" main={t("section_news_title") || "News & Announcements"} accent={t("section_news_accent")} />
           </Reveal>
         </div>
 

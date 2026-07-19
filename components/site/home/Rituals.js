@@ -8,6 +8,7 @@ import { pick } from "@/lib/i18n";
 import { getLucideIcon } from "@/lib/lucideIcons";
 import Reveal from "@/components/site/Reveal";
 import SectionKicker from "@/components/site/SectionKicker";
+import LuxuryHeading from "@/components/site/LuxuryHeading";
 
 export default function Rituals({ items = [] }) {
   const { t, lang } = useLanguage();
@@ -19,7 +20,7 @@ export default function Rituals({ items = [] }) {
         <div className="grid lg:grid-cols-[1fr_auto] items-end gap-8 mb-14">
           <Reveal>
             <SectionKicker>{t("section_rituals_kicker") || "The Sacred Rites"}</SectionKicker>
-            <h2 className="mt-5 display-section text-brown max-w-2xl">{t("section_highlights_title") || "Key Rituals & Highlights"}</h2>
+            <LuxuryHeading className="mt-5 max-w-2xl" main={t("section_highlights_title") || "Key Rituals & Highlights"} accent={t("section_rituals_accent")} />
           </Reveal>
         </div>
 

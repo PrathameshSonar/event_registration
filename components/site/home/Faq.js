@@ -10,6 +10,7 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { pick } from "@/lib/i18n";
 import Reveal from "@/components/site/Reveal";
 import SectionKicker from "@/components/site/SectionKicker";
+import LuxuryHeading from "@/components/site/LuxuryHeading";
 
 export default function Faq({ items = [] }) {
   const { t, lang } = useLanguage();
@@ -21,7 +22,7 @@ export default function Faq({ items = [] }) {
       <div className="container-luxury grid lg:grid-cols-[0.9fr_1.1fr] gap-14">
         <Reveal>
           <SectionKicker>{t("section_faq_kicker") || "Common Questions"}</SectionKicker>
-          <h2 className="mt-5 display-section text-brown">{t("section_faq_title") || "Everything you need to know"}</h2>
+          <LuxuryHeading className="mt-5" main={t("section_faq_title") || "Everything you need to know"} accent={t("section_faq_accent")} />
           <p className="mt-6 text-brown/70 leading-relaxed max-w-md">{t("section_faq_desc") || "A few of the most common questions from devotees."}</p>
           <div className="mt-8">
             <Link href="/#contact" className="text-sm inline-flex items-center gap-1 font-semibold text-vermillion hover:text-lotus">

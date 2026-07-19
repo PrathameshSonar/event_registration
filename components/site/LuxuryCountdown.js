@@ -31,8 +31,8 @@ export default function LuxuryCountdown({ targetISO, variant = "glass" }) {
   const items = [
     { label: t("countdown_days") || "Days", value: mounted ? days : "—" },
     { label: t("countdown_hours") || "Hours", value: mounted ? pad(hours) : "—" },
-    { label: t("countdown_minutes") || "Minutes", value: mounted ? pad(minutes) : "—" },
-    { label: t("countdown_seconds") || "Seconds", value: mounted ? pad(seconds) : "—" },
+    { label: t("countdown_mins") || "Minutes", value: mounted ? pad(minutes) : "—" },
+    { label: t("countdown_secs") || "Seconds", value: mounted ? pad(seconds) : "—" },
   ];
 
   const isDark = variant === "glass";

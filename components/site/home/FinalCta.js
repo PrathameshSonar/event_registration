@@ -7,6 +7,7 @@ import { ArrowRight } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { pick } from "@/lib/i18n";
 import SectionKicker from "@/components/site/SectionKicker";
+import LuxuryHeading from "@/components/site/LuxuryHeading";
 
 export default function FinalCta({ event, hasCategories }) {
   const { t, lang } = useLanguage();
@@ -21,7 +22,7 @@ export default function FinalCta({ event, hasCategories }) {
           <div className="relative grid md:grid-cols-[1.4fr_1fr] items-center gap-10">
             <div>
               {dates && <SectionKicker light>{dates}</SectionKicker>}
-              <h2 className="mt-5 display-section text-white">{t("section_final_title") || "Come sit before the sacred fire"}</h2>
+              <LuxuryHeading dark className="mt-5" main={t("section_final_title") || "Come sit before"} accent={t("section_final_accent")} />
               <p className="mt-5 text-white/85 max-w-md">{t("section_final_desc") || "Reserve early to receive the tier of your choice."}</p>
             </div>
             <div className="md:justify-self-end space-y-3 w-full md:w-auto">

@@ -7,6 +7,7 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { pick } from "@/lib/i18n";
 import Reveal from "@/components/site/Reveal";
 import SectionKicker from "@/components/site/SectionKicker";
+import LuxuryHeading from "@/components/site/LuxuryHeading";
 
 export default function Pillars({ items = [] }) {
   const { t, lang } = useLanguage();
@@ -17,7 +18,7 @@ export default function Pillars({ items = [] }) {
       <div className="container-luxury">
         <Reveal className="max-w-2xl">
           <SectionKicker>{t("section_pillars_kicker") || "Our foundation"}</SectionKicker>
-          <h2 className="mt-5 display-section text-brown">{t("section_pillars_title") || "The Three Pillars"}</h2>
+          <LuxuryHeading className="mt-5" main={t("section_pillars_title") || "The Three Pillars"} accent={t("section_pillars_accent")} />
         </Reveal>
 
         <div className="mt-12 grid lg:grid-cols-3 gap-6">
