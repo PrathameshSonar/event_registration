@@ -1201,25 +1201,48 @@ export default function AdminDashboard() {
 
                 {effectiveTab === 'settings' && can('settings:manage') && (
                     <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm overflow-hidden flex flex-col md:flex-row min-h-[600px]">
-                        <div className="w-full md:w-64 bg-neutral-50 border-r border-neutral-200 p-4 space-y-2">
-                            <button onClick={() => setSettingsSubTab('events')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'events' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><CalendarDays className="w-4 h-4" /> Event Setup</button>
-                            <button onClick={() => setSettingsSubTab('tiers')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'tiers' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><Ticket className="w-4 h-4" /> Ticket Tiers</button>
-                            <button onClick={() => setSettingsSubTab('media')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'media' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ImageIcon className="w-4 h-4" /> Media Gallery</button>
-                            <button onClick={() => setSettingsSubTab('library')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'library' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><FolderOpen className="w-4 h-4" /> Media Library</button>
-                            <button onClick={() => setSettingsSubTab('checkpoints')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'checkpoints' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><QrCode className="w-4 h-4" /> Entry Checkpoints</button>
-                            <button onClick={() => setSettingsSubTab('formfields')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'formfields' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ListFilter className="w-4 h-4" /> Form Fields</button>
-                            <button onClick={() => setSettingsSubTab('homecontent')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'homecontent' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><CalendarDays className="w-4 h-4" /> Home Page Content</button>
-                            <button onClick={() => setSettingsSubTab('branding')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'branding' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><Palette className="w-4 h-4" /> Branding &amp; SEO</button>
-                            <button onClick={() => setSettingsSubTab('pageheaders')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'pageheaders' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ImageIcon className="w-4 h-4" /> Page Headers</button>
-                            <button onClick={() => setSettingsSubTab('templates')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'templates' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><FileCode className="w-4 h-4" /> Templates &amp; Config</button>
-                            <button onClick={() => setSettingsSubTab('payment')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'payment' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><IndianRupee className="w-4 h-4" /> Payment Details</button>
-                            <button onClick={() => setSettingsSubTab('users')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'users' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><Users className="w-4 h-4" /> Admin Users</button>
-                            <button onClick={() => setSettingsSubTab('waitlist')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'waitlist' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><ListFilter className="w-4 h-4" /> Waitlist</button>
-                            <button onClick={() => setSettingsSubTab('donations')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'donations' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><IndianRupee className="w-4 h-4" /> Donations</button>
-                            <button onClick={() => setSettingsSubTab('sponsors')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'sponsors' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><Handshake className="w-4 h-4" /> Sponsors</button>
-                            {/* The message log is a delivery audit trail, so it rides audit:view. */}
-                            {can('audit:view') && <button onClick={() => setSettingsSubTab('messages')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'messages' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><Mail className="w-4 h-4" /> Message Log</button>}
-                            <button onClick={() => setSettingsSubTab('feedback')} className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition ${settingsSubTab === 'feedback' ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><MessageSquare className="w-4 h-4" /> Feedback</button>
+                        <div className="w-full md:w-64 bg-neutral-50 border-r border-neutral-200 p-4 space-y-1">
+                            {/* Grouped so admins can find things fast (was a flat 17-item list). */}
+                            {[
+                                { group: 'Event & Pages', items: [
+                                    { k: 'events', Icon: CalendarDays, label: 'Event Setup' },
+                                    { k: 'homecontent', Icon: CalendarDays, label: 'Home Page Content' },
+                                    { k: 'pageheaders', Icon: ImageIcon, label: 'Page Headers' },
+                                    { k: 'media', Icon: ImageIcon, label: 'Media Gallery' },
+                                    { k: 'library', Icon: FolderOpen, label: 'Media Library' },
+                                ] },
+                                { group: 'Registration', items: [
+                                    { k: 'tiers', Icon: Ticket, label: 'Ticket Tiers' },
+                                    { k: 'formfields', Icon: ListFilter, label: 'Form Fields' },
+                                    { k: 'checkpoints', Icon: QrCode, label: 'Entry Checkpoints' },
+                                    { k: 'waitlist', Icon: ListFilter, label: 'Waitlist' },
+                                ] },
+                                { group: 'Payments & Seva', items: [
+                                    { k: 'payment', Icon: IndianRupee, label: 'Payment Details' },
+                                    { k: 'donations', Icon: IndianRupee, label: 'Donations' },
+                                    { k: 'sponsors', Icon: Handshake, label: 'Sponsors' },
+                                ] },
+                                { group: 'Communications', items: [
+                                    { k: 'templates', Icon: FileCode, label: 'Templates & Config' },
+                                    { k: 'messages', Icon: Mail, label: 'Message Log', gate: 'audit:view' },
+                                    { k: 'feedback', Icon: MessageSquare, label: 'Feedback' },
+                                ] },
+                                { group: 'Access & Appearance', items: [
+                                    { k: 'users', Icon: Users, label: 'Admin Users' },
+                                    { k: 'branding', Icon: Palette, label: 'Branding & SEO' },
+                                ] },
+                            ].map((section) => {
+                                const visible = section.items.filter((it: any) => !it.gate || can(it.gate));
+                                if (!visible.length) return null;
+                                return (
+                                    <div key={section.group} className="pt-2 first:pt-0">
+                                        <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-400">{section.group}</p>
+                                        {visible.map((it) => (
+                                            <button key={it.k} onClick={() => setSettingsSubTab(it.k as typeof settingsSubTab)} className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-3 transition ${settingsSubTab === it.k ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><it.Icon className="w-4 h-4 flex-shrink-0" /> {it.label}</button>
+                                        ))}
+                                    </div>
+                                );
+                            })}
                         </div>
 
                         <div className="flex-1 p-6 lg:p-8 bg-white overflow-y-auto">
