@@ -99,3 +99,9 @@ Registration → `/register/[id]` + `CheckoutForm` (restyled). Donations → `/d
   - Full i18n chrome keys (nav_*, hero_*, section_*_kicker, section_register/faq/final_*, footer_*) added to **en/hi/mr**.
   - ⚠️ **Visual QA needed** — build passing ≠ pixel-correct. Run `npm run dev` and eyeball the hero/nav overlay, fonts, colours, mobile.
   - Next: **Phase 5** — re-skin register / donate / checkout / my-pass / legal in the luxury theme + put Navbar/Footer in a shared layout.
+- 2026-07-19 — **Phase 5a (shared chrome) DONE, build-verified.**
+  - New **`app/(site)/` route group** with `layout.tsx` rendering LuxuryNavbar + `<main>` + LuxuryFooter. Moved the public pages in (`page.tsx` home, donate, feedback, my-pass, pitham, previous-events, privacy, refund, register, terms). `admin`/`scan`/`api`/`entry`/`pass` stay outside — no marketing chrome. Navbar/Footer removed from HomeContent (now provided by the group layout).
+  - Footer contact/socials come from new **`lib/siteEvent.js` `getSiteEvent()`** (unstable_cache, 5-min) so the layout does **not** turn static pages dynamic — verified `/`, `/terms`, `/privacy`, `/donate`, `/my-pass` all still `○`.
+  - Fixed the Hero (removed the negative-margin overlay that put dark nav text on the dark hero — matches the reference's nav-above-hero bar).
+  - ⚠️ The `app/register` move hit a Windows file lock (dev server running) — completed by moving the inner `[id]` folder. If you see a stray empty `app/register`, it's gone.
+  - **Remaining (Phase 5b):** re-skin the page *contents* (register list, donate form, my-pass, legal, and the MUI-heavy CheckoutForm) into the luxury theme. They're now framed by the chrome + ivory bg but still use their old internal styling.

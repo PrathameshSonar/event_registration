@@ -20,7 +20,7 @@ const NAV = [
   { key: "nav_past_events", fallback: "Past Events", to: "/previous-events" },
 ];
 
-export default function LuxuryFooter({ event = null }) {
+export default function LuxuryFooter({ event }) {
   const branding = useBranding();
   const { t } = useLanguage();
   const brandName = branding?.site_name || "BaglaBhairav";

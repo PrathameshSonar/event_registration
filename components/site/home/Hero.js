@@ -18,7 +18,7 @@ export default function Hero({ event, hasCategories }) {
   const heroImage = event?.hero_image_url;
 
   return (
-    <section className="relative isolate overflow-hidden text-ivory min-h-[100vh] flex items-end -mt-20 md:-mt-24">
+    <section className="relative isolate overflow-hidden text-ivory min-h-[88vh] flex items-end">
       {heroImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={heroImage} alt={title} className="absolute inset-0 h-full w-full object-cover animate-slow-zoom" />

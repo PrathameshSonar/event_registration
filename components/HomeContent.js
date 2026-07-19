@@ -1,15 +1,12 @@
 // components/HomeContent.js
 // Luxury homepage composer. Assembles the section components (components/site/home/*)
-// in the story-flow order, wiring each to the admin-controlled data passed from
-// app/page.tsx. No content is hardcoded — a section hides itself when its data is
-// empty. Navbar + Footer are rendered here (scoped to the homepage; other public
-// pages get them in a later phase).
+// in story-flow order, wiring each to the admin-controlled data from app page.
+// No content is hardcoded — a section hides itself when its data is empty.
+// Navbar + Footer come from the shared (site) route-group layout.
 "use client";
 
 import { useState } from "react";
 
-import LuxuryNavbar from "@/components/site/LuxuryNavbar";
-import LuxuryFooter from "@/components/site/LuxuryFooter";
 import FloatingActions from "@/components/FloatingActions";
 import WaitlistModal from "@/components/WaitlistModal";
 
@@ -39,8 +36,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
 
   return (
     <>
-      <LuxuryNavbar />
-      <main className="bg-ivory text-brown">
+      <div className="bg-ivory text-brown">
         <Hero event={pageData} hasCategories={hasCategories} />
         {isLive && <Livestream event={pageData} />}
         <AboutMahayagya event={pageData} />
@@ -56,8 +52,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
         <News items={news || []} />
         <Faq items={faqs || []} />
         <FinalCta event={pageData} hasCategories={hasCategories} />
-      </main>
-      <LuxuryFooter event={pageData} />
+      </div>
 
       {waitlistCat && <WaitlistModal category={waitlistCat} onClose={() => setWaitlistCat(null)} />}
       <FloatingActions phone={pageData?.contact_phone} hasCategories={hasCategories} />
