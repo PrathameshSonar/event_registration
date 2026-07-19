@@ -24,9 +24,9 @@ export default function Testimonials({ items = [] }) {
   return (
     <section className="section-y bg-[hsl(34,30%,94%)]">
       <div className="container-luxury">
-        <Reveal className="text-center max-w-xl mx-auto mb-14">
+        <Reveal className="text-center max-w-xl mx-auto mb-8">
           <SectionKicker>{t("section_testimonials_kicker") || "Voices of Devotees"}</SectionKicker>
-          <LuxuryHeading className="mt-5" main={t("section_testimonials_title") || "Words from Devotees"} accent={t("section_testimonials_accent")} />
+          <LuxuryHeading className="mt-4" main={t("section_testimonials_title") || "Words from Devotees"} accent={t("section_testimonials_accent")} />
         </Reveal>
         <TestimonialsCarousel items={slides} />
       </div>

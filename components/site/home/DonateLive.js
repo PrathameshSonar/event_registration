@@ -17,7 +17,7 @@ export default function DonateLive({ event }) {
     <section className="section-y">
       <div className="container-luxury grid lg:grid-cols-2 gap-8">
         <Reveal>
-          <div className="relative luxury-card overflow-hidden p-8 md:p-10 min-h-[340px]">
+          <div className="relative luxury-card overflow-hidden p-7 md:p-9 min-h-[260px]">
             <div className="absolute inset-0 bg-gradient-to-br from-white via-white/95 to-gold-50/70" />
             <div className="relative">
               <span className="inline-flex items-center gap-2 rounded-full bg-vermillion/10 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-vermillion font-semibold">
@@ -34,7 +34,7 @@ export default function DonateLive({ event }) {
 
         {hasStream && (
           <Reveal delay={120}>
-            <div className="relative luxury-card overflow-hidden min-h-[340px]">
+            <div className="relative luxury-card overflow-hidden min-h-[260px]">
               {bg ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={bg} alt="" className="absolute inset-0 h-full w-full object-cover" />

@@ -21,14 +21,14 @@ export default function Gallery({ mediaItems = [] }) {
   return (
     <section id="gallery" className="section-y scroll-mt-24">
       <div className="container-luxury">
-        <div className="flex flex-wrap items-end justify-between gap-6 mb-12">
+        <div className="flex flex-wrap items-end justify-between gap-6 mb-9">
           <Reveal>
             <SectionKicker>{t("section_gallery_kicker") || "Moments"}</SectionKicker>
             <LuxuryHeading className="mt-5 max-w-xl" main={t("section_gallery") || "Gallery"} accent={t("section_gallery_accent")} />
           </Reveal>
         </div>
-        <GalleryMasonry images={images} limit={9} />
-        {images.length > 9 && (
+        <GalleryMasonry images={images} limit={6} />
+        {images.length > 6 && (
           <div className="mt-10 text-center">
             <Link href="/gallery" className="btn-outline-gold">{t("home_full_gallery") || "View full gallery"}</Link>
           </div>

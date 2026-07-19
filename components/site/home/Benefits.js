@@ -23,8 +23,8 @@ export default function Benefits({ items = [] }) {
           <p className="mt-5 text-brown/70">{t("section_blessings_desc") || "The blessings extend far beyond the days of the event."}</p>
         </Reveal>
 
-        <div className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {items.map((b, i) => {
+        <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {items.slice(0, 6).map((b, i) => {
             const Icon = getLucideIcon(b.icon);
             const title = pick(b, "title", lang);
             const desc = pick(b, "description", lang);
@@ -37,8 +37,8 @@ export default function Benefits({ items = [] }) {
                       {Icon ? <Icon className="h-5 w-5" strokeWidth={1.7} /> : (b.icon || "✨")}
                     </span>
                     <div>
-                      <h3 className="font-display text-lg md:text-[22px] text-brown">{title}</h3>
-                      {desc && <p className="mt-2 text-brown/75 leading-[1.8]" style={{ fontSize: "1rem" }}>{desc}</p>}
+                      <h3 className="font-display text-lg md:text-xl text-brown">{title}</h3>
+                      {desc && <p className="mt-2 text-brown/75 leading-[1.7] line-clamp-3" style={{ fontSize: "0.95rem" }}>{desc}</p>}
                     </div>
                   </div>
                 </article>

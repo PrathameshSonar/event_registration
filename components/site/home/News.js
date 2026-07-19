@@ -17,7 +17,7 @@ export default function News({ items = [] }) {
   return (
     <section id="news" className="section-y bg-morning-sun scroll-mt-24">
       <div className="container-luxury">
-        <div className="flex flex-wrap items-end justify-between gap-6 mb-12">
+        <div className="flex flex-wrap items-end justify-between gap-6 mb-9">
           <Reveal>
             <SectionKicker>{t("section_news_kicker") || "Latest News"}</SectionKicker>
             <LuxuryHeading className="mt-5 max-w-xl" main={t("section_news_title") || "News & Announcements"} accent={t("section_news_accent")} />

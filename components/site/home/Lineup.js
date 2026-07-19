@@ -25,7 +25,7 @@ export default function Lineup({ guests }) {
         </Reveal>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-          {list.slice(0, 8).map((g) => {
+          {list.slice(0, 6).map((g) => {
             const gName = pick(g, "name", lang);
             const gRole = pick(g, "role", lang);
             return (
@@ -45,7 +45,7 @@ export default function Lineup({ guests }) {
           })}
         </div>
 
-        {list.length > 8 && (
+        {list.length > 6 && (
           <div className="mt-10 text-center">
             <Link href="/event" className="text-sm inline-flex items-center gap-1 font-semibold text-vermillion hover:text-lotus">
               {t("nav_event_details") || "See the full event"} <ChevronRight className="h-4 w-4" />

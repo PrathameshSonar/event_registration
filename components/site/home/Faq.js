@@ -34,7 +34,7 @@ export default function Faq({ items = [] }) {
 
         <Reveal delay={100}>
           <div className="luxury-card p-4 md:p-6">
-            {items.slice(0, 8).map((f, i) => {
+            {items.slice(0, 4).map((f, i) => {
               const q = pick(f, "question", lang);
               const a = pick(f, "answer", lang);
               const isOpen = open === i;
