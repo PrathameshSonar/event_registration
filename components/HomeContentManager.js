@@ -5,7 +5,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Trash2, Save, Clock, Sparkles, Phone, CalendarClock, Image as ImageIcon, HelpCircle, BellRing, Star, Radio, Newspaper, Eye, EyeOff, FileText } from "lucide-react";
+import { Plus, Trash2, Save, Clock, Sparkles, Phone, CalendarClock, Image as ImageIcon, HelpCircle, BellRing, Star, Radio, Newspaper, Eye, EyeOff, FileText, Quote } from "lucide-react";
 import { youtubeId } from "@/lib/youtube";
 import { toast } from "@/lib/uiStore";
 import MediaPicker from "@/components/MediaPicker";
@@ -42,6 +42,7 @@ export default function HomeContentManager(props) {
   const [faqs, setFaqs] = useState([]);
   const [guests, setGuests] = useState([]);
   const [news, setNews] = useState([]);
+  const [testimonials, setTestimonials] = useState([]);
   const [reminders, setReminders] = useState([]);
   const [busy, setBusy] = useState(false);
 
@@ -58,7 +59,14 @@ export default function HomeContentManager(props) {
   const [gRole, setGRole] = useState("");
   const [gPhoto, setGPhoto] = useState("");
   const [gBio, setGBio] = useState("");
+  const [gFeatured, setGFeatured] = useState(false);
   const [gTr, setGTr] = useState({});
+
+  // New testimonial / devotee quote
+  const [tName, setTName] = useState("");
+  const [tLocation, setTLocation] = useState("");
+  const [tQuote, setTQuote] = useState("");
+  const [tTr, setTTr] = useState({});
 
   // New FAQ
   const [fq, setFq] = useState("");
@@ -71,10 +79,11 @@ export default function HomeContentManager(props) {
   const [sDay, setSDay] = useState("");
   const [sTr, setSTr] = useState({});
 
-  // New highlight
+  // New highlight (section groups it into a distinct homepage block)
   const [hIcon, setHIcon] = useState("🪔");
   const [hTitle, setHTitle] = useState("");
   const [hDesc, setHDesc] = useState("");
+  const [hSection, setHSection] = useState("highlights");
   const [hTr, setHTr] = useState({});
 
   // datetime-local wants "YYYY-MM-DDTHH:mm"
@@ -88,13 +97,14 @@ export default function HomeContentManager(props) {
 
   const loadLists = useCallback(async (id) => {
     if (!id) return;
-    const [s, h, f, r, g, n] = await Promise.all([
+    const [s, h, f, r, g, n, tm] = await Promise.all([
       fetch(`/api/admin/schedule?eventId=${id}`).then((r) => r.json()).catch(() => ({ items: [] })),
       fetch(`/api/admin/highlights?eventId=${id}`).then((r) => r.json()).catch(() => ({ items: [] })),
       fetch(`/api/admin/faqs?eventId=${id}`).then((r) => r.json()).catch(() => ({ items: [] })),
       fetch(`/api/admin/reminders?eventId=${id}`).then((r) => r.json()).catch(() => ({ items: [] })),
       fetch(`/api/admin/guests?eventId=${id}`).then((r) => r.json()).catch(() => ({ items: [] })),
       fetch(`/api/admin/news?eventId=${id}`).then((r) => r.json()).catch(() => ({ items: [] })),
+      fetch(`/api/admin/testimonials?eventId=${id}`).then((r) => r.json()).catch(() => ({ items: [] })),
     ]);
     setSchedule(s.items || []);
     setHighlights(h.items || []);
@@ -102,6 +112,7 @@ export default function HomeContentManager(props) {
     setReminders(r.items || []);
     setGuests(g.items || []);
     setNews(n.items || []);
+    setTestimonials(tm.items || []);
   }, []);
 
   // ── Live stream ───────────────────────────────────────────────────────────
@@ -179,17 +190,51 @@ export default function HomeContentManager(props) {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         event_id: eventId, name: gName, role: gRole, photo_url: gPhoto, bio: gBio,
-        translations: buildTranslations(gTr),
+        is_featured: gFeatured, translations: buildTranslations(gTr),
       }),
     });
     setBusy(false);
     if (!res.ok) { toast.error("Could not add guest."); return; }
-    setGName(""); setGRole(""); setGPhoto(""); setGBio(""); setGTr({});
+    setGName(""); setGRole(""); setGPhoto(""); setGBio(""); setGFeatured(false); setGTr({});
     await loadLists(eventId);
   };
   const delGuest = async (id) => {
     setBusy(true);
     await fetch("/api/admin/guests", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    await loadLists(eventId);
+    setBusy(false);
+  };
+  // Mark/unmark a guest as the featured "Leadership" hero (e.g. Guruji).
+  const toggleGuestFeatured = async (g) => {
+    setBusy(true);
+    await fetch("/api/admin/guests", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: g.id, is_featured: !g.is_featured }) });
+    await loadLists(eventId);
+    setBusy(false);
+  };
+
+  // ── Testimonials / devotee quotes ──────────────────────────────────────────
+  const addTestimonial = async (e) => {
+    e.preventDefault();
+    if (!tQuote.trim()) return;
+    setBusy(true);
+    const res = await fetch("/api/admin/testimonials", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event_id: eventId, name: tName, location: tLocation, quote: tQuote, is_published: true, translations: buildTranslations(tTr) }),
+    });
+    setBusy(false);
+    if (!res.ok) { toast.error("Could not add testimonial."); return; }
+    setTName(""); setTLocation(""); setTQuote(""); setTTr({});
+    await loadLists(eventId);
+  };
+  const toggleTestimonial = async (item) => {
+    setBusy(true);
+    await fetch("/api/admin/testimonials", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: item.id, is_published: !item.is_published }) });
+    await loadLists(eventId);
+    setBusy(false);
+  };
+  const delTestimonial = async (id) => {
+    setBusy(true);
+    await fetch("/api/admin/testimonials", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
     await loadLists(eventId);
     setBusy(false);
   };
@@ -254,9 +299,9 @@ export default function HomeContentManager(props) {
     await fetch("/api/admin/highlights", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event_id: eventId, icon: hIcon, title: hTitle, description: hDesc, translations: buildTranslations(hTr) }),
+      body: JSON.stringify({ event_id: eventId, icon: hIcon, title: hTitle, description: hDesc, section: hSection, translations: buildTranslations(hTr) }),
     });
-    setHIcon("🪔"); setHTitle(""); setHDesc(""); setHTr({});
+    setHIcon("🪔"); setHTitle(""); setHDesc(""); setHSection("highlights"); setHTr({});
     await loadLists(eventId);
     setBusy(false);
   };
@@ -515,9 +560,10 @@ export default function HomeContentManager(props) {
                 ? <img src={g.photo_url} alt={g.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
                 : <div className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center flex-shrink-0"><Star className="w-4 h-4 text-neutral-400" /></div>}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-neutral-900 truncate">{g.name}</p>
+                <p className="text-sm font-semibold text-neutral-900 truncate">{g.name}{g.is_featured && <span className="ml-2 text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded align-middle">★ LEADERSHIP</span>}</p>
                 {g.role && <p className="text-xs text-neutral-400 truncate">{g.role}</p>}
               </div>
+              <button onClick={() => toggleGuestFeatured(g)} disabled={busy} title={g.is_featured ? "Remove from Leadership hero" : "Feature as the Leadership hero (e.g. Guruji)"} className={`p-2 rounded-lg transition ${g.is_featured ? "text-amber-500 hover:bg-amber-50" : "text-neutral-300 hover:text-amber-500 hover:bg-amber-50"}`}><Star className="w-4 h-4" fill={g.is_featured ? "currentColor" : "none"} /></button>
               <button onClick={() => delGuest(g.id)} disabled={busy} className="p-2 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
             </div>
           ))}
@@ -530,20 +576,54 @@ export default function HomeContentManager(props) {
             <MediaPicker onSelected={(url) => setGPhoto(url)} />
           </div>
           <div className="md:col-span-2"><TranslatableField label="Short bio" field="bio" value={gBio} onValue={setGBio} tr={gTr} onTr={mkSetTr(setGTr)} multiline rows={2} placeholder="Short bio (optional)" /></div>
+          <label className="md:col-span-2 flex items-center gap-2 cursor-pointer text-sm font-semibold text-neutral-700">
+            <input type="checkbox" checked={gFeatured} onChange={(e) => setGFeatured(e.target.checked)} className="w-4 h-4 text-amber-600 rounded border-neutral-300 focus:ring-amber-600" />
+            ★ Feature as the Leadership hero (large section above the lineup — e.g. Guruji)
+          </label>
           <button type="submit" disabled={busy || !gName.trim()} className="md:col-span-2 flex items-center justify-center gap-2 bg-neutral-900 hover:bg-orange-600 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-lg text-sm transition"><Plus className="w-4 h-4" /> Add Guest</button>
+        </form>
+      </div>
+
+      {/* Testimonials / devotee quotes */}
+      <div className="mb-8">
+        <h3 className="font-bold text-sm uppercase tracking-wider text-neutral-700 mb-1 flex items-center gap-2"><Quote className="w-4 h-4" /> Testimonials</h3>
+        <p className="text-xs text-neutral-400 mb-3">Curated devotee quotes shown on the homepage. Hidden items stay saved but don&rsquo;t appear publicly. Leave empty to hide the section.</p>
+        <div className="space-y-2 mb-4">
+          {testimonials.length === 0 && <p className="text-neutral-400 text-sm">No testimonials yet.</p>}
+          {testimonials.map((tm) => (
+            <div key={tm.id} className={`flex items-start gap-3 bg-white border rounded-lg p-3 ${tm.is_published ? "border-neutral-200" : "border-neutral-200 opacity-60"}`}>
+              <Quote className="w-4 h-4 text-orange-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-neutral-800 line-clamp-2">&ldquo;{tm.quote}&rdquo;</p>
+                <p className="text-xs text-neutral-400 mt-0.5">{[tm.name, tm.location].filter(Boolean).join(" · ") || "Anonymous"}{!tm.is_published && <span className="ml-2 text-[10px] font-bold bg-neutral-200 text-neutral-600 px-1.5 py-0.5 rounded align-middle">HIDDEN</span>}</p>
+              </div>
+              <button onClick={() => toggleTestimonial(tm)} disabled={busy} title={tm.is_published ? "Hide from the site" : "Show on the site"} className="p-2 text-neutral-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition">
+                {tm.is_published ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              </button>
+              <button onClick={() => delTestimonial(tm.id)} disabled={busy} className="p-2 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
+            </div>
+          ))}
+        </div>
+        <form onSubmit={addTestimonial} className="bg-neutral-50 border border-neutral-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <input type="text" placeholder="Name (e.g. Ramesh K.)" value={tName} onChange={(e) => setTName(e.target.value)} className={inputCls} />
+          <input type="text" placeholder="Location (e.g. Pune)" value={tLocation} onChange={(e) => setTLocation(e.target.value)} className={inputCls} />
+          <div className="md:col-span-2"><TranslatableField label="Quote" field="quote" value={tQuote} onValue={setTQuote} tr={tTr} onTr={mkSetTr(setTTr)} multiline rows={2} placeholder="What they said about the experience…" /></div>
+          <button type="submit" disabled={busy || !tQuote.trim()} className="md:col-span-2 flex items-center justify-center gap-2 bg-neutral-900 hover:bg-orange-600 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-lg text-sm transition"><Plus className="w-4 h-4" /> Add Testimonial</button>
         </form>
       </div>
 
       {/* Highlights */}
       <div className="mb-4">
-        <h3 className="font-bold text-sm uppercase tracking-wider text-neutral-700 mb-1 flex items-center gap-2"><Sparkles className="w-4 h-4" /> Ritual Highlights</h3>
-        <p className="text-xs text-neutral-400 mb-3">Leave empty to show the default ritual cards (Havan, Maha Aarti, Annadān…).</p>
+        <h3 className="font-bold text-sm uppercase tracking-wider text-neutral-700 mb-1 flex items-center gap-2"><Sparkles className="w-4 h-4" /> Highlight Cards</h3>
+        <p className="text-xs text-neutral-400 mb-3">Card grids on the homepage. Pick a <strong>section</strong> per card: <em>Highlights</em> (rituals), <em>Pillars</em> (e.g. Puja / Gyan / Bhakti), or <em>Blessings</em> (benefits). Each non-empty section renders as its own block. Leave Highlights empty to show the default ritual cards.</p>
         <div className="space-y-2 mb-4">
           {highlights.map((h) => (
             <div key={h.id} className="flex items-center gap-3 bg-white border border-neutral-200 rounded-lg p-3">
               <span className="text-2xl flex-shrink-0">{h.icon}</span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-neutral-900 truncate">{h.title}</p>
+                <p className="text-sm font-semibold text-neutral-900 truncate">{h.title}
+                  {h.section && h.section !== 'highlights' && <span className="ml-2 text-[10px] font-bold bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded align-middle uppercase">{h.section}</span>}
+                </p>
                 {h.description && <p className="text-xs text-neutral-400 truncate">{h.description}</p>}
               </div>
               <button onClick={() => delHighlight(h.id)} disabled={busy} className="p-2 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
@@ -551,10 +631,17 @@ export default function HomeContentManager(props) {
           ))}
         </div>
         <form onSubmit={addHighlight} className="bg-neutral-50 border border-neutral-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-          <input type="text" placeholder="Icon emoji (🔥 🪔 🌺 🍲)" value={hIcon} onChange={(e) => setHIcon(e.target.value)} className={`${inputCls} md:col-span-2`} maxLength={4} />
+          <div className="md:col-span-2 grid grid-cols-2 gap-3">
+            <input type="text" placeholder="Icon emoji (🔥 🪔 🌺 🍲)" value={hIcon} onChange={(e) => setHIcon(e.target.value)} className={inputCls} maxLength={4} />
+            <select value={hSection} onChange={(e) => setHSection(e.target.value)} className={`${inputCls} cursor-pointer`}>
+              <option value="highlights">Section: Highlights</option>
+              <option value="pillars">Section: Pillars</option>
+              <option value="blessings">Section: Blessings</option>
+            </select>
+          </div>
           <div><TranslatableField label="Title" field="title" value={hTitle} onValue={setHTitle} tr={hTr} onTr={mkSetTr(setHTr)} placeholder="Title" /></div>
           <div><TranslatableField label="Short description" field="description" value={hDesc} onValue={setHDesc} tr={hTr} onTr={mkSetTr(setHTr)} placeholder="Short description" /></div>
-          <button type="submit" disabled={busy || !hTitle.trim()} className="md:col-span-2 flex items-center justify-center gap-2 bg-neutral-900 hover:bg-orange-600 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-lg text-sm transition"><Plus className="w-4 h-4" /> Add Highlight</button>
+          <button type="submit" disabled={busy || !hTitle.trim()} className="md:col-span-2 flex items-center justify-center gap-2 bg-neutral-900 hover:bg-orange-600 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-lg text-sm transition"><Plus className="w-4 h-4" /> Add Card</button>
         </form>
       </div>
 

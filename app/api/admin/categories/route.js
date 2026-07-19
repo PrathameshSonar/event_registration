@@ -15,7 +15,7 @@ function sanitize(input = {}) {
         'is_full', 'is_enquiry_only', 'max_capacity', 'show_availability',
         'max_attendees_per_reg',
         'event_id', 'show_emi_badge', 'allow_part_payment', 'advance_percent', 'allow_enquiry',
-        'min_age', 'max_age', 'translations'];
+        'is_recommended', 'min_age', 'max_age', 'translations'];
     for (const key of allowed) {
         if (input[key] !== undefined) out[key] = input[key];
     }

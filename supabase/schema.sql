@@ -133,7 +133,8 @@ ALTER TABLE categories
     ADD COLUMN IF NOT EXISTS show_emi_badge     BOOLEAN DEFAULT false,
     ADD COLUMN IF NOT EXISTS allow_part_payment BOOLEAN DEFAULT false,
     ADD COLUMN IF NOT EXISTS advance_percent    INTEGER DEFAULT 25,
-    ADD COLUMN IF NOT EXISTS allow_enquiry      BOOLEAN DEFAULT false;
+    ADD COLUMN IF NOT EXISTS allow_enquiry      BOOLEAN DEFAULT false,
+    ADD COLUMN IF NOT EXISTS is_recommended     BOOLEAN DEFAULT false;
 
 ALTER TABLE registrations
     ADD COLUMN IF NOT EXISTS amount_paid      NUMERIC DEFAULT 0,
@@ -551,6 +552,24 @@ CREATE TABLE IF NOT EXISTS event_guests (
 CREATE INDEX IF NOT EXISTS event_guests_event_idx ON event_guests(event_id);
 GRANT ALL ON event_guests TO service_role;
 
+-- Marketing-site UX port (2026-07-19): featured guest (Leadership hero),
+-- grouped highlights (pillars/blessings), and curated testimonials.
+ALTER TABLE event_guests     ADD COLUMN IF NOT EXISTS is_featured BOOLEAN DEFAULT false;
+ALTER TABLE event_highlights ADD COLUMN IF NOT EXISTS section TEXT DEFAULT 'highlights';
+CREATE TABLE IF NOT EXISTS event_testimonials (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id     UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    name         TEXT,
+    location     TEXT,
+    quote        TEXT NOT NULL,
+    is_published BOOLEAN DEFAULT true,
+    sort_order   INTEGER DEFAULT 0,
+    translations JSONB DEFAULT '{}'::jsonb,
+    created_at   TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS event_testimonials_event_idx ON event_testimonials(event_id);
+GRANT ALL ON event_testimonials TO service_role;
+
 
 -- 8) ── Homepage hero image + "Plan Your Visit" (per event) ──────────────────
 ALTER TABLE events
@@ -617,6 +636,10 @@ GRANT ALL ON media_library TO service_role;
 
 ALTER TABLE events
     ADD COLUMN IF NOT EXISTS travel_info    TEXT;
+
+-- Homepage "by the numbers" strip (JSONB array of {value,label}).
+ALTER TABLE events
+    ADD COLUMN IF NOT EXISTS stats JSONB DEFAULT '[]'::jsonb;
 
 
 -- 9) ── FAQ accordion + reminder opt-ins ────────────────────────────────────

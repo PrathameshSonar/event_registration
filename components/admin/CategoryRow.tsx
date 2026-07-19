@@ -25,6 +25,7 @@ export default function CategoryRow({ category, onUpdate, onDelete }: { category
     const [showEmi, setShowEmi] = useState(category.show_emi_badge || false);
     const [allowPart, setAllowPart] = useState(category.allow_part_payment || false);
     const [allowEnquiry, setAllowEnquiry] = useState(category.allow_enquiry || false);
+    const [isRecommended, setIsRecommended] = useState(category.is_recommended || false);
     const [advancePct, setAdvancePct] = useState(category.advance_percent || 25);
     const [minAge, setMinAge] = useState<string>(category.min_age ? String(category.min_age) : '');
     const [maxAge, setMaxAge] = useState<string>(category.max_age ? String(category.max_age) : '');
@@ -45,7 +46,7 @@ export default function CategoryRow({ category, onUpdate, onDelete }: { category
             is_full: isFull, is_enquiry_only: isEnquiry, max_capacity: capacity, show_availability: showAvail,
             max_attendees_per_reg: maxPerReg,
             show_emi_badge: showEmi, allow_part_payment: allowPart, advance_percent: advancePct,
-            allow_enquiry: allowEnquiry,
+            allow_enquiry: allowEnquiry, is_recommended: isRecommended,
             min_age: minAge ? Number(minAge) : null, max_age: maxAge ? Number(maxAge) : null,
             translations: buildTranslations(tr) as Record<string, Record<string, string>>,
         });
@@ -62,6 +63,9 @@ export default function CategoryRow({ category, onUpdate, onDelete }: { category
                     </select>
                     <select value={isFull ? 'full' : 'open'} onChange={(e) => { setIsFull(e.target.value === 'full'); setIsChanged(true); }} className={`text-xs border rounded-lg px-2.5 py-1.5 font-bold cursor-pointer outline-none transition ${isFull ? 'bg-red-50 text-red-700 border-red-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
                         <option value="open">🟢 Slots Open</option><option value="full">🔴 Manual Lock (Full)</option>
+                    </select>
+                    <select value={isRecommended ? 'yes' : 'no'} onChange={(e) => { setIsRecommended(e.target.value === 'yes'); setIsChanged(true); }} className={`text-xs border rounded-lg px-2.5 py-1.5 font-bold cursor-pointer outline-none transition ${isRecommended ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-neutral-50 text-neutral-700 border-neutral-200'}`}>
+                        <option value="no">☆ Standard</option><option value="yes">⭐ Most Chosen</option>
                     </select>
                     <button onClick={() => onDelete(category.id, category.title)} className="text-neutral-400 hover:text-red-600 p-1.5 border border-transparent hover:border-red-200 rounded bg-neutral-50 hover:bg-red-50 transition"><Trash2 className="w-4 h-4" /></button>
                 </div>

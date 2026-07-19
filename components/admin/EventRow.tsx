@@ -32,6 +32,10 @@ export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
     const [facebookUrl, setFacebookUrl] = useState(event.facebook_url || '');
     const [youtubeUrl, setYoutubeUrl] = useState(event.youtube_url || '');
     const [heroImageUrl, setHeroImageUrl] = useState(event.hero_image_url || '');
+    // "By the numbers" strip — ordered {value,label} pairs.
+    const [stats, setStats] = useState<{ value: string; label: string }[]>(
+        Array.isArray(event.stats) ? event.stats : [],
+    );
     const [isChanged, setIsChanged] = useState(false);
 
     // Non-English translations, seeded from the translations JSONB.
@@ -51,10 +55,19 @@ export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
             map_url: mapUrl || null,
             instagram_url: instagramUrl || null, facebook_url: facebookUrl || null, youtube_url: youtubeUrl || null,
             hero_image_url: heroImageUrl || null,
+            // Drop blank rows so the public strip never shows an empty stat.
+            stats: stats.filter((s) => s.value.trim() || s.label.trim()),
             translations: buildTranslations(tr) as Record<string, Record<string, string>>,
         });
         setIsChanged(false);
     };
+
+    const setStat = (i: number, key: 'value' | 'label', v: string) => {
+        setStats((p) => p.map((s, idx) => (idx === i ? { ...s, [key]: v } : s)));
+        setIsChanged(true);
+    };
+    const addStat = () => { setStats((p) => [...p, { value: '', label: '' }]); setIsChanged(true); };
+    const removeStat = (i: number) => { setStats((p) => p.filter((_, idx) => idx !== i)); setIsChanged(true); };
 
     return (
         <div className={`rounded-xl border shadow-sm transition-all ${event.is_active ? 'border-orange-300 bg-orange-50/30' : 'border-neutral-200 bg-white'}`}>
@@ -92,6 +105,24 @@ export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
                     <TranslatableField label="Date / Duration" field="date_time" value={dateTime} onValue={(v) => { setDateTime(v); track(); }} tr={tr} onTr={setTrField} placeholder="e.g. March 15–17, 2026" />
                     <TranslatableField label="Venue" field="venue" value={venue} onValue={(v) => { setVenue(v); track(); }} tr={tr} onTr={setTrField} placeholder="e.g. Nashik, Maharashtra" />
                     <TranslatableField label="Plan Your Visit" field="travel_info" value={travelInfo} onValue={(v) => { setTravelInfo(v); track(); }} tr={tr} onTr={setTrField} multiline rows={4} placeholder="How to reach, parking, nearby accommodation…" />
+
+                    {/* "By the numbers" strip shown high on the homepage. */}
+                    <div className="border border-neutral-200 rounded-lg p-4 bg-neutral-50/60">
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider">Key Stats <span className="font-normal text-neutral-400 normal-case">(homepage “by the numbers” strip — optional)</span></label>
+                            <button type="button" onClick={addStat} className="text-xs font-bold text-orange-600 hover:text-orange-700">+ Add stat</button>
+                        </div>
+                        {stats.length === 0 && <p className="text-xs text-neutral-400">No stats yet — e.g. “36+ Homa Kundas”, “5,000+ Devotees”.</p>}
+                        <div className="space-y-2">
+                            {stats.map((s, i) => (
+                                <div key={i} className="flex gap-2 items-center">
+                                    <input value={s.value} onChange={(e) => setStat(i, 'value', e.target.value)} placeholder="36+" className="w-24 px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-white focus:outline-none focus:border-orange-500 transition" />
+                                    <input value={s.label} onChange={(e) => setStat(i, 'label', e.target.value)} placeholder="Homa Kundas" className="flex-1 px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-white focus:outline-none focus:border-orange-500 transition" />
+                                    <button type="button" onClick={() => removeStat(i)} className="text-neutral-400 hover:text-red-600 p-1.5 rounded hover:bg-red-50 transition"><Trash2 className="w-4 h-4" /></button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
 
                     <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Google Maps Link</label><input type="url" value={mapUrl} onChange={e => { setMapUrl(e.target.value); track(); }} placeholder="https://maps.google.com/..." className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

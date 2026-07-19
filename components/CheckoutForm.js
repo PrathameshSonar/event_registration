@@ -12,8 +12,6 @@ import {
   Phone,
   Users,
   Heart,
-  CheckCircle,
-  Download,
   Loader2,
 } from "lucide-react";
 import {
@@ -25,6 +23,7 @@ import {
   FormControlLabel,
 } from "@mui/material";
 import { useLanguage } from "./LanguageProvider";
+import CheckoutSuccess from "./checkout/CheckoutSuccess";
 import { pick } from "@/lib/i18n";
 import { BUILTIN_FIELDS, CORE_KEYS } from "@/lib/formFields";
 import { ageError, ageLimitLabel } from "@/lib/age";
@@ -50,157 +49,6 @@ const adorn = (icon, extra = {}) => ({
   startAdornment: <InputAdornment position="start">{icon}</InputAdornment>,
   ...extra,
 });
-
-// Renders the success details into a downloadable receipt image (PNG) using
-// the Canvas API, so no extra dependency is needed.
-function buildReceiptCanvas(data) {
-  const rupee = (n) => "Rs. " + Number(n || 0).toLocaleString("en-IN");
-
-  const dateStr = new Date().toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  const rows = [
-    ["Date", dateStr],
-    ["Name", data.name],
-    ["Email", data.email],
-    ["Mobile", data.phone],
-  ];
-  if (data.gotra) rows.push(["Gotra", data.gotra]);
-  if (!data.isEnquiry) {
-    rows.push(["Category", data.category]);
-    rows.push(["Attendees", `${data.attendees} Person(s)`]);
-    rows.push(["Status", data.partial ? "Advance Paid" : "Paid"]);
-    if (data.partial) {
-      rows.push(["Advance Paid", rupee(data.paidNow)]);
-      rows.push(["Balance Due", rupee(data.balance)]);
-      rows.push(["Total", rupee(data.amount)]);
-    } else {
-      rows.push(["Amount", rupee(data.amount)]);
-    }
-    if (data.orderId) rows.push(["Order ID", data.orderId]);
-    if (data.paymentId) rows.push(["Payment Ref", data.paymentId]);
-  }
-
-  // Layout constants (logical px; scaled up for crisp output).
-  const scale = 2;
-  const W = 440;
-  const padX = 36;
-  const rowH = 38;
-  const headerH = 150;
-  const footerH = 96;
-  const H = headerH + rows.length * rowH + footerH;
-
-  const canvas = document.createElement("canvas");
-  canvas.width = W * scale;
-  canvas.height = H * scale;
-  const ctx = canvas.getContext("2d");
-  ctx.scale(scale, scale);
-
-  // Background
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, W, H);
-
-  // Top accent bar
-  ctx.fillStyle = "#ea580c";
-  ctx.fillRect(0, 0, W, 8);
-
-  // Brand + title
-  ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = "#0a0a0a";
-  ctx.font = "800 26px Arial, sans-serif";
-  ctx.fillText("BaglaBhairav", padX, 56);
-
-  ctx.fillStyle = "#737373";
-  ctx.font = "600 13px Arial, sans-serif";
-  ctx.fillText(
-    data.isEnquiry ? "ENQUIRY RECEIPT" : "REGISTRATION RECEIPT",
-    padX,
-    80,
-  );
-
-  // Status pill
-  const pillText = data.isEnquiry
-    ? "Enquiry Received"
-    : data.partial
-      ? "Advance Received"
-      : "Payment Successful";
-  ctx.font = "700 12px Arial, sans-serif";
-  const pillW = ctx.measureText(pillText).width + 24;
-  const pillColor = data.partial ? "#b45309" : "#16a34a";
-  const pillBg = data.partial ? "#fffbeb" : "#f0fdf4";
-  ctx.fillStyle = pillBg;
-  ctx.beginPath();
-  ctx.roundRect(padX, 98, pillW, 28, 14);
-  ctx.fill();
-  ctx.fillStyle = pillColor;
-  ctx.fillText(pillText, padX + 12, 117);
-
-  // Divider
-  ctx.strokeStyle = "#e5e5e5";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(padX, headerH - 6);
-  ctx.lineTo(W - padX, headerH - 6);
-  ctx.stroke();
-
-  // Rows
-  rows.forEach(([label, value], i) => {
-    const y = headerH + i * rowH + 18;
-    ctx.fillStyle = "#737373";
-    ctx.font = "500 14px Arial, sans-serif";
-    ctx.textAlign = "left";
-    ctx.fillText(label, padX, y);
-
-    ctx.fillStyle = "#0a0a0a";
-    ctx.font = "700 14px Arial, sans-serif";
-    ctx.textAlign = "right";
-    // Truncate long values (e.g. payment ref) to fit.
-    let text = String(value ?? "");
-    const maxW = W - padX * 2 - ctx.measureText(label).width - 16;
-    while (ctx.measureText(text).width > maxW && text.length > 4) {
-      text = text.slice(0, -2);
-    }
-    if (text !== String(value ?? "")) text += "…";
-    ctx.fillText(text, W - padX, y);
-    ctx.textAlign = "left";
-  });
-
-  // Footer
-  const fy = headerH + rows.length * rowH;
-  ctx.strokeStyle = "#e5e5e5";
-  ctx.beginPath();
-  ctx.moveTo(padX, fy + 8);
-  ctx.lineTo(W - padX, fy + 8);
-  ctx.stroke();
-
-  ctx.fillStyle = "#a3a3a3";
-  ctx.font = "500 11px Arial, sans-serif";
-  ctx.fillText("Keep this receipt for your records.", padX, fy + 34);
-  ctx.fillText(
-    "A confirmation has also been sent to your email.",
-    padX,
-    fy + 52,
-  );
-
-  return canvas;
-}
-
-function downloadReceipt(data) {
-  const canvas = buildReceiptCanvas(data);
-  const safeName = String(data.name || "receipt")
-    .replace(/[^a-z0-9]+/gi, "-")
-    .replace(/^-+|-+$/g, "")
-    .toLowerCase();
-  const link = document.createElement("a");
-  link.download = `baglabhairav-receipt-${safeName || "receipt"}.png`;
-  link.href = canvas.toDataURL("image/png");
-  link.click();
-}
 
 export default function CheckoutForm({ category, paymentSettings = null }) {
   const { t, lang } = useLanguage();
@@ -450,6 +298,21 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
     const errs = validate();
     if (Object.keys(errs).length) {
       setFieldErrors(errs);
+      // Without this, tapping Pay at the bottom of a long form with an error up
+      // top does nothing visible — reads as a broken button. Announce it and
+      // bring the first invalid field into view.
+      setFormError(
+        t("alert_fix_fields") || "Please fix the highlighted fields below.",
+      );
+      requestAnimationFrame(() => {
+        const firstKey = Object.keys(errs)[0];
+        const el = document.querySelector(`[name="${firstKey}"]`);
+        (el || document.querySelector("form"))?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+        if (el && typeof el.focus === "function") el.focus({ preventScroll: true });
+      });
       return;
     }
     setFieldErrors({});
@@ -576,21 +439,34 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
       return;
     }
 
-    const orderResponse = await fetch("/api/razorpay", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        categoryId: category.id,
-        donation: formData.donation,
-        attendeesCount: formData.attendeesCount,
-        agreedToTerms,
-        attendee: attendeePayload,
-        attendees: attendeesList,
-        customFields: customValues,
-        paymentPlan: usePartial ? "partial" : "full",
-      }),
-    });
-    const orderData = await orderResponse.json();
+    // Wrapped in try/catch: without it, a dropped connection here rejects
+    // unhandled and the full-screen gateway loader stays up forever with no way
+    // out but a page reload — the worst failure on the most-used path.
+    let orderResponse, orderData;
+    try {
+      orderResponse = await fetch("/api/razorpay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          categoryId: category.id,
+          donation: formData.donation,
+          attendeesCount: formData.attendeesCount,
+          agreedToTerms,
+          attendee: attendeePayload,
+          attendees: attendeesList,
+          customFields: customValues,
+          paymentPlan: usePartial ? "partial" : "full",
+        }),
+      });
+      orderData = await orderResponse.json();
+    } catch {
+      setFormError(
+        t("alert_network") ||
+          "Network error while starting payment. Check your connection and try again.",
+      );
+      setLoading(false);
+      return;
+    }
 
     if (!orderResponse.ok) {
       setFormError(orderData.error || "Server error. Please try again.");
@@ -633,6 +509,17 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
         contact: formData.phone,
       },
       theme: { color: "#ea580c" },
+      // Closing the gateway without paying should leave a clear note, not a
+      // silent return to the form (a common drop-off point).
+      modal: {
+        ondismiss: function () {
+          setFormError(
+            t("alert_payment_cancelled") ||
+              "Payment cancelled — you can try again whenever you're ready.",
+          );
+          setLoading(false);
+        },
+      },
     };
     const paymentObject = new window.Razorpay(options);
     paymentObject.on("payment.failed", function () {
@@ -647,149 +534,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
   };
 
   // ── SUCCESS STATE ─────────────────────────────────────────────────────
-  if (successData) {
-    return (
-      <div className="text-center py-8 px-4">
-        <div className={`w-20 h-20 ${successData.offlineReview ? "bg-amber-100" : "bg-green-100"} rounded-full flex items-center justify-center mx-auto mb-5`}>
-          <CheckCircle className={`w-10 h-10 ${successData.offlineReview ? "text-amber-600" : "text-green-600"}`} />
-        </div>
-        <h2 className="text-2xl font-black text-neutral-900 mb-1">
-          {successData.offlineReview
-            ? "Payment Submitted!"
-            : successData.isEnquiry
-              ? "Enquiry Received!"
-              : successData.partial
-                ? "Advance Received!"
-                : "Payment Successful!"}
-        </h2>
-        <p className="text-neutral-500 text-sm mb-6">
-          {successData.offlineReview
-            ? "Your payment is under verification. We'll confirm your registration shortly."
-            : successData.isEnquiry
-              ? "Our team will contact you shortly."
-              : successData.partial
-                ? "Pay the balance to confirm your registration."
-                : "Your registration is confirmed."}
-        </p>
-
-        <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-5 text-left space-y-3 max-w-sm mx-auto mb-6">
-          <div className="flex justify-between text-sm">
-            <span className="text-neutral-500">Name</span>
-            <span className="font-semibold text-neutral-900">
-              {successData.name}
-            </span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-neutral-500">Email</span>
-            <span className="font-semibold text-neutral-900 break-all">
-              {successData.email}
-            </span>
-          </div>
-          {!successData.isEnquiry && (
-            <>
-              <div className="flex justify-between text-sm">
-                <span className="text-neutral-500">Category</span>
-                <span className="font-semibold text-neutral-900">
-                  {successData.category}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-neutral-500">Attendees</span>
-                <span className="font-semibold text-neutral-900">
-                  {successData.attendees} Person(s)
-                </span>
-              </div>
-              <div className="flex justify-between text-sm border-t border-neutral-200 pt-3 mt-1">
-                <span className="text-neutral-500">Payment Status</span>
-                <span className={`font-bold ${successData.offlineReview || successData.partial ? "text-amber-600" : "text-green-600"}`}>
-                  {successData.offlineReview ? "⌛ Under Verification" : successData.partial ? "◐ Advance Paid" : "✓ Paid"}
-                </span>
-              </div>
-              {successData.partial ? (
-                <>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-neutral-500">Advance Paid</span>
-                    <span className="font-bold text-neutral-900">₹{successData.paidNow.toLocaleString("en-IN")}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-neutral-500">Balance Due</span>
-                    <span className="font-bold text-orange-600">₹{successData.balance.toLocaleString("en-IN")}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-neutral-500">Total</span>
-                    <span className="font-bold text-neutral-900">₹{successData.amount.toLocaleString("en-IN")}</span>
-                  </div>
-                </>
-              ) : (
-                <div className="flex justify-between text-sm">
-                  <span className="text-neutral-500">Amount</span>
-                  <span className="font-bold text-neutral-900">
-                    ₹{successData.amount.toLocaleString("en-IN")}
-                  </span>
-                </div>
-              )}
-              {successData.paymentId && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-neutral-500">Payment Ref</span>
-                  <span className="font-mono text-xs text-neutral-600 break-all">
-                    {successData.paymentId}
-                  </span>
-                </div>
-              )}
-              {successData.offlineReview && (
-                <>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-neutral-500">Method</span>
-                    <span className="font-semibold text-neutral-900">{t(`form_method_${successData.method}`)}</span>
-                  </div>
-                  {successData.reference && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-neutral-500">Reference</span>
-                      <span className="font-mono text-xs text-neutral-600 break-all">{successData.reference}</span>
-                    </div>
-                  )}
-                </>
-              )}
-            </>
-          )}
-        </div>
-
-        <div className="flex items-center justify-center gap-2 text-xs text-neutral-400 mb-6 px-4">
-          <Mail className="w-4 h-4 flex-shrink-0" />
-          <span>
-            {successData.offlineReview
-              ? `We'll verify your payment and email ${successData.email} once your registration is confirmed.`
-              : successData.partial
-                ? `Balance payment link sent to ${successData.email} & your WhatsApp. Your QR entry pass is sent before the event, after full payment.`
-                : successData.isEnquiry
-                  ? `Confirmation sent to ${successData.email}`
-                  : `Confirmation email sent to ${successData.email}. Your QR entry pass will be sent a few days before the event.`}
-          </span>
-        </div>
-
-        <div className="flex flex-col items-center gap-4">
-          {/* Receipt is only meaningful for a confirmed payment — not enquiry / pending verification. */}
-          {!successData.isEnquiry && !successData.offlineReview && (
-            <button
-              type="button"
-              onClick={() => downloadReceipt(successData)}
-              className="inline-flex items-center gap-2 bg-neutral-900 hover:bg-neutral-800 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              Download Receipt
-            </button>
-          )}
-
-          <button
-            onClick={() => window.location.reload()}
-            className="text-sm text-orange-600 hover:text-orange-700 font-semibold underline"
-          >
-            Register another person
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (successData) return <CheckoutSuccess data={successData} />;
 
   // ── FORM ──────────────────────────────────────────────────────────────
   return (
@@ -969,25 +714,22 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
             }}
           />
           {/* Pincode is always shown & required (drives taluka/state autofill). */}
-          {true && (
-            <TextField
-              fullWidth
-              label={t("form_pincode")}
-              name="pincode"
-              required
-              value={formData.pincode}
-              onChange={handlePincodeChange}
-              variant="outlined"
-              error={!!fieldErrors.pincode}
-              helperText={fieldErrors.pincode}
-              slotProps={{
-                htmlInput: { maxLength: 6, inputMode: "numeric" },
-                input: adorn(<MapPin className="w-5 h-5 text-neutral-400" />),
-              }}
-            />
-          )}
-          {true && (
-            <div className="flex gap-2">
+          <TextField
+            fullWidth
+            label={t("form_pincode")}
+            name="pincode"
+            required
+            value={formData.pincode}
+            onChange={handlePincodeChange}
+            variant="outlined"
+            error={!!fieldErrors.pincode}
+            helperText={fieldErrors.pincode}
+            slotProps={{
+              htmlInput: { maxLength: 6, inputMode: "numeric" },
+              input: adorn(<MapPin className="w-5 h-5 text-neutral-400" />),
+            }}
+          />
+          <div className="flex gap-2">
               <TextField
                 fullWidth
                 label={t("form_taluka")}
@@ -1005,7 +747,6 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
                 slotProps={{ input: { readOnly: true } }}
               />
             </div>
-          )}
         </div>
       </div>
 
@@ -1325,6 +1066,39 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
 
               <p className="text-xs text-neutral-400">{t("form_offline_verify_note")}</p>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* --- ORDER SUMMARY --- itemised so the amount is never a surprise at the
+          moment of payment (the total otherwise only lived inside the button). */}
+      {!isEnquiry && (
+        <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-neutral-500">{t("form_sum_ticket")}</span>
+            <span className="font-semibold text-neutral-900">₹{category.price.toLocaleString("en-IN")}</span>
+          </div>
+          {donationValue > 0 && (
+            <div className="flex justify-between">
+              <span className="text-neutral-500">{t("form_sum_seva")}</span>
+              <span className="font-semibold text-neutral-900">₹{donationValue.toLocaleString("en-IN")}</span>
+            </div>
+          )}
+          <div className="flex justify-between border-t border-neutral-200 pt-2">
+            <span className="font-bold text-neutral-900">{t("form_sum_total")}</span>
+            <span className="font-black text-orange-600">₹{totalAmount.toLocaleString("en-IN")}</span>
+          </div>
+          {usePartial && (
+            <>
+              <div className="flex justify-between text-xs pt-1">
+                <span className="text-neutral-500">{t("form_sum_pay_now")}</span>
+                <span className="font-bold text-neutral-900">₹{payNow.toLocaleString("en-IN")}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-neutral-500">{t("form_sum_balance")}</span>
+                <span className="font-bold text-amber-700">₹{balanceAmount.toLocaleString("en-IN")}</span>
+              </div>
+            </>
           )}
         </div>
       )}

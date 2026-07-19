@@ -53,12 +53,13 @@ const DEFAULT_HIGHLIGHTS = [
     { icon: '📿', title: { en: 'Pravachan', hi: 'प्रवचन', mr: 'प्रवचन' }, desc: { en: 'Spiritual discourses by revered saints', hi: 'पूज्य संतों द्वारा आध्यात्मिक प्रवचन', mr: 'पूज्य संतांकडून आध्यात्मिक प्रवचन' } },
 ];
 
-export default function HomeContent({ pageData, categories, mediaItems, seatsTaken, schedule, highlights, faqs, guests, news, downloads, registeredCount }) {
+export default function HomeContent({ pageData, categories, mediaItems, seatsTaken, schedule, highlights, faqs, guests, news, testimonials, downloads, registeredCount }) {
     schedule = schedule || [];
     highlights = highlights || [];
     guests = guests || [];
     faqs = faqs || [];
     news = news || [];
+    testimonials = testimonials || [];
     downloads = downloads || [];
     const { t, lang } = useLanguage();
     const branding = useBranding();
@@ -94,18 +95,22 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
     const hasCategories = Array.isArray(categories) && categories.length > 0;
     const aboutText = pick(pageData, 'long_description', lang);
 
-    // Ritual highlights: admin-defined if present, otherwise a curated default set.
-    const hl = (highlights && highlights.length)
-        ? highlights.map(h => ({
-            icon: h.icon || '🪔',
-            title: pick(h, 'title', lang),
-            desc: pick(h, 'description', lang),
-          }))
-        : DEFAULT_HIGHLIGHTS.map(h => ({
-            icon: h.icon,
-            title: h.title[lang] || h.title.en,
-            desc: h.desc[lang] || h.desc.en,
-          }));
+    // Highlight cards are grouped by `section`. 'highlights' (or blank) is the
+    // ritual section (with the curated default fallback when empty); 'pillars'
+    // and 'blessings' are extra card grids ported from the marketing site.
+    const mapCard = (h) => ({ icon: h.icon || '🪔', title: pick(h, 'title', lang), desc: pick(h, 'description', lang) });
+    const bySection = (name) => highlights.filter(h => (h.section || 'highlights') === name).map(mapCard);
+    const ritualCards = bySection('highlights');
+    const hl = ritualCards.length
+        ? ritualCards
+        : DEFAULT_HIGHLIGHTS.map(h => ({ icon: h.icon, title: h.title[lang] || h.title.en, desc: h.desc[lang] || h.desc.en }));
+    const pillars = bySection('pillars');
+    const blessings = bySection('blessings');
+
+    // A guest marked is_featured renders as a large "Leadership" hero (e.g. Guruji)
+    // above the normal lineup grid; the rest stay in the grid.
+    const featuredGuests = guests.filter(g => g.is_featured);
+    const lineupGuests = guests.filter(g => !g.is_featured);
 
     return (
         <main className="min-h-screen bg-ivory text-neutral-900 font-sans selection:bg-gold-100 pb-20 md:pb-0">
@@ -126,7 +131,12 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                             <Link href="/" className="text-orange-600 transition font-semibold hidden md:block border-b-2 border-gold-400 pb-0.5">{t('nav_event_details')}</Link>
                             <Link href="/pitham" className="hover:text-orange-600 transition hidden md:block">{t('nav_pitham')}</Link>
                             <Link href="/previous-events" className="hover:text-orange-600 transition hidden md:block">{t('nav_past_events')}</Link>
-                            <Link href="#categories" className="hover:text-orange-600 transition hidden md:block">{t('nav_register')}</Link>
+                            {/* Filled, always-visible CTA — the header is sticky, so this
+                                keeps "Register" reachable from anywhere on desktop without
+                                scrolling back to the hero or down to the tickets section. */}
+                            {hasCategories && (
+                                <Link href="#categories" className="hidden md:inline-flex items-center gap-1.5 bg-orange-600 text-white font-bold px-4 py-2 rounded-full hover:bg-orange-700 shadow-sm hover:shadow transition">🪔 {t('nav_register')}</Link>
+                            )}
                             <LangToggle />
                         </nav>
                     </div>
@@ -216,6 +226,23 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                     </svg>
                 </div>
             </section>
+
+            {/* KEY STATS — "by the numbers" strip, admin-editable per event. Placed
+                right under the hero for instant credibility/scale. */}
+            {Array.isArray(pageData?.stats) && pageData.stats.length > 0 && (
+                <section className="bg-neutral-900 text-white py-8 md:py-10">
+                    <div className="max-w-5xl mx-auto px-4">
+                        <div className={`grid gap-6 ${pageData.stats.length <= 2 ? 'grid-cols-2' : pageData.stats.length === 3 ? 'grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
+                            {pageData.stats.map((s, i) => (
+                                <div key={i} className="text-center">
+                                    <div className="font-serif text-3xl md:text-4xl font-black text-gold-400">{s.value}</div>
+                                    <div className="text-neutral-300 text-xs md:text-sm mt-1 uppercase tracking-wider">{s.label}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+            )}
 
             {/* ABOUT THE MAHOTSAV */}
             {/* LIVE STREAM — only while the admin has actually gone live. Placed high
@@ -350,6 +377,67 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                 </Reveal>
             )}
 
+            {/* LEADERSHIP — a featured guest (e.g. Guruji) rendered prominently. */}
+            {featuredGuests.length > 0 && (
+                <Reveal>
+                <section className="bg-white py-10 md:py-14 border-b border-gold-100/70">
+                    <div className="max-w-4xl mx-auto px-4">
+                        <div className="text-center mb-8">
+                            <h3 className="font-serif text-xl md:text-2xl font-bold tracking-tight text-neutral-900">{t('section_leadership_title')}</h3>
+                            <div className="gold-divider"><span /></div>
+                            <p className="text-neutral-500 text-sm mt-3">{t('section_leadership_desc')}</p>
+                        </div>
+                        <div className="space-y-8">
+                            {featuredGuests.map((g) => {
+                                const gName = pick(g, 'name', lang);
+                                const gRole = pick(g, 'role', lang);
+                                const gBio = pick(g, 'bio', lang);
+                                return (
+                                    <div key={g.id} className="flex flex-col md:flex-row items-center gap-6 md:gap-8 bg-gradient-to-br from-orange-50/60 to-amber-50/40 border border-orange-100 rounded-2xl p-6 md:p-8">
+                                        {g.photo_url ? (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img src={g.photo_url} alt={gName} className="w-32 h-32 md:w-40 md:h-40 rounded-full object-cover shadow-lg ring-4 ring-white flex-shrink-0" />
+                                        ) : (
+                                            <div className="w-32 h-32 md:w-40 md:h-40 rounded-full bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center text-5xl flex-shrink-0">🙏</div>
+                                        )}
+                                        <div className="text-center md:text-left">
+                                            <h4 className="font-serif text-xl md:text-2xl font-bold text-neutral-900">{gName}</h4>
+                                            {gRole && <p className="text-orange-600 text-sm font-semibold mt-1">{gRole}</p>}
+                                            {gBio && <p className="text-neutral-600 text-sm md:text-base mt-3 leading-relaxed whitespace-pre-wrap">{gBio}</p>}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </section>
+                </Reveal>
+            )}
+
+            {/* PILLARS — grouped highlight cards (e.g. Puja / Gyan / Bhakti). */}
+            {pillars.length > 0 && (
+                <Reveal>
+                <section className="bg-gold-50/40 py-10 md:py-14 border-b border-gold-100/70">
+                    <div className="max-w-5xl mx-auto px-4">
+                        <div className="text-center mb-8">
+                            <h3 className="font-serif text-xl md:text-2xl font-bold tracking-tight text-neutral-900">{t('section_pillars_title')}</h3>
+                            <div className="gold-divider"><span /></div>
+                            <p className="text-neutral-500 text-sm mt-3">{t('section_pillars_desc')}</p>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                            {pillars.map((h, i) => (
+                                <div key={i} className="rounded-2xl border border-orange-100 bg-white p-6 text-center hover:shadow-md hover:border-orange-200 transition">
+                                    <div className="text-4xl mb-3">{h.icon}</div>
+                                    <h4 className="font-bold text-neutral-900 mb-1 text-base md:text-lg">{h.title}</h4>
+                                    {h.desc && <p className="text-neutral-500 text-xs md:text-sm leading-relaxed">{h.desc}</p>}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+                </Reveal>
+            )}
+
             {/* SACRED RITUALS & HIGHLIGHTS */}
             <Reveal>
             <section className="bg-white py-10 md:py-14 border-b border-gold-100/70">
@@ -372,8 +460,34 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
             </section>
             </Reveal>
 
+            {/* BLESSINGS & BENEFITS — grouped highlight cards ("what you gain"). */}
+            {blessings.length > 0 && (
+                <Reveal>
+                <section className="bg-gold-50/40 py-10 md:py-14 border-b border-gold-100/70">
+                    <div className="max-w-5xl mx-auto px-4">
+                        <div className="text-center mb-8">
+                            <h3 className="font-serif text-xl md:text-2xl font-bold tracking-tight text-neutral-900">{t('section_blessings_title')}</h3>
+                            <div className="gold-divider"><span /></div>
+                            <p className="text-neutral-500 text-sm mt-3">{t('section_blessings_desc')}</p>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+                            {blessings.map((h, i) => (
+                                <div key={i} className="rounded-2xl border border-gold-200/60 bg-white p-5 flex items-start gap-4 hover:shadow-md hover:border-gold-300 transition">
+                                    <div className="text-3xl flex-shrink-0">{h.icon}</div>
+                                    <div>
+                                        <h4 className="font-bold text-neutral-900 mb-1 text-sm md:text-base">{h.title}</h4>
+                                        {h.desc && <p className="text-neutral-500 text-xs md:text-sm leading-relaxed">{h.desc}</p>}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+                </Reveal>
+            )}
+
             {/* GUEST / ARTIST LINEUP */}
-            {guests.length > 0 && (
+            {lineupGuests.length > 0 && (
                 <Reveal>
                 <section className="bg-gold-50/40 py-10 md:py-14 border-b border-gold-100/70">
                     <div className="max-w-5xl mx-auto px-4">
@@ -383,7 +497,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                             <p className="text-neutral-500 text-sm mt-3">{t('section_lineup_desc')}</p>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-                            {guests.map((g) => {
+                            {lineupGuests.map((g) => {
                                 const gName = pick(g, 'name', lang);
                                 const gRole = pick(g, 'role', lang);
                                 const gBio = pick(g, 'bio', lang);
@@ -452,6 +566,38 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                 </Reveal>
             )}
 
+            {/* TESTIMONIALS — social proof, placed just before FAQ + tickets. */}
+            {testimonials.length > 0 && (
+                <Reveal>
+                <section className="bg-white py-10 md:py-14 border-b border-gold-100/70">
+                    <div className="max-w-5xl mx-auto px-4">
+                        <div className="text-center mb-8">
+                            <h3 className="font-serif text-xl md:text-2xl font-bold tracking-tight text-neutral-900">{t('section_testimonials_title')}</h3>
+                            <div className="gold-divider"><span /></div>
+                            <p className="text-neutral-500 text-sm mt-3">{t('section_testimonials_desc')}</p>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                            {testimonials.map((tm) => {
+                                const quote = pick(tm, 'quote', lang);
+                                const who = [tm.name, tm.location].filter(Boolean).join(' · ');
+                                return (
+                                    <figure key={tm.id} className="rounded-2xl border border-gold-100 bg-gold-50/30 p-6 flex flex-col">
+                                        <div className="text-3xl text-gold-400 font-serif leading-none mb-2">&ldquo;</div>
+                                        <blockquote className="text-neutral-700 text-sm md:text-base leading-relaxed flex-1 whitespace-pre-wrap">{quote}</blockquote>
+                                        {who && <figcaption className="text-orange-700 text-xs font-semibold mt-4 uppercase tracking-wider">{who}</figcaption>}
+                                    </figure>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </section>
+                </Reveal>
+            )}
+
+            {/* FAQ — placed just above the tickets so common objections are answered
+                right before the buy decision, not after it. */}
+            <Reveal><FaqAccordion faqs={faqs} /></Reveal>
+
             {/* REGISTRATION CATEGORIES */}
             <section id="categories" className="bg-white py-12 md:py-16 border-t border-gold-100/70">
                 <div className="max-w-5xl mx-auto px-4">
@@ -485,8 +631,17 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                             const remaining = Math.max(0, max - taken);
                             const isEffectivelyFull = category.is_full || (isCapacityEnforced && remaining === 0);
 
+                            const recommended = category.is_recommended === true && !isEffectivelyFull;
+
                             return (
-                                <div key={category.id} className="border border-gold-200/60 rounded-2xl p-5 md:p-6 shadow-warm hover:shadow-lg hover:border-gold-300 transition flex flex-col justify-between bg-white relative overflow-hidden">
+                                <div key={category.id} className={`rounded-2xl p-5 md:p-6 shadow-warm hover:shadow-lg transition flex flex-col justify-between bg-white relative overflow-hidden border ${recommended ? 'border-orange-300 ring-2 ring-orange-400/60 md:scale-[1.03]' : 'border-gold-200/60 hover:border-gold-300'}`}>
+
+                                    {/* "Most Chosen" ribbon — a marketing nudge toward the recommended tier. */}
+                                    {recommended && (
+                                        <div className="absolute top-0 left-0 bg-gradient-to-r from-orange-600 to-amber-600 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-br-xl flex items-center gap-1">
+                                            ⭐ {t('category_recommended')}
+                                        </div>
+                                    )}
 
                                     {isCapacityEnforced && category.show_availability && !isEffectivelyFull && (
                                         <div className="absolute top-0 right-0 bg-gold-100 text-gold-700 text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-bl-xl border-b border-l border-gold-200 flex items-center gap-1">
@@ -536,9 +691,6 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
                     )}
                 </div>
             </section>
-
-            {/* FAQ */}
-            <Reveal><FaqAccordion faqs={faqs} /></Reveal>
 
             {/* MEDIA */}
             {mediaItems && mediaItems.length > 0 && (

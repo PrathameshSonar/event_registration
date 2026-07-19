@@ -44,7 +44,10 @@ ALTER TABLE categories
     -- Show an "Enquire Now" button alongside "Pay" on a payable tier. Enquiry-only
     -- tiers (is_enquiry_only) still show only "Enquire Now". A tier may carry a
     -- price even when enquiry-only — it's charged when an admin converts the lead.
-    ADD COLUMN IF NOT EXISTS allow_enquiry      BOOLEAN DEFAULT false;
+    ADD COLUMN IF NOT EXISTS allow_enquiry      BOOLEAN DEFAULT false,
+    -- Highlights this tier as the "Most Chosen" / recommended option on the
+    -- public ticket cards (a marketing nudge toward the mid tier).
+    ADD COLUMN IF NOT EXISTS is_recommended     BOOLEAN DEFAULT false;
 
 -- Part-payment ledger on each registration.
 ALTER TABLE registrations
@@ -521,6 +524,31 @@ CREATE TABLE IF NOT EXISTS event_guests (
 CREATE INDEX IF NOT EXISTS event_guests_event_idx ON event_guests(event_id);
 GRANT ALL ON event_guests TO service_role;
 
+-- Marketing-site UX port (2026-07-19):
+--   event_guests.is_featured   → render one guest as a prominent "Leadership" hero
+--                                 (e.g. Guruji) above the normal lineup grid.
+--   event_highlights.section   → group highlight cards into distinct homepage
+--                                 sections: 'highlights' (default), 'pillars'
+--                                 (Puja/Gyan/Bhakti), 'blessings' (benefits grid).
+ALTER TABLE event_guests     ADD COLUMN IF NOT EXISTS is_featured BOOLEAN DEFAULT false;
+ALTER TABLE event_highlights ADD COLUMN IF NOT EXISTS section TEXT DEFAULT 'highlights';
+
+-- Curated testimonials / devotee quotes shown on the homepage. Marketing copy
+-- (not the post-event `feedback` table), so it works before any feedback exists.
+CREATE TABLE IF NOT EXISTS event_testimonials (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id     UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    name         TEXT,
+    location     TEXT,
+    quote        TEXT NOT NULL,
+    is_published BOOLEAN DEFAULT true,
+    sort_order   INTEGER DEFAULT 0,
+    translations JSONB DEFAULT '{}'::jsonb,
+    created_at   TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS event_testimonials_event_idx ON event_testimonials(event_id);
+GRANT ALL ON event_testimonials TO service_role;
+
 
 -- 8) ── Homepage hero background image (per event) ──────────────────────────
 ALTER TABLE events
@@ -611,6 +639,12 @@ GRANT ALL ON media_library TO service_role;
 -- homepage near the venue map. Optional; translated via `translations`.
 ALTER TABLE events
     ADD COLUMN IF NOT EXISTS travel_info    TEXT;
+
+-- Homepage "by the numbers" strip: an ordered JSONB array of {value,label}
+-- (e.g. [{"value":"36+","label":"Homa Kundas"},{"value":"5,000+","label":"Devotees"}]).
+-- Free text so values like "36+" / "3 Days" render as-is. Empty = section hidden.
+ALTER TABLE events
+    ADD COLUMN IF NOT EXISTS stats JSONB DEFAULT '[]'::jsonb;
 
 
 -- 9) ── FAQ accordion + reminder opt-ins ────────────────────────────────────

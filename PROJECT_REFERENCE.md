@@ -173,8 +173,8 @@ Active-event model. Columns: `id, title, title_hi, short_description(+_hi), long
 ### `form_fields` / `category_field_settings`
 Catalog of registration fields + per-category visibility/required/order. See §13.
 
-### `event_schedule` / `event_highlights` / `event_guests` / `event_faqs` / `event_reminders` / `event_media`
-Homepage content per event (programme, ritual cards, **guest/artist lineup**, FAQ accordion, reminder opt-ins, gallery image/YouTube). `event_guests`: `name(+_hi), role(+_hi), photo_url, bio(+_hi), sort_order`. All need `GRANT ALL ... TO service_role`.
+### `event_schedule` / `event_highlights` / `event_guests` / `event_faqs` / `event_reminders` / `event_media` / `event_testimonials`
+Homepage content per event (programme, ritual cards, **guest/artist lineup**, FAQ accordion, reminder opt-ins, gallery image/YouTube, **curated testimonials**). `event_guests`: `name, role, photo_url, bio, sort_order, is_featured` (a featured guest renders as the "Leadership" hero). `event_highlights` has a `section` column (`highlights`/`pillars`/`blessings`) grouping cards into distinct homepage blocks. `event_testimonials`: `name, location, quote, is_published, sort_order, translations` — curated marketing quotes (NOT the post-event `feedback` table). `events.stats` is a JSONB `[{value,label}]` for the homepage "by the numbers" strip. `categories.is_recommended` marks the "Most Chosen" tier. All need `GRANT ALL ... TO service_role`.
 
 ### `registration_notes`
 Contact-history log for the enquiry pipeline: `id, registration_id→registrations (cascade), note, actor_role, created_at`. One row per note. Needs `GRANT ALL ... TO service_role`.
@@ -451,7 +451,7 @@ Answers the question an operator asks constantly: **"did they actually get it?"*
 - `POST /api/admin/resend-confirmation` — re-send the confirmation email/WhatsApp for a completed reg.
 - `POST|PATCH|DELETE /api/admin/categories` — tiers (DELETE needs password).
 - `POST|PATCH|DELETE /api/admin/events` — events (+ setActive; DELETE needs password).
-- `POST|DELETE /api/admin/media`, `…/highlights`, `…/faqs`, `…/schedule`, `…/guests` — event content (GET on some).
+- `POST|DELETE /api/admin/media`, `…/highlights`, `…/faqs`, `…/schedule`, `…/guests`, `GET|POST|PATCH|DELETE /api/admin/testimonials` — event content (`settings:manage`).
 - `GET|POST|PATCH|DELETE /api/admin/news` — homepage announcements (`settings:manage`; PATCH also toggles `is_published`).
 - `GET|POST|PATCH|DELETE /api/admin/media-library` — the media library (`settings:manage`). POST is multipart. DELETE returns **409 + `inUse`** if the file is still referenced; re-send with `force: true` to override. See §19b.
 - `GET /api/admin/media-file/[id]` — signed URL for a **private** library file (`settings:manage`).
@@ -647,6 +647,30 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
 
 Keep newest first. Add an entry for every meaningful change.
 
+- **2026-07-19 (public UX port, part 2)**
+  - **Devotional content sections + testimonials.** Ported from the marketing-site build; our app stays the engine. Full-stack + EN/HI/MR + build-verified. **Re-run `supabase/run_all.sql`** (new table + two columns).
+    - **Testimonials** — new **`event_testimonials`** table (`name, location, quote, is_published, sort_order, translations`). Route `GET|POST|PATCH|DELETE /api/admin/testimonials` (`settings:manage`); admin CRUD in the **Testimonials** block of [HomeContentManager](components/HomeContentManager.js) (add / hide-eye / delete); homepage renders published quotes in a card grid just above FAQ→Tickets (social proof before the buy). Curated marketing quotes — deliberately **separate from the post-event `feedback` table** so it works before any feedback exists.
+    - **Leadership hero (Guruji)** — new **`event_guests.is_featured`**. A ★ toggle in the admin lineup marks one guest as featured; the homepage renders featured guests as a large photo+bio "Under the Guidance Of" section above the normal lineup grid (which now shows only non-featured guests).
+    - **Pillars / Blessings** — new **`event_highlights.section`** (`'highlights'` default / `'pillars'` / `'blessings'`). One highlight card can be filed under a section (a selector in the admin highlight form); each non-empty section renders as its own homepage block (3 Pillars grid; Blessings & Benefits grid). Ritual "Highlights" keeps its curated-default fallback.
+    - New i18n `section_leadership_*` / `section_pillars_*` / `section_blessings_*` / `section_testimonials_*` (en/hi/mr).
+- **2026-07-19 (public UX port, part 1)**
+  - **Adopting UX from the marketing-site build into our app (our app stays the engine).** Two shipped slices, each full-stack + EN/HI/MR + build-verified. **Re-run `supabase/run_all.sql`** (two additive columns).
+    - **"Most Chosen" tier badge** — new `categories.is_recommended` boolean. Admin toggles it per tier ([CategoryRow](components/admin/CategoryRow.tsx), whitelisted in [categories route](app/api/admin/categories/route.js)); the public ticket card gets an orange ring + a "⭐ Most Chosen" ribbon ([HomeContent.js](components/HomeContent.js)). i18n `category_recommended`. (Suppressed when the tier is full.)
+    - **"By the numbers" stats strip** — new `events.stats` JSONB (`[{value,label}]`). Admin edits it as an add/remove repeater in Event Setup ([EventRow](components/admin/EventRow.tsx), whitelisted in [events route](app/api/admin/events/route.js)); a dark counter strip renders right under the hero when non-empty. Values are free text ("36+", "3 Days") so they render as-is.
+    - Still to port (larger, content-model decisions pending): **Testimonials**, and the **Guruji / Pillars / Blessings** devotional sections.
+- **2026-07-19 (even later)**
+  - **Checkout ([components/CheckoutForm.js](components/CheckoutForm.js)) — reliability fixes, an order summary, and a size cleanup.**
+    - 🔴 **Stuck-loader bug fixed:** the paid-checkout `fetch('/api/razorpay')` had no `try/catch`, so a dropped connection left the full-screen "Opening secure payment gateway…" overlay up forever (only a reload escaped) on the most-used path. Now caught → shows an error, clears the loader.
+    - **Dead-button friction fixed:** on failed validation the form now scrolls to + focuses the first invalid field and shows a "fix the highlighted fields" banner (previously tapping Pay with an error up-top did nothing visible).
+    - **Razorpay dismiss feedback:** closing the gateway without paying now shows "Payment cancelled — try again" (`modal.ondismiss`).
+    - **Itemised order summary** above the Pay button (Ticket + Seva = Total, plus Pay-now/Balance for part-payment) so the amount is never a surprise. New i18n `alert_network`/`alert_payment_cancelled`/`alert_fix_fields`/`form_sum_*` in en/hi/mr.
+    - **Cleanup:** removed two dead `{true && (…)}` wrappers. Extracted the pure canvas receipt → [lib/checkoutReceipt.js](lib/checkoutReceipt.js) and the presentational success screen → [components/checkout/CheckoutSuccess.js](components/checkout/CheckoutSuccess.js) (behaviour-preserving). **CheckoutForm 1413 → 1129 lines.** Verified build.
+    - Deferred (overlap with the UI dev's styling pass): donation preset chips, sticky mobile Pay bar, native-input→MUI consistency on attendee names.
+- **2026-07-19 (later still)**
+  - **Public homepage — conversion UX.** Two low-risk changes in [components/HomeContent.js](components/HomeContent.js) (kept small on purpose — section *placement* is the fellow dev's UI lane; coordinate before larger reshuffles):
+    - **Always-visible desktop "Register" CTA.** The nav `#categories` link is now a filled orange button; the header is `sticky`, so Register is reachable from anywhere on desktop without scrolling (mobile already had the sticky bottom bar in [FloatingActions.js](components/FloatingActions.js)). Neutralises "the tickets section is far down the page".
+    - **FAQ moved to just above the tickets** (was below), so common objections are answered right before the buy decision. Verified build: static pages still prerender `○`.
+    - Deliberately NOT done yet (bigger, merge-conflict-prone with the UI dev): relocating the tickets block above Lineup/Schedule and pushing Downloads to the bottom. Recommended order on file if wanted.
 - **2026-07-19 (later)**
   - **RBAC audit fixes — read-scoping + a data-integrity hole.** No SQL.
     - 🔴 **PII was returned to every logged-in volunteer.** `GET /api/admin/data` streamed the **entire `registrations` table** (name/phone/email/DOB/address/payment) to *any* authenticated session, regardless of permission — the UI hid the Registrations tab, but the data was one fetch away. Now the raw rows are returned **only** with `registrations:view`; a role without it gets `[]`. Dashboard tiles for a `dashboard:view`-only volunteer are fed by a new **server-computed `stats.dashboard`** aggregate (numbers only, no PII), and the row-level analytics (DashboardAnalytics / Sales-by-Category / per-category chips) are hidden without `registrations:view`. See §17 `/api/admin/data`.
