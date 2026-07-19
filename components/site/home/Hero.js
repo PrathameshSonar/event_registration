@@ -68,8 +68,7 @@ export default function Hero({ event, hasCategories }) {
 
           {event?.start_at && (
             <div className="mt-9">
-              <p className="mb-3 text-[11px] uppercase tracking-[0.32em] text-gold-400 font-bold">{t("hero_countdown_label") || "The event begins in"}</p>
-              <LuxuryCountdown targetISO={event.start_at} variant="glass" />
+              <LuxuryCountdown targetISO={event.start_at} variant="glass" label={t("hero_countdown_label") || "The event begins in"} />
             </div>
           )}
         </div>
