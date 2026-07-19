@@ -87,7 +87,8 @@ Settings today = a flat list of ~17 sub-tabs. Regroup the sidebar into labelled 
 ## PROGRESS
 - ✅ Full reference review done (A–I captured).
 - ✅ **D. Admin reorg** — Settings sidebar regrouped into 6 labelled sections (build-verified).
-- ⬜ Next: new admin fields (peak-day, schedule intro + per-day theme, brand lines) → §B fonts → homepage previews (A) → /about + /registration richness (G,H) → Contact Messages view + Downloads (C).
+- ✅ **New admin fields (schema + editors)** — `events.peak_day_label/peak_day_note/schedule_intro/schedule_days` (EventRow: translatable fields + a per-day repeater) and `branding.brand_line1/line2/subtitle` (BrandingManager inputs + two-line logo in LuxuryNavbar). Re-run `run_all.sql`. Build-verified.
+- ⬜ Next: **§B fonts** (Cormorant-italic accents) → **§A homepage previews** + render the new peak-day/schedule fields → **/about + /registration richness (G,H)** → Contact Messages view + Downloads (C).
 
 ## E. Suggested sequence
 1. **Fonts (B)** first — systematic; every section then inherits the correct look.

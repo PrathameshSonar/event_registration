@@ -29,23 +29,26 @@ function useNavLinks() {
   ];
 }
 
-function Logo({ name, logoUrl }) {
+function Logo({ line1, line2, subtitle, logoUrl }) {
+  if (logoUrl) {
+    return (
+      <Link href="/" className="group flex items-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={logoUrl} alt={line1} className="h-11 sm:h-12 w-auto object-contain" />
+      </Link>
+    );
+  }
   return (
     <Link href="/" className="group flex items-center gap-3 sm:gap-4">
-      {logoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={logoUrl} alt={name} className="h-11 sm:h-12 w-auto object-contain" />
-      ) : (
-        <span className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[hsl(43,82%,55%)] via-[hsl(24,90%,50%)] to-[hsl(10,70%,42%)] shadow-gold">
-          <Flame className="h-6 w-6 sm:h-7 sm:w-7 text-white drop-shadow" strokeWidth={1.6} />
-          <span className="pointer-events-none absolute -inset-1 rounded-2xl ring-1 ring-gold/40" />
-        </span>
-      )}
-      {!logoUrl && (
-        <span className="leading-tight">
-          <span className="block font-display text-[15px] sm:text-[17px] font-semibold tracking-[0.14em] text-brown">{name}</span>
-        </span>
-      )}
+      <span className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[hsl(43,82%,55%)] via-[hsl(24,90%,50%)] to-[hsl(10,70%,42%)] shadow-gold">
+        <Flame className="h-6 w-6 sm:h-7 sm:w-7 text-white drop-shadow" strokeWidth={1.6} />
+        <span className="pointer-events-none absolute -inset-1 rounded-2xl ring-1 ring-gold/40" />
+      </span>
+      <span className="leading-tight">
+        <span className="block font-display text-[15px] sm:text-[17px] font-semibold tracking-[0.14em] text-brown">{line1}</span>
+        {line2 && <span className="block font-display text-[15px] sm:text-[17px] font-semibold tracking-[0.14em] text-vermillion -mt-0.5">{line2}</span>}
+        {subtitle && <span className="mt-0.5 hidden sm:block font-cormorant italic text-[12.5px] leading-tight text-mutedgold whitespace-nowrap">{subtitle}</span>}
+      </span>
     </Link>
   );
 }
@@ -58,6 +61,9 @@ export default function LuxuryNavbar() {
   const { t } = useLanguage();
   const links = useNavLinks();
   const brandName = branding?.site_name || "BaglaBhairav";
+  const line1 = branding?.brand_line1 || brandName;
+  const line2 = branding?.brand_line2 || "";
+  const subtitle = branding?.brand_subtitle || "";
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -73,7 +79,7 @@ export default function LuxuryNavbar() {
   return (
     <header className={`sticky top-0 z-50 transition-all duration-500 ${scrolled ? "glass-nav" : "bg-transparent"}`}>
       <div className="container-nav flex h-20 md:h-24 items-center justify-between">
-        <Logo name={brandName} logoUrl={branding?.logo_url} />
+        <Logo line1={line1} line2={line2} subtitle={subtitle} logoUrl={branding?.logo_url} />
 
         <nav className="hidden items-center gap-1 xl:flex" aria-label="Primary">
           {links.map((l) => (

@@ -579,6 +579,12 @@ ALTER TABLE categories       ADD COLUMN IF NOT EXISTS tagline TEXT,
                              ADD COLUMN IF NOT EXISTS perks   JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE events           ADD COLUMN IF NOT EXISTS about_images JSONB DEFAULT '[]'::jsonb;
 
+ALTER TABLE events
+    ADD COLUMN IF NOT EXISTS peak_day_label TEXT,
+    ADD COLUMN IF NOT EXISTS peak_day_note  TEXT,
+    ADD COLUMN IF NOT EXISTS schedule_intro TEXT,
+    ADD COLUMN IF NOT EXISTS schedule_days  JSONB DEFAULT '[]'::jsonb;
+
 CREATE TABLE IF NOT EXISTS contact_messages (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name       TEXT, email TEXT, subject TEXT, message TEXT,

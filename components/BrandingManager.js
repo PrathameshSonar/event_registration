@@ -108,6 +108,25 @@ export default function BrandingManager() {
                 </div>
 
                 <div className="pt-2 border-t border-neutral-200">
+                    <span className="text-xs font-semibold text-neutral-600">Wordmark <span className="font-normal text-neutral-400">(the two-line logo text — used when no logo image is set)</span></span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                        <div>
+                            <label className="block text-[11px] font-semibold text-neutral-500 mb-1">Line 1</label>
+                            <input className={input} value={branding.brand_line1} onChange={(e) => setB("brand_line1", e.target.value)} placeholder="BAGLA BHAIRAV" />
+                        </div>
+                        <div>
+                            <label className="block text-[11px] font-semibold text-neutral-500 mb-1">Line 2</label>
+                            <input className={input} value={branding.brand_line2} onChange={(e) => setB("brand_line2", e.target.value)} placeholder="MAHA YADNYA" />
+                        </div>
+                    </div>
+                    <div className="mt-3">
+                        <label className="block text-[11px] font-semibold text-neutral-500 mb-1">Subtitle (italic)</label>
+                        <input className={input} value={branding.brand_subtitle} onChange={(e) => setB("brand_subtitle", e.target.value)} placeholder="Shri Pitambara Baglamukhi Shakti Peeth" />
+                    </div>
+                    <p className="text-xs text-neutral-400 mt-1">Line 1 falls back to Site name if blank. All ignored when a logo image is set.</p>
+                </div>
+
+                <div className="pt-2 border-t border-neutral-200">
                     <div className="flex items-center justify-between mb-3">
                         <span className="text-xs font-semibold text-neutral-600">Colours</span>
                         <button onClick={resetColors} className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-500 hover:text-orange-600 transition">

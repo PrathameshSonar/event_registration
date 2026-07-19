@@ -40,6 +40,13 @@ export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
     const [aboutImages, setAboutImages] = useState<string[]>(
         Array.isArray(event.about_images) ? event.about_images : [],
     );
+    // Phase 9: peak-day highlight + schedule intro (translatable) + per-day themes.
+    const [peakLabel, setPeakLabel] = useState(event.peak_day_label || '');
+    const [peakNote, setPeakNote] = useState(event.peak_day_note || '');
+    const [scheduleIntro, setScheduleIntro] = useState(event.schedule_intro || '');
+    const [scheduleDays, setScheduleDays] = useState<{ label: string; date: string; theme: string }[]>(
+        Array.isArray(event.schedule_days) ? event.schedule_days : [],
+    );
     const [isChanged, setIsChanged] = useState(false);
 
     // Non-English translations, seeded from the translations JSONB.
@@ -62,10 +69,21 @@ export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
             // Drop blank rows so the public strip never shows an empty stat.
             stats: stats.filter((s) => s.value.trim() || s.label.trim()),
             about_images: aboutImages.filter(Boolean),
+            peak_day_label: peakLabel || null,
+            peak_day_note: peakNote || null,
+            schedule_intro: scheduleIntro || null,
+            schedule_days: scheduleDays.filter((d) => d.label.trim() || d.date.trim() || d.theme.trim()),
             translations: buildTranslations(tr) as Record<string, Record<string, string>>,
         });
         setIsChanged(false);
     };
+
+    const setDay = (i: number, key: 'label' | 'date' | 'theme', v: string) => {
+        setScheduleDays((p) => p.map((d, idx) => (idx === i ? { ...d, [key]: v } : d)));
+        setIsChanged(true);
+    };
+    const addDay = () => { setScheduleDays((p) => [...p, { label: '', date: '', theme: '' }]); setIsChanged(true); };
+    const removeDay = (i: number) => { setScheduleDays((p) => p.filter((_, idx) => idx !== i)); setIsChanged(true); };
 
     const setStat = (i: number, key: 'value' | 'label', v: string) => {
         setStats((p) => p.map((s, idx) => (idx === i ? { ...s, [key]: v } : s)));
@@ -142,6 +160,32 @@ export default function EventRow({ event, onSetActive, onUpdate, onDelete }: {
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img src={url} alt="" className="w-16 h-16 object-cover rounded-lg border border-neutral-200" />
                                     <button type="button" onClick={() => { setAboutImages((p) => p.filter((_, idx) => idx !== i)); track(); }} className="absolute -top-1.5 -right-1.5 bg-white border border-neutral-300 rounded-full p-0.5 text-neutral-400 hover:text-red-600 shadow-sm"><Trash2 className="w-3 h-3" /></button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Peak-day highlight + schedule intro (homepage). */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <TranslatableField label="Peak Day — label" field="peak_day_label" value={peakLabel} onValue={(v) => { setPeakLabel(v); track(); }} tr={tr} onTr={setTrField} placeholder="e.g. Pramukh Din · Sunday" />
+                        <TranslatableField label="Peak Day — note" field="peak_day_note" value={peakNote} onValue={(v) => { setPeakNote(v); track(); }} tr={tr} onTr={setTrField} placeholder="e.g. 30 Nov 2026 · The peak day of the yagya" />
+                    </div>
+                    <TranslatableField label="Schedule intro" field="schedule_intro" value={scheduleIntro} onValue={(v) => { setScheduleIntro(v); track(); }} tr={tr} onTr={setTrField} multiline rows={2} placeholder="Short paragraph shown above the schedule on the homepage." />
+
+                    {/* Per-day date + theme. The Day label must match the schedule items' Day label. */}
+                    <div className="border border-neutral-200 rounded-lg p-4 bg-neutral-50/60">
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider">Schedule Days <span className="font-normal text-neutral-400 normal-case">(date + one-line theme per day — Day label must match the schedule items)</span></label>
+                            <button type="button" onClick={addDay} className="text-xs font-bold text-orange-600 hover:text-orange-700">+ Add day</button>
+                        </div>
+                        {scheduleDays.length === 0 && <p className="text-xs text-neutral-400">No day themes yet — e.g. “Day One / Sat · 29 Nov / Sthapana & Sacred Beginnings”.</p>}
+                        <div className="space-y-2">
+                            {scheduleDays.map((d, i) => (
+                                <div key={i} className="grid grid-cols-[1fr_1fr_1.4fr_auto] gap-2 items-center">
+                                    <input value={d.label} onChange={(e) => setDay(i, 'label', e.target.value)} placeholder="Day One" className="px-2.5 py-2 text-sm border border-neutral-200 rounded-lg bg-white focus:outline-none focus:border-orange-500 transition" />
+                                    <input value={d.date} onChange={(e) => setDay(i, 'date', e.target.value)} placeholder="Sat · 29 Nov" className="px-2.5 py-2 text-sm border border-neutral-200 rounded-lg bg-white focus:outline-none focus:border-orange-500 transition" />
+                                    <input value={d.theme} onChange={(e) => setDay(i, 'theme', e.target.value)} placeholder="Sthapana & Sacred Beginnings" className="px-2.5 py-2 text-sm border border-neutral-200 rounded-lg bg-white focus:outline-none focus:border-orange-500 transition" />
+                                    <button type="button" onClick={() => removeDay(i)} className="text-neutral-400 hover:text-red-600 p-1.5 rounded hover:bg-red-50 transition"><Trash2 className="w-4 h-4" /></button>
                                 </div>
                             ))}
                         </div>
