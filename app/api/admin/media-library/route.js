@@ -40,7 +40,7 @@ const DOC_TYPES = [
     'text/csv',
 ];
 
-const MAX_IMAGE_BYTES = 6 * 1024 * 1024;   // 6 MB
+const MAX_IMAGE_BYTES = 15 * 1024 * 1024;  // 15 MB — hero/collage photos can be large
 const MAX_DOC_BYTES = 25 * 1024 * 1024;    // 25 MB — brochures/decks are bigger than photos
 // A doc flagged attach_to_ticket rides on EVERY confirmation email, so it's capped
 // far lower than the upload limit: many inboxes bounce messages over ~10 MB.

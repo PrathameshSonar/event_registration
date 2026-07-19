@@ -14,6 +14,7 @@ import Hero from "@/components/site/home/Hero";
 import Livestream from "@/components/site/home/Livestream";
 import AboutMahayagya from "@/components/site/home/AboutMahayagya";
 import Leadership from "@/components/site/home/Leadership";
+import Lineup from "@/components/site/home/Lineup";
 import Pillars from "@/components/site/home/Pillars";
 import Rituals from "@/components/site/home/Rituals";
 import Benefits from "@/components/site/home/Benefits";
@@ -30,7 +31,11 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
   const [waitlistCat, setWaitlistCat] = useState(null);
 
   const hasCategories = Array.isArray(categories) && categories.length > 0;
-  const featuredGuest = (guests || []).find((g) => g.is_featured) || null;
+  const allGuests = guests || [];
+  const featuredGuest = allGuests.find((g) => g.is_featured) || null;
+  // Non-featured guests form the "Chief Guests" lineup (the featured one is the
+  // Leadership hero). If none are featured, all guests show in the lineup.
+  const lineupGuests = featuredGuest ? allGuests.filter((g) => !g.is_featured) : allGuests;
   const bySection = (name) => (highlights || []).filter((h) => (h.section || "highlights") === name);
   const isLive = !!(pageData?.livestream_is_live && pageData?.livestream_url);
 
@@ -41,6 +46,7 @@ export default function HomeContent({ pageData, categories, mediaItems, seatsTak
         {isLive && <Livestream event={pageData} />}
         <AboutMahayagya event={pageData} />
         <Leadership guest={featuredGuest} />
+        <Lineup guests={lineupGuests} />
         <Pillars items={bySection("pillars")} />
         <Rituals items={bySection("highlights")} />
         <Benefits items={bySection("blessings")} />

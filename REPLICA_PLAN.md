@@ -155,6 +155,11 @@ Registration → `/register/[id]` + `CheckoutForm` (restyled). Donations → `/d
   - **/contact** has a working form → `POST /api/contact` → new **`contact_messages`** table (re-run `run_all.sql`). Admin view for messages = a small follow-up.
   - **Nav + footer now use real routes** (Home/About/Event/Registration/Gallery/Live/News/FAQ/Contact); all "Register" CTAs → `/registration`.
   - Remaining: homepage "See full…" preview links; i18n `nav_about`/`nav_news` (English fallback works now); **Phase 8** downloads restore; **Phase 6** CheckoutForm luxury re-theme + **visual QA**.
+- 2026-07-19 — **Fixes: i18n, LangToggle, image size, chief-guests section.**
+  - Added missing i18n keys (`nav_about`, `nav_news` + ~25 page/contact keys) to **en/hi/mr**.
+  - Restyled `LangToggle` for the luxury glass nav (gold pill, brown text) — it's now only used there.
+  - **Image upload limit 6 MB → 15 MB** ([media-library route](app/api/admin/media-library/route.js)); the error message auto-updates.
+  - **Restored the "Chief Guests & Saints" lineup on the homepage** ([components/site/home/Lineup.js](components/site/home/Lineup.js)) — non-featured guests (featured = Leadership hero); also on /event. Build-verified.
 - 2026-07-19 — **Category images + perks restored (matches/exceeds Emergent).**
   - Emergent tier cards = colour + perks, no image. We show **image (`categories.media_url`) + perks (`categories.perks`)** on `/registration` cards and `/register/[id]`. Both admin-editable (CategoryRow). Build-verified.
   - ⚠️ **Build/deploy note:** the `Bagla_bhairav-main/` reference folder lives inside the repo and has its own `package-lock.json` + Next 15 — Next warns about the extra lockfile, and if the shell cwd drifts into it, `npm run build` builds the WRONG app. **Recommend moving `Bagla_bhairav-main/` OUT of the project** (keep it as a local reference elsewhere) before deploy.
