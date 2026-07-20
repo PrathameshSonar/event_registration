@@ -536,6 +536,12 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
   // ── SUCCESS STATE ─────────────────────────────────────────────────────
   if (successData) return <CheckoutSuccess data={successData} />;
 
+  // Reactive validity — mirrors validate() so the submit button stays DISABLED
+  // until terms are agreed and every required field is filled/valid (instead of
+  // only erroring on click). Enquiry doesn't need the offline payment proof.
+  const coreValid = agreedToTerms && Object.keys(validate()).length === 0;
+  const payValid = coreValid && !(isOffline && needsProof && !proofFile);
+
   // ── FORM ──────────────────────────────────────────────────────────────
   return (
     <form onSubmit={handlePayment} noValidate className="space-y-8">
@@ -1110,7 +1116,9 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
           <Button
             type="submit"
             variant="contained"
-            disabled={loading || !agreedToTerms}
+            // Disabled until the whole form is valid (required fields + terms) and,
+            // for offline bank/cheque, the payment proof is attached.
+            disabled={loading || !payValid}
             fullWidth
             sx={{
               py: 1.5,
@@ -1143,7 +1151,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
             type={isEnquiry ? "submit" : "button"}
             onClick={isEnquiry ? undefined : (e) => handlePayment(e, "enquire")}
             variant={isEnquiry ? "contained" : "outlined"}
-            disabled={loading || !agreedToTerms}
+            disabled={loading || !coreValid}
             fullWidth
             sx={{
               mt: isEnquiry ? 0 : 1.5,
@@ -1173,6 +1181,12 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
               t("form_enquire_now")
             )}
           </Button>
+        )}
+
+        {!loading && !coreValid && (
+          <p className="text-center text-xs text-neutral-400 pt-2.5">
+            {t("form_complete_required") || "Complete all required fields to continue."}
+          </p>
         )}
 
         {!isEnquiry && (
