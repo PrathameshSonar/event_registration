@@ -28,6 +28,7 @@ export default function CategoryRow({ category, onUpdate, onDelete }: { category
     const [isRecommended, setIsRecommended] = useState(category.is_recommended || false);
     const [tagline, setTagline] = useState(category.tagline || '');
     const [perksText, setPerksText] = useState((category.perks || []).join('\n'));
+    const [color, setColor] = useState(category.color || 'default');
     const [advancePct, setAdvancePct] = useState(category.advance_percent || 25);
     const [minAge, setMinAge] = useState<string>(category.min_age ? String(category.min_age) : '');
     const [maxAge, setMaxAge] = useState<string>(category.max_age ? String(category.max_age) : '');
@@ -51,6 +52,7 @@ export default function CategoryRow({ category, onUpdate, onDelete }: { category
             allow_enquiry: allowEnquiry, is_recommended: isRecommended,
             tagline: tagline || null,
             perks: perksText.split('\n').map((s) => s.trim()).filter(Boolean),
+            color,
             min_age: minAge ? Number(minAge) : null, max_age: maxAge ? Number(maxAge) : null,
             translations: buildTranslations(tr) as Record<string, Record<string, string>>,
         });
@@ -92,6 +94,13 @@ export default function CategoryRow({ category, onUpdate, onDelete }: { category
 
                 <div className="md:col-span-2"><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Tagline <span className="font-normal text-neutral-400 normal-case">(short line on the tier card, e.g. “Reserved sankalp &amp; seating”)</span></label><input type="text" value={tagline} onChange={(e) => { setTagline(e.target.value); setIsChanged(true); }} placeholder="Reserved sankalp & seating" className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
                 <div className="md:col-span-2"><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Perks <span className="font-normal text-neutral-400 normal-case">(one per line — the bullet list on the tier card)</span></label><textarea value={perksText} onChange={(e) => { setPerksText(e.target.value); setIsChanged(true); }} rows={4} placeholder={"Entry to all three days\nMahaprasad on Day 3\nBlessed tirtha & vibhuti packet"} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition" /></div>
+                <div><label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Card colour <span className="font-normal text-neutral-400 normal-case">(the Seva card theme on the registration page)</span></label>
+                    <select value={color} onChange={(e) => { setColor(e.target.value); setIsChanged(true); }} className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white transition cursor-pointer">
+                        <option value="default">Default (ivory)</option>
+                        <option value="gold">Gold (premium gradient)</option>
+                        <option value="maroon">Maroon (deep)</option>
+                    </select>
+                </div>
             </div>
 
             {/* Payment options */}

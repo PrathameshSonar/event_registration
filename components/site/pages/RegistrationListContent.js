@@ -12,6 +12,32 @@ import PageHero from "@/components/site/PageHero";
 import Reveal from "@/components/site/Reveal";
 import WaitlistModal from "@/components/WaitlistModal";
 
+// Per-Seva card themes (like the Emergent reference). Admin sets categories.color;
+// a "recommended" tier is forced to the premium gold theme.
+const BASE_BTN = "w-full inline-flex h-12 items-center justify-center gap-2 rounded-full px-6 font-semibold text-[15px] transition hover:brightness-105";
+const CARD_THEMES = {
+  default: {
+    card: "luxury-card", kicker: "text-vermillion", title: "text-brown", price: "text-vermillion",
+    note: "text-brown/50", desc: "text-brown/70", label: "text-brown/60", track: "bg-gold/15",
+    bar: "bg-gradient-to-r from-gold to-amber2", perkIcon: "text-gold-600", perkText: "text-brown/80",
+    btn: "bg-gradient-to-br from-[hsl(10,72%,44%)] via-[hsl(24,90%,50%)] to-[hsl(38,82%,52%)] text-white shadow-gold",
+    btnAlt: "border-2 border-gold/50 text-brown hover:bg-gold/10",
+  },
+  gold: {
+    card: "bg-gradient-to-br from-[hsl(43,74%,50%)] via-[hsl(38,88%,53%)] to-[hsl(24,90%,55%)] shadow-gold",
+    kicker: "text-brown/70", title: "text-brown", price: "text-brown", note: "text-brown/60",
+    desc: "text-brown/80", label: "text-brown/70", track: "bg-brown/15", bar: "bg-brown/70",
+    perkIcon: "text-brown", perkText: "text-brown/85",
+    btn: "bg-brown text-gold-400 hover:bg-[hsl(20,30%,15%)]", btnAlt: "border-2 border-brown/30 text-brown hover:bg-brown/5",
+  },
+  maroon: {
+    card: "bg-[hsl(350,45%,18%)] shadow-luxury", kicker: "text-gold-400/85", title: "text-ivory", price: "text-gold-400",
+    note: "text-ivory/55", desc: "text-ivory/80", label: "text-ivory/65", track: "bg-gold/15",
+    bar: "bg-gradient-to-r from-gold to-amber2", perkIcon: "text-gold-400", perkText: "text-ivory/85",
+    btn: "bg-gradient-to-r from-gold to-amber2 text-brown hover:brightness-110", btnAlt: "border-2 border-gold/40 text-gold-400 hover:bg-gold/10",
+  },
+};
+
 export default function RegistrationListContent({ categories, seatsTaken, registrationOpen = true, hero }) {
   const { t, lang } = useLanguage();
   const [waitlistCat, setWaitlistCat] = useState(null);
@@ -52,12 +78,14 @@ export default function RegistrationListContent({ categories, seatsTaken, regist
                 const priceLabel = c.price > 0 ? `₹${Number(c.price).toLocaleString("en-IN")}` : (t("category_enquire_price") || "Enquire");
                 // Availability bar: only for tiers that declare a real capacity.
                 const filledPct = cap > 0 ? Math.min(100, Math.round(((seats[c.id] || 0) / cap) * 100)) : null;
+                // Per-Seva colour theme; a recommended tier is forced to the gold theme.
+                const th = CARD_THEMES[featured ? "gold" : (c.color || "default")] || CARD_THEMES.default;
 
                 return (
                   <Reveal key={c.id} className="h-full">
-                    <article className={`relative flex h-full flex-col rounded-[24px] overflow-hidden transition-all duration-500 hover:-translate-y-1 ${featured ? "bg-white ring-2 ring-gold shadow-gold" : "luxury-card"}`}>
+                    <article className={`relative flex h-full flex-col rounded-[24px] overflow-hidden transition-all duration-500 hover:-translate-y-1 ${th.card}`}>
                       {featured && (
-                        <span className="absolute top-4 left-4 z-10 rounded-full bg-gradient-to-r from-orange-600 to-amber-600 px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-white font-bold shadow">
+                        <span className="absolute top-4 left-4 z-10 rounded-full bg-brown px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-gold-400 font-bold shadow">
                           {t("category_recommended") || "Most Chosen"}
                         </span>
                       )}
@@ -68,24 +96,24 @@ export default function RegistrationListContent({ categories, seatsTaken, regist
                           <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
                         </div>
                       )}
-                      <div className={`flex flex-col flex-1 p-8 ${c.media_url ? "" : "pt-8"}`}>
-                      {tagline && <span className="kicker">{tagline}</span>}
-                      <h3 className="mt-3 font-display text-2xl text-brown">{title}</h3>
-                      <p className="mt-3 font-display text-3xl text-vermillion">{priceLabel}</p>
-                      {c.price > 0 && <p className="mt-1 text-xs text-brown/50">{t("reg_price_note") || "per Yajmaan · one-time"}</p>}
-                      {desc && <p className="mt-3 text-brown/70 text-sm leading-relaxed">{desc}</p>}
+                      <div className="flex flex-col flex-1 p-8">
+                      {tagline && <span className={`text-[11px] uppercase tracking-[0.24em] font-semibold ${th.kicker}`}>{tagline}</span>}
+                      <h3 className={`mt-2 font-display text-2xl ${th.title}`}>{title}</h3>
+                      <p className={`mt-3 font-display text-3xl ${th.price}`}>{priceLabel}</p>
+                      {c.price > 0 && <p className={`mt-1 text-xs ${th.note}`}>{t("reg_price_note") || "per Yajmaan · one-time"}</p>}
+                      {desc && <p className={`mt-3 text-sm leading-relaxed ${th.desc}`}>{desc}</p>}
 
                       {filledPct !== null && !isFull && (
                         <div className="mt-5">
-                          <div className="flex items-center justify-between text-[11px] font-semibold text-brown/60">
+                          <div className={`flex items-center justify-between text-[11px] font-semibold ${th.label}`}>
                             <span>{t("reg_availability") || "Availability"}</span>
                             <span>{filledPct}% {t("reg_filled") || "filled"}</span>
                           </div>
-                          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-gold/15">
-                            <div className={`h-full rounded-full ${filledPct >= 85 ? "bg-vermillion" : "bg-gradient-to-r from-gold to-amber2"}`} style={{ width: `${Math.max(4, filledPct)}%` }} />
+                          <div className={`mt-1.5 h-1.5 w-full overflow-hidden rounded-full ${th.track}`}>
+                            <div className={`h-full rounded-full ${th.bar}`} style={{ width: `${Math.max(4, filledPct)}%` }} />
                           </div>
                           {remaining > 0 && remaining <= 10 && (
-                            <p className="mt-1.5 text-[11px] font-semibold text-vermillion">{(t("reg_seats_left") || "Only {n} seats left").replace("{n}", String(remaining))}</p>
+                            <p className={`mt-1.5 text-[11px] font-semibold ${th.price}`}>{(t("reg_seats_left") || "Only {n} seats left").replace("{n}", String(remaining))}</p>
                           )}
                         </div>
                       )}
@@ -93,8 +121,8 @@ export default function RegistrationListContent({ categories, seatsTaken, regist
                       {perks.length > 0 && (
                         <ul className="mt-6 space-y-2.5 flex-1">
                           {perks.map((p, i) => (
-                            <li key={i} className="flex items-start gap-2.5 text-[14.5px] text-brown/80">
-                              <Check className="h-4 w-4 text-gold-600 shrink-0 mt-0.5" strokeWidth={2.4} />
+                            <li key={i} className={`flex items-start gap-2.5 text-[14.5px] ${th.perkText}`}>
+                              <Check className={`h-4 w-4 shrink-0 mt-0.5 ${th.perkIcon}`} strokeWidth={2.4} />
                               <span>{p}</span>
                             </li>
                           ))}
@@ -103,16 +131,16 @@ export default function RegistrationListContent({ categories, seatsTaken, regist
 
                       <div className="mt-8">
                         {!registrationOpen ? (
-                          <span className="flex w-full items-center justify-center gap-2 rounded-full border border-gold/25 bg-cream/60 py-3 text-sm font-semibold text-brown/50">
+                          <span className={`${BASE_BTN} ${th.btnAlt} opacity-70 cursor-default`}>
                             <Lock className="h-4 w-4" /> {t("register_closed_short") || "Registrations closed"}
                           </span>
                         ) : isFull ? (
-                          <button onClick={() => setWaitlistCat(c)} className="btn-outline-gold w-full justify-center">
+                          <button onClick={() => setWaitlistCat(c)} className={`${BASE_BTN} ${th.btnAlt}`}>
                             🔔 {t("category_join_waitlist") || "Join the waitlist"}
                           </button>
                         ) : (
-                          <Link href={`/register/${c.id}`} className="btn-gold w-full justify-center">
-                            {c.is_enquiry_only ? (t("category_enquire") || "Enquire") : (t("category_register") || "Reserve")} <ArrowRight className="h-4 w-4" />
+                          <Link href={`/register/${c.id}`} className={`${BASE_BTN} ${th.btn}`}>
+                            {c.is_enquiry_only ? (t("category_enquire") || "Enquire") : (t("category_register") || "Choose this Seva")} <ArrowRight className="h-4 w-4" />
                           </Link>
                         )}
                       </div>

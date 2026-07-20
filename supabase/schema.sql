@@ -574,7 +574,8 @@ ALTER TABLE event_guests     ADD COLUMN IF NOT EXISTS bullets JSONB DEFAULT '[]'
 ALTER TABLE event_highlights ADD COLUMN IF NOT EXISTS image_url TEXT;
 ALTER TABLE event_schedule   ADD COLUMN IF NOT EXISTS description TEXT;
 ALTER TABLE categories       ADD COLUMN IF NOT EXISTS tagline TEXT,
-                             ADD COLUMN IF NOT EXISTS perks   JSONB DEFAULT '[]'::jsonb;
+                             ADD COLUMN IF NOT EXISTS perks   JSONB DEFAULT '[]'::jsonb,
+                             ADD COLUMN IF NOT EXISTS color   TEXT DEFAULT 'default';
 ALTER TABLE events           ADD COLUMN IF NOT EXISTS about_images JSONB DEFAULT '[]'::jsonb;
 
 ALTER TABLE events

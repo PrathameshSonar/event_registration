@@ -65,6 +65,7 @@ export interface Category {
     is_recommended?: boolean;
     tagline?: string | null;
     perks?: string[];
+    color?: string | null;
     min_age: number | null;
     max_age: number | null;
     translations: Record<string, Record<string, string>> | null;
