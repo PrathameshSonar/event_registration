@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { revalidatePublic } from '@/lib/revalidate';
 import { logAudit } from '@/lib/auditLog';
 
 export const dynamic = 'force-dynamic';
@@ -52,7 +53,7 @@ export async function POST(request) {
         action: 'news.create', entity: 'news', entityId: body.event_id,
         summary: `Published announcement "${body.title.trim()}"`,
     });
-    return NextResponse.json({ ok: true });
+    revalidatePublic(); return NextResponse.json({ ok: true });
 }
 
 export async function PATCH(request) {
@@ -67,7 +68,7 @@ export async function PATCH(request) {
         action: 'news.update', entity: 'news', entityId: id,
         summary: updates.is_published === false ? 'Unpublished announcement' : 'Updated announcement',
     });
-    return NextResponse.json({ ok: true });
+    revalidatePublic(); return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(request) {
@@ -82,5 +83,5 @@ export async function DELETE(request) {
         action: 'news.delete', entity: 'news', entityId: id,
         summary: 'Deleted announcement',
     });
-    return NextResponse.json({ ok: true });
+    revalidatePublic(); return NextResponse.json({ ok: true });
 }

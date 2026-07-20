@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { revalidatePublic } from '@/lib/revalidate';
 import { logAudit } from '@/lib/auditLog';
 
 export const dynamic = 'force-dynamic';
@@ -38,7 +39,7 @@ export async function POST(request) {
         action: 'schedule.create', entity: 'schedule', entityId: body.event_id,
         summary: `Added schedule item "${body.title.trim()}"`,
     });
-    return NextResponse.json({ ok: true });
+    revalidatePublic(); return NextResponse.json({ ok: true });
 }
 
 export async function PATCH(request) {
@@ -53,7 +54,7 @@ export async function PATCH(request) {
         action: 'schedule.update', entity: 'schedule', entityId: id,
         summary: 'Updated schedule item',
     });
-    return NextResponse.json({ ok: true });
+    revalidatePublic(); return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(request) {
@@ -68,5 +69,5 @@ export async function DELETE(request) {
         action: 'schedule.delete', entity: 'schedule', entityId: id,
         summary: 'Deleted schedule item',
     });
-    return NextResponse.json({ ok: true });
+    revalidatePublic(); return NextResponse.json({ ok: true });
 }

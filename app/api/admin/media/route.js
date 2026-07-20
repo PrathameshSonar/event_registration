@@ -3,6 +3,7 @@
 import { NextResponse } from 'next/server';
 import { authorize, verifyAdminPassword } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { revalidatePublic } from '@/lib/revalidate';
 import { logAudit } from '@/lib/auditLog';
 
 export const dynamic = 'force-dynamic';
@@ -28,7 +29,7 @@ export async function POST(request) {
         action: 'media.create', entity: 'media', entityId: event_id,
         summary: `Added ${media_type === 'youtube' ? 'video' : 'image'} to gallery`,
     });
-    return NextResponse.json({ ok: true });
+    revalidatePublic(); return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(request) {
@@ -46,5 +47,5 @@ export async function DELETE(request) {
         action: 'media.delete', entity: 'media', entityId: id,
         summary: 'Deleted gallery media',
     });
-    return NextResponse.json({ ok: true });
+    revalidatePublic(); return NextResponse.json({ ok: true });
 }

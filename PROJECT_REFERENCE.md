@@ -647,6 +647,10 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
 
 Keep newest first. Add an entry for every meaningful change.
 
+- **2026-07-21 (Admin findability + instant updates + per-Seva colours)**
+  - **Admin settings: search + regroup.** The Settings sidebar now has a **search box** (filters every panel by name + keywords) and cleaner groups: Website Content · Sevas & Registration · Payments & Donations · Messages & Contact · System.
+  - **Instant public updates.** New [lib/revalidate.js](lib/revalidate.js) `revalidatePublic()` (`revalidatePath('/', 'layout')` + content tags), wired into every content route (events, categories, schedule, highlights, guests, news, testimonials, faqs, media, app-settings). Admin edits now reflect on the live site on the next request instead of after the ISR/cache window (was the "1–2 min" lag).
+  - **Per-Seva card colours** — `categories.color` (`default`/`gold`/`maroon`), admin dropdown in Ticket Tiers; the /registration cards fully re-theme per Seva (like the Emergent reference). Recommended tier is forced to gold. **Re-run `run_all.sql`.**
 - **2026-07-20 (Register form re-theme + Emergent structure + "Seva")**
   - **Theme fix:** the checkout form's black MUI buttons → luxury **`btn-gold` / `btn-outline-gold`** (Continue / Pay / Enquire); payment-method chips + file button → vermillion; the MUI fields are wrapped in a warm theme (rounded, gold-tinted borders, cream tint, vermillion focus) via `ThemeProvider`. Step indicator recoloured to vermillion/gold.
   - **Emergent structure** ([RegisterPageContent](components/RegisterPageContent.js)): a **"← All Sevas"** back link, a **"Register for *[name]*"** header with the price, and a **sticky "What's included" sidebar** (image + price + perks) beside the form.

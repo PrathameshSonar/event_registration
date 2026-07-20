@@ -3,6 +3,7 @@
 import { NextResponse } from 'next/server';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { revalidatePublic } from '@/lib/revalidate';
 import { logAudit } from '@/lib/auditLog';
 
 export const dynamic = 'force-dynamic';
@@ -36,7 +37,7 @@ export async function POST(request) {
     const { error } = await supabaseAdmin.from('event_testimonials').insert({ event_id: body.event_id, ...pick(body), sort_order: body.sort_order ?? (count ?? 0) });
     if (error) return NextResponse.json({ error: 'Create failed.' }, { status: 500 });
     await logAudit({ session, request, action: 'testimonial.create', entity: 'testimonial', entityId: body.event_id, summary: `Added testimonial${body.name ? ` from "${body.name}"` : ''}` });
-    return NextResponse.json({ ok: true });
+    revalidatePublic(); return NextResponse.json({ ok: true });
 }
 
 export async function PATCH(request) {
@@ -47,7 +48,7 @@ export async function PATCH(request) {
     const { error } = await supabaseAdmin.from('event_testimonials').update(pick(updates)).eq('id', id);
     if (error) return NextResponse.json({ error: 'Update failed.' }, { status: 500 });
     await logAudit({ session, request, action: 'testimonial.update', entity: 'testimonial', entityId: id, summary: 'Updated testimonial' });
-    return NextResponse.json({ ok: true });
+    revalidatePublic(); return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(request) {
@@ -58,5 +59,5 @@ export async function DELETE(request) {
     const { error } = await supabaseAdmin.from('event_testimonials').delete().eq('id', id);
     if (error) return NextResponse.json({ error: 'Delete failed.' }, { status: 500 });
     await logAudit({ session, request, action: 'testimonial.delete', entity: 'testimonial', entityId: id, summary: 'Deleted testimonial' });
-    return NextResponse.json({ ok: true });
+    revalidatePublic(); return NextResponse.json({ ok: true });
 }

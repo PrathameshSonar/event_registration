@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server';
 import { authorize, verifyAdminPassword } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { revalidatePublic } from '@/lib/revalidate';
 import { logAudit } from '@/lib/auditLog';
 
 export const dynamic = 'force-dynamic';
@@ -46,7 +47,7 @@ export async function POST(request) {
         action: 'category.create', entity: 'category', entityId: created?.id,
         summary: `Created tier "${values.title}" (₹${values.price ?? 0})`,
     });
-    return NextResponse.json({ ok: true });
+    revalidatePublic(); return NextResponse.json({ ok: true });
 }
 
 export async function PATCH(request) {
@@ -63,7 +64,7 @@ export async function PATCH(request) {
         summary: `Updated tier${clean.title ? ` "${clean.title}"` : ''}`,
         metadata: { fields: Object.keys(clean) },
     });
-    return NextResponse.json({ ok: true });
+    revalidatePublic(); return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(request) {
@@ -95,5 +96,5 @@ export async function DELETE(request) {
         summary: `Deleted tier${force ? ' (forced, had paid registrations)' : ''}`,
         metadata: { force: !!force },
     });
-    return NextResponse.json({ ok: true });
+    revalidatePublic(); return NextResponse.json({ ok: true });
 }

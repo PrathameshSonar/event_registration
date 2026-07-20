@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { revalidatePublic } from '@/lib/revalidate';
 import { logAudit } from '@/lib/auditLog';
 
 export const dynamic = 'force-dynamic';
@@ -34,7 +35,7 @@ export async function POST(request) {
     const { error } = await supabaseAdmin.from('event_guests').insert({ event_id: body.event_id, ...pick(body), sort_order: body.sort_order ?? (cnt ?? 0) });
     if (error) return NextResponse.json({ error: 'Create failed.' }, { status: 500 });
     await logAudit({ session, request, action: 'guest.create', entity: 'guest', entityId: body.event_id, summary: `Added guest "${body.name.trim()}"` });
-    return NextResponse.json({ ok: true });
+    revalidatePublic(); return NextResponse.json({ ok: true });
 }
 
 export async function PATCH(request) {
@@ -45,7 +46,7 @@ export async function PATCH(request) {
     const { error } = await supabaseAdmin.from('event_guests').update(pick(updates)).eq('id', id);
     if (error) return NextResponse.json({ error: 'Update failed.' }, { status: 500 });
     await logAudit({ session, request, action: 'guest.update', entity: 'guest', entityId: id, summary: 'Updated guest' });
-    return NextResponse.json({ ok: true });
+    revalidatePublic(); return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(request) {
@@ -56,5 +57,5 @@ export async function DELETE(request) {
     const { error } = await supabaseAdmin.from('event_guests').delete().eq('id', id);
     if (error) return NextResponse.json({ error: 'Delete failed.' }, { status: 500 });
     await logAudit({ session, request, action: 'guest.delete', entity: 'guest', entityId: id, summary: 'Deleted guest' });
-    return NextResponse.json({ ok: true });
+    revalidatePublic(); return NextResponse.json({ ok: true });
 }

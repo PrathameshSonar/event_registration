@@ -13,6 +13,7 @@ import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAudit } from '@/lib/auditLog';
 import { SETTINGS, SETTING_KEYS, withDefaults } from '@/lib/appSettings';
+import { revalidatePublic } from '@/lib/revalidate';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,5 +67,6 @@ export async function PATCH(request) {
         });
     }
 
+    revalidatePublic();
     return NextResponse.json({ ok: true, ...saved });
 }

@@ -6,6 +6,7 @@ import { revalidateTag } from 'next/cache';
 import { authorize, verifyAdminPassword } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAudit } from '@/lib/auditLog';
+import { revalidatePublic } from '@/lib/revalidate';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,7 +36,7 @@ export async function POST(request) {
         action: 'event.create', entity: 'event', entityId: created?.id,
         summary: `Created event "${title}"${makeActive ? ' (set live)' : ''}`,
     });
-    return NextResponse.json({ ok: true });
+    revalidatePublic(); return NextResponse.json({ ok: true });
 }
 
 export async function PATCH(request) {
@@ -96,7 +97,7 @@ export async function PATCH(request) {
         });
     }
 
-    return NextResponse.json({ ok: true });
+    revalidatePublic(); return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(request) {
@@ -114,5 +115,5 @@ export async function DELETE(request) {
         action: 'event.delete', entity: 'event', entityId: id,
         summary: 'Deleted event',
     });
-    return NextResponse.json({ ok: true });
+    revalidatePublic(); return NextResponse.json({ ok: true });
 }

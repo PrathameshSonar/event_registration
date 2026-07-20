@@ -67,6 +67,7 @@ export default function AdminDashboard() {
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'enquiries' | 'scanlog' | 'settings' | 'audit'>('dashboard');
     const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'library' | 'branding' | 'pageheaders' | 'templates' | 'checkpoints' | 'formfields' | 'homecontent' | 'contactsocial' | 'contactmessages' | 'declaration' | 'consents' | 'payment' | 'users' | 'waitlist' | 'donations' | 'sevacategories' | 'sponsors' | 'messages' | 'feedback'>('events');
+    const [settingsQuery, setSettingsQuery] = useState('');
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -1245,53 +1246,74 @@ export default function AdminDashboard() {
 
                 {effectiveTab === 'settings' && can('settings:manage') && (
                     <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm overflow-hidden flex flex-col md:flex-row min-h-[600px]">
-                        <div className="w-full md:w-64 bg-neutral-50 border-r border-neutral-200 p-4 space-y-1">
-                            {/* Grouped so admins can find things fast (was a flat 17-item list). */}
-                            {[
-                                { group: 'Event & Pages', items: [
-                                    { k: 'events', Icon: CalendarDays, label: 'Event Setup' },
-                                    { k: 'homecontent', Icon: CalendarDays, label: 'Home Page Content' },
-                                    { k: 'pageheaders', Icon: ImageIcon, label: 'Page Headers' },
-                                    { k: 'media', Icon: ImageIcon, label: 'Media Gallery' },
-                                    { k: 'library', Icon: FolderOpen, label: 'Media Library' },
-                                ] },
-                                { group: 'Registration', items: [
-                                    { k: 'tiers', Icon: Ticket, label: 'Ticket Tiers' },
-                                    { k: 'formfields', Icon: ListFilter, label: 'Form Fields' },
-                                    { k: 'declaration', Icon: ScrollText, label: 'Declaration' },
-                                    { k: 'consents', Icon: ScrollText, label: 'Consent Records' },
-                                    { k: 'checkpoints', Icon: QrCode, label: 'Entry Checkpoints' },
-                                    { k: 'waitlist', Icon: ListFilter, label: 'Waitlist' },
-                                ] },
-                                { group: 'Payments & Seva', items: [
-                                    { k: 'payment', Icon: IndianRupee, label: 'Payment Details' },
-                                    { k: 'donations', Icon: IndianRupee, label: 'Donations' },
-                                    { k: 'sevacategories', Icon: Gift, label: 'Seva Categories' },
-                                    { k: 'sponsors', Icon: Handshake, label: 'Sponsors' },
-                                ] },
-                                { group: 'Communications', items: [
-                                    { k: 'contactsocial', Icon: Phone, label: 'Contact & Social' },
-                                    { k: 'contactmessages', Icon: Mail, label: 'Contact Messages' },
-                                    { k: 'templates', Icon: FileCode, label: 'Templates & Config' },
-                                    { k: 'messages', Icon: Mail, label: 'Message Log', gate: 'audit:view' },
-                                    { k: 'feedback', Icon: MessageSquare, label: 'Feedback' },
-                                ] },
-                                { group: 'Access & Appearance', items: [
-                                    { k: 'users', Icon: Users, label: 'Admin Users' },
-                                    { k: 'branding', Icon: Palette, label: 'Branding & SEO' },
-                                ] },
-                            ].map((section) => {
-                                const visible = section.items.filter((it: any) => !it.gate || can(it.gate));
-                                if (!visible.length) return null;
-                                return (
-                                    <div key={section.group} className="pt-2 first:pt-0">
-                                        <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-400">{section.group}</p>
-                                        {visible.map((it) => (
-                                            <button key={it.k} onClick={() => setSettingsSubTab(it.k as typeof settingsSubTab)} className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-3 transition ${settingsSubTab === it.k ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><it.Icon className="w-4 h-4 flex-shrink-0" /> {it.label}</button>
-                                        ))}
-                                    </div>
+                        <div className="w-full md:w-64 bg-neutral-50 border-r border-neutral-200 p-3 md:max-h-[80vh] md:overflow-y-auto">
+                            {/* Search — jumps straight to any panel by name (findability). */}
+                            <div className="relative mb-3">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                                <input
+                                    value={settingsQuery}
+                                    onChange={(e) => setSettingsQuery(e.target.value)}
+                                    placeholder="Search settings…"
+                                    className="w-full h-9 pl-9 pr-3 text-sm border border-neutral-200 rounded-lg bg-white focus:outline-none focus:border-orange-500"
+                                />
+                            </div>
+                            {(() => {
+                                const q = settingsQuery.trim().toLowerCase();
+                                const SECTIONS = [
+                                    { group: 'Website Content', items: [
+                                        { k: 'events', Icon: CalendarDays, label: 'Event Setup', kw: 'venue date title event' },
+                                        { k: 'homecontent', Icon: LayoutDashboard, label: 'Home Page Content', kw: 'schedule guests highlights faq news testimonials countdown registration open close' },
+                                        { k: 'pageheaders', Icon: ImageIcon, label: 'Page Headers', kw: 'hero banner about gallery' },
+                                        { k: 'media', Icon: ImageIcon, label: 'Media Gallery', kw: 'photos images videos' },
+                                        { k: 'library', Icon: FolderOpen, label: 'Media Library', kw: 'files upload documents downloads' },
+                                    ] },
+                                    { group: 'Sevas & Registration', items: [
+                                        { k: 'tiers', Icon: Ticket, label: 'Sevas & Tiers', kw: 'category price perks colour capacity ticket' },
+                                        { k: 'formfields', Icon: ListFilter, label: 'Form Fields', kw: 'registration form custom fields' },
+                                        { k: 'declaration', Icon: ScrollText, label: 'Declaration', kw: 'samanti patra consent terms' },
+                                        { k: 'consents', Icon: ScrollText, label: 'Consent Records', kw: 'samanti patra signed accepted' },
+                                        { k: 'waitlist', Icon: ListFilter, label: 'Waitlist', kw: 'full sold out' },
+                                        { k: 'checkpoints', Icon: QrCode, label: 'Entry Checkpoints', kw: 'scan gate qr' },
+                                    ] },
+                                    { group: 'Payments & Donations', items: [
+                                        { k: 'payment', Icon: IndianRupee, label: 'Payment Details', kw: 'bank upi cheque offline razorpay account' },
+                                        { k: 'donations', Icon: IndianRupee, label: 'Donations', kw: 'seva contributions' },
+                                        { k: 'sevacategories', Icon: Gift, label: 'Donation Presets', kw: 'donate seva amounts annadaan' },
+                                        { k: 'sponsors', Icon: Handshake, label: 'Sponsors', kw: 'company logo' },
+                                    ] },
+                                    { group: 'Messages & Contact', items: [
+                                        { k: 'contactsocial', Icon: Phone, label: 'Contact & Social', kw: 'phone email address instagram facebook youtube whatsapp' },
+                                        { k: 'contactmessages', Icon: Mail, label: 'Contact Messages', kw: 'enquiries inbox contact form' },
+                                        { k: 'feedback', Icon: MessageSquare, label: 'Feedback', kw: 'reviews rating' },
+                                        { k: 'templates', Icon: FileCode, label: 'Templates & Config', kw: 'email whatsapp qr' },
+                                        { k: 'messages', Icon: Mail, label: 'Message Log', kw: 'sent email whatsapp delivery', gate: 'audit:view' },
+                                    ] },
+                                    { group: 'System', items: [
+                                        { k: 'users', Icon: Users, label: 'Admin Users', kw: 'volunteer roles permissions rbac password' },
+                                        { k: 'branding', Icon: Palette, label: 'Branding & SEO', kw: 'logo colours name wordmark meta' },
+                                    ] },
+                                ];
+                                const btn = (it: any) => (
+                                    <button key={it.k} onClick={() => setSettingsSubTab(it.k as typeof settingsSubTab)} className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-3 transition ${settingsSubTab === it.k ? 'bg-orange-100 text-orange-700' : 'text-neutral-600 hover:bg-neutral-200'}`}><it.Icon className="w-4 h-4 flex-shrink-0" /> {it.label}</button>
                                 );
-                            })}
+                                const match = (it: any) => (!it.gate || can(it.gate)) && (!q || it.label.toLowerCase().includes(q) || (it.kw || '').includes(q));
+
+                                if (q) {
+                                    const hits = SECTIONS.flatMap((s) => s.items).filter(match);
+                                    return hits.length ? <div className="space-y-1">{hits.map(btn)}</div>
+                                        : <p className="px-3 py-4 text-sm text-neutral-400">No settings match “{settingsQuery}”.</p>;
+                                }
+                                return SECTIONS.map((section) => {
+                                    const visible = section.items.filter(match);
+                                    if (!visible.length) return null;
+                                    return (
+                                        <div key={section.group} className="pt-2 first:pt-0 space-y-1">
+                                            <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-400">{section.group}</p>
+                                            {visible.map(btn)}
+                                        </div>
+                                    );
+                                });
+                            })()}
                         </div>
 
                         <div className="flex-1 p-6 lg:p-8 bg-white overflow-y-auto">
