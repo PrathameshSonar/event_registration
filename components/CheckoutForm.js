@@ -590,11 +590,11 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
   };
 
   const StepProgress = ({ current }) => (
-    <div className="flex items-center gap-3 mb-1">
-      <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${current >= 1 ? "bg-orange-600 text-white" : "bg-neutral-200 text-neutral-500"}`}>{current > 1 ? <Check className="w-4 h-4" /> : "1"}</span>
-      <span className={`h-0.5 w-8 ${current > 1 ? "bg-orange-600" : "bg-neutral-200"}`} />
-      <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${current >= 2 ? "bg-orange-600 text-white" : "bg-neutral-200 text-neutral-500"}`}>2</span>
-      <span className="ml-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">
+    <div className="flex items-center gap-2">
+      <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ${current >= 1 ? "bg-orange-600 text-white" : "bg-neutral-200 text-neutral-500"}`}>{current > 1 ? <Check className="w-3.5 h-3.5" /> : "1"}</span>
+      <span className={`h-0.5 w-5 ${current > 1 ? "bg-orange-600" : "bg-neutral-200"}`} />
+      <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ${current >= 2 ? "bg-orange-600 text-white" : "bg-neutral-200 text-neutral-500"}`}>2</span>
+      <span className="ml-1.5 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-neutral-500 truncate">
         {current === 1 ? (t("declaration_step_label") || "Declaration") : (t("declaration_step2_label") || "Your details")}
       </span>
     </div>
@@ -602,15 +602,15 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
 
   if (twoStep && step === 1) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-5">
         <StepProgress current={1} />
 
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <ScrollText className="w-5 h-5 text-orange-600" />
-            <h3 className="text-lg font-bold text-neutral-900">{declTitle}</h3>
+            <ScrollText className="w-5 h-5 text-orange-600 shrink-0" />
+            <h3 className="text-base sm:text-lg font-bold text-neutral-900 leading-tight">{declTitle}</h3>
           </div>
-          <div ref={declBodyRef} onScroll={onDeclScroll} className="max-h-72 overflow-y-auto rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-[14px] leading-[1.85] text-neutral-700 whitespace-pre-wrap">
+          <div ref={declBodyRef} onScroll={onDeclScroll} className="max-h-60 sm:max-h-72 overflow-y-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3.5 sm:p-4 text-[13.5px] sm:text-[14px] leading-[1.75] text-neutral-700 whitespace-pre-wrap">
             {declBody}
           </div>
           {!declAtEnd && <p className="mt-2 text-xs text-neutral-400">{t("declaration_scroll_hint") || "Please scroll to the bottom to continue."}</p>}
@@ -618,11 +618,11 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
 
         <div>
           <h4 className="text-sm font-bold text-neutral-900 mb-3 uppercase tracking-wider">{t("declaration_your_details") || "Your details (for this declaration)"}</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <TextField fullWidth label={t("form_first_name")} name="firstName" required value={formData.firstName} onChange={handleChange} variant="outlined" />
-            <TextField fullWidth label={t("form_last_name")} name="lastName" required value={formData.lastName} onChange={handleChange} variant="outlined" />
-            <TextField fullWidth label={t("form_dob")} name="dob" type="date" required value={formData.dob} onChange={handleChange} variant="outlined" slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: TODAY_STR }, input: adorn(<Calendar className="w-5 h-5 text-neutral-400" />) }} />
-            <TextField fullWidth label={t("form_whatsapp")} name="phone" type="tel" required value={formData.phone} onChange={handleChange} variant="outlined" slotProps={{ input: adorn(<Phone className="w-5 h-5 text-neutral-400" />), htmlInput: { inputMode: "numeric", maxLength: 13 } }} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <TextField fullWidth size="small" label={t("form_first_name")} name="firstName" required value={formData.firstName} onChange={handleChange} variant="outlined" />
+            <TextField fullWidth size="small" label={t("form_last_name")} name="lastName" required value={formData.lastName} onChange={handleChange} variant="outlined" />
+            <TextField fullWidth size="small" label={t("form_dob")} name="dob" type="date" required value={formData.dob} onChange={handleChange} variant="outlined" slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: TODAY_STR }, input: adorn(<Calendar className="w-5 h-5 text-neutral-400" />) }} />
+            <TextField fullWidth size="small" label={t("form_whatsapp")} name="phone" type="tel" required value={formData.phone} onChange={handleChange} variant="outlined" slotProps={{ input: adorn(<Phone className="w-5 h-5 text-neutral-400" />), htmlInput: { inputMode: "numeric", maxLength: 13 } }} />
           </div>
         </div>
 
@@ -644,12 +644,12 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
 
   // ── FORM ──────────────────────────────────────────────────────────────
   return (
-    <form onSubmit={handlePayment} noValidate className="space-y-8">
+    <form onSubmit={handlePayment} noValidate className="space-y-6 md:space-y-8">
       {twoStep && (
-        <div className="flex items-center justify-between gap-3 pb-2 border-b border-neutral-100">
+        <div className="flex items-center justify-between gap-2 pb-3 border-b border-neutral-100">
           <StepProgress current={2} />
-          <button type="button" onClick={() => setStep(1)} className="inline-flex items-center gap-1 text-xs font-semibold text-neutral-500 hover:text-orange-600">
-            <ArrowLeft className="w-4 h-4" /> {t("declaration_back") || "Declaration"}
+          <button type="button" onClick={() => setStep(1)} className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 h-8 text-xs font-semibold text-neutral-600 hover:border-orange-300 hover:text-orange-600 transition shrink-0">
+            <ArrowLeft className="w-3.5 h-3.5" /> {t("declaration_back_short") || "Back"}
           </button>
         </div>
       )}

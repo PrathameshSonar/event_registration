@@ -20,18 +20,18 @@ export default function RegisterPageContent({ category, paymentSettings = null, 
     return (
         <section className="section-y">
             <div className="container-luxury max-w-2xl">
-                <div className="luxury-card overflow-hidden mb-8">
+                <div className="luxury-card overflow-hidden mb-5 md:mb-8">
                     {category.media_url && (
-                        <div className="relative h-48 md:h-56 overflow-hidden">
+                        <div className="relative h-32 sm:h-44 md:h-56 overflow-hidden">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={category.media_url} alt={catTitle} className="h-full w-full object-cover" />
+                            <img src={category.media_url} alt={catTitle} loading="lazy" className="h-full w-full object-cover" />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                         </div>
                     )}
-                    <div className="p-6 md:p-8">
+                    <div className="p-5 sm:p-6 md:p-8">
                         <span className="kicker block mb-2">{t('register_selected_category')}</span>
                         <div className="flex justify-between items-start gap-4 mb-3">
-                            <h1 className="font-display text-2xl md:text-3xl text-brown">{catTitle}</h1>
+                            <h1 className="font-display text-xl sm:text-2xl md:text-3xl text-brown">{catTitle}</h1>
                             {category.price > 0 && (
                                 <div className="text-right shrink-0">
                                     <div className="font-display text-2xl text-vermillion">₹{Number(category.price).toLocaleString('en-IN')}</div>
@@ -54,8 +54,7 @@ export default function RegisterPageContent({ category, paymentSettings = null, 
                 </div>
 
                 {registrationOpen ? (
-                    <div className="luxury-card p-6 md:p-8">
-                        <h2 className="font-display text-lg text-brown mb-6 border-b border-gold/15 pb-4">{t('register_attendee_info')}</h2>
+                    <div className="luxury-card p-4 sm:p-6 md:p-8">
                         <CheckoutForm category={category} paymentSettings={paymentSettings} />
                     </div>
                 ) : (
