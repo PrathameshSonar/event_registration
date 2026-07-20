@@ -22,9 +22,10 @@ import {
   TextField,
   MenuItem,
   InputAdornment,
-  Button,
   Checkbox,
   FormControlLabel,
+  createTheme,
+  ThemeProvider,
 } from "@mui/material";
 import { useLanguage } from "./LanguageProvider";
 import CheckoutSuccess from "./checkout/CheckoutSuccess";
@@ -33,6 +34,29 @@ import { BUILTIN_FIELDS, CORE_KEYS } from "@/lib/formFields";
 import { ageError, ageLimitLabel } from "@/lib/age";
 
 const TODAY_STR = new Date().toISOString().split("T")[0];
+
+// Warm the MUI fields to the temple/luxury palette: rounded corners, gold-tinted
+// borders, vermillion focus — instead of the default grey Material look.
+const GOLD = "#c9911f";
+const VERMILLION = "#b8322a";
+const luxTheme = createTheme({
+  palette: { primary: { main: VERMILLION } },
+  shape: { borderRadius: 12 },
+  typography: { fontFamily: "var(--font-inter), Inter, sans-serif" },
+  components: {
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          backgroundColor: "#fffdf8",
+          "& fieldset": { borderColor: "rgba(201,145,31,0.30)" },
+          "&:hover fieldset": { borderColor: "rgba(201,145,31,0.55)" },
+          "&.Mui-focused fieldset": { borderColor: GOLD, borderWidth: 2 },
+        },
+      },
+    },
+    MuiInputLabel: { styleOverrides: { root: { "&.Mui-focused": { color: VERMILLION } } } },
+  },
+});
 const BUILTIN_DEFAULT_REQUIRED = Object.fromEntries(
   BUILTIN_FIELDS.map((f) => [f.field_key, f.default_required]),
 );
@@ -602,6 +626,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
 
   if (twoStep && step === 1) {
     return (
+      <ThemeProvider theme={luxTheme}>
       <div className="space-y-5">
         <StepProgress current={1} />
 
@@ -631,19 +656,21 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
           label={<span className="text-sm text-neutral-700">{t("declaration_accept_personal") || "I have read and I accept the above declaration."}</span>}
         />
 
-        <Button onClick={goToDetails} disabled={!step1Valid} variant="contained" fullWidth
-          sx={{ py: 1.5, backgroundColor: "#171717", "&:hover": { backgroundColor: "#ea580c" }, "&:disabled": { backgroundColor: "#d4d4d4", color: "#737373" }, textTransform: "none", fontSize: "1.05rem", fontWeight: 600 }}>
-          <span className="flex items-center justify-center gap-2">{t("declaration_continue") || "Accept & Continue"} <ArrowRight className="w-4 h-4" /></span>
-        </Button>
+        <button type="button" onClick={goToDetails} disabled={!step1Valid}
+          className="btn-gold w-full justify-center disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0">
+          {t("declaration_continue") || "Accept & Continue"} <ArrowRight className="w-4 h-4" />
+        </button>
         {declAtEnd && !step1Valid && (
           <p className="text-center text-xs text-neutral-400">{t("declaration_step1_hint") || "Fill your name, date of birth and mobile, then accept to continue."}</p>
         )}
       </div>
+      </ThemeProvider>
     );
   }
 
   // ── FORM ──────────────────────────────────────────────────────────────
   return (
+    <ThemeProvider theme={luxTheme}>
     <form onSubmit={handlePayment} noValidate className="space-y-6 md:space-y-8">
       {twoStep && (
         <div className="flex items-center justify-between gap-2 pb-3 border-b border-neutral-100">
@@ -1122,7 +1149,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
                 key={opt.k}
                 type="button"
                 onClick={() => setPaymentMethod(opt.k)}
-                className={`flex-1 min-w-[130px] px-3 py-2.5 rounded-lg text-sm font-semibold border transition text-center ${paymentMethod === opt.k ? "bg-neutral-900 text-white border-neutral-900" : "bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400"}`}
+                className={`flex-1 min-w-[130px] px-3 py-2.5 rounded-lg text-sm font-semibold border transition text-center ${paymentMethod === opt.k ? "bg-vermillion text-white border-vermillion shadow-sm" : "bg-white text-neutral-700 border-neutral-200 hover:border-gold"}`}
               >
                 {opt.label}
               </button>
@@ -1173,7 +1200,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
                   type="file"
                   accept="image/*,application/pdf"
                   onChange={(e) => setProofFile(e.target.files?.[0] || null)}
-                  className="w-full text-sm text-neutral-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-neutral-900 file:text-white hover:file:bg-orange-600"
+                  className="w-full text-sm text-neutral-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-vermillion file:text-white hover:file:bg-lotus file:cursor-pointer"
                 />
                 {proofFile && <p className="text-xs text-green-700 mt-1">✓ {proofFile.name}</p>}
               </div>
@@ -1221,28 +1248,15 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
       <div>
         {/* Pay button — hidden on enquiry-only tiers */}
         {!isEnquiry && (
-          <Button
+          <button
             type="submit"
-            variant="contained"
             // Disabled until the whole form is valid (required fields + terms) and,
             // for offline bank/cheque, the payment proof is attached.
             disabled={loading || !payValid}
-            fullWidth
-            sx={{
-              py: 1.5,
-              backgroundColor: "#171717",
-              "&:hover": { backgroundColor: "#ea580c" },
-              "&:disabled": { backgroundColor: "#d4d4d4", color: "#737373" },
-              textTransform: "none",
-              fontSize: "1.05rem",
-              fontWeight: 600,
-            }}
+            className="btn-gold w-full justify-center text-[1.05rem] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
           >
             {loading && (submitAction === "pay" || submitAction === "offline") ? (
-              <span className="flex items-center justify-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                {t("form_processing")}
-              </span>
+              <><Loader2 className="w-5 h-5 animate-spin" /> {t("form_processing")}</>
             ) : isOffline ? (
               t("form_offline_submit")
             ) : usePartial ? (
@@ -1250,45 +1264,23 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
             ) : (
               t("form_pay_button", totalAmount)
             )}
-          </Button>
+          </button>
         )}
 
         {/* Enquire button — primary on enquiry-only tiers, secondary alongside Pay */}
         {showEnquireBtn && (
-          <Button
+          <button
             type={isEnquiry ? "submit" : "button"}
             onClick={isEnquiry ? undefined : (e) => handlePayment(e, "enquire")}
-            variant={isEnquiry ? "contained" : "outlined"}
             disabled={loading || !coreValid}
-            fullWidth
-            sx={{
-              mt: isEnquiry ? 0 : 1.5,
-              py: 1.5,
-              textTransform: "none",
-              fontSize: "1.05rem",
-              fontWeight: 600,
-              ...(isEnquiry
-                ? {
-                    backgroundColor: "#171717",
-                    "&:hover": { backgroundColor: "#ea580c" },
-                    "&:disabled": { backgroundColor: "#d4d4d4", color: "#737373" },
-                  }
-                : {
-                    color: "#171717",
-                    borderColor: "#d4d4d4",
-                    "&:hover": { borderColor: "#ea580c", backgroundColor: "#fff7ed" },
-                  }),
-            }}
+            className={`${isEnquiry ? "btn-gold" : "btn-outline-gold mt-3"} w-full justify-center text-[1.05rem] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0`}
           >
             {loading && submitAction === "enquire" ? (
-              <span className="flex items-center justify-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                {t("form_processing")}
-              </span>
+              <><Loader2 className="w-5 h-5 animate-spin" /> {t("form_processing")}</>
             ) : (
               t("form_enquire_now")
             )}
-          </Button>
+          </button>
         )}
 
         {!loading && !coreValid && (
@@ -1305,5 +1297,6 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
         )}
       </div>
     </form>
+    </ThemeProvider>
   );
 }
