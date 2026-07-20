@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getRazorpayClient } from '@/lib/razorpayClient';
+import { recordConsent } from '@/lib/consent';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,6 +51,10 @@ export async function POST(request) {
         console.error('Donation insert failed:', error.message);
         return NextResponse.json({ error: 'Could not record the donation. Try again.' }, { status: 500 });
     }
+
+    // Record the declaration/Samanti Patra acceptance (no-op if disabled). An
+    // anonymous donor has no name on file, so it's stored as null.
+    await recordConsent({ kind: 'donation', donationId: row.id, name: cleanName, phone: cleanPhone || null, email: cleanEmail || null, request });
 
     return NextResponse.json({
         orderId: order.id, amount: order.amount, currency: order.currency,

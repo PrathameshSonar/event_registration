@@ -27,13 +27,13 @@ export default function RegistrationCta({ categories = [], seatsTaken = {}, onWa
             <SectionKicker light>{t("section_register_kicker") || "Reserve your seat"}</SectionKicker>
             <LuxuryHeading dark className="mt-5" main={t("section_register_title") || "Choose how you wish"} accent={t("section_register_accent")} />
             <p className="mt-6 text-ivory/75 leading-relaxed max-w-md">{registrationOpen ? (t("section_register_desc") || "Each tier offers a different depth of involvement. Seats are limited.") : (t("register_closed_desc") || "Registration for this event is now closed. Browse the tiers below and reach out for any questions.")}</p>
-            <div className="mt-8 flex flex-wrap gap-4">
+            <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
               {registrationOpen && (
                 <Link href="/registration" className="btn-gold">
                   {t("home_all_categories") || "See all categories"} <ArrowRight className="h-4 w-4" />
                 </Link>
               )}
-              <Link href="/my-pass" className="btn-outline-gold border-gold/60 !text-ivory hover:!bg-white/10">
+              <Link href="/my-pass" className="text-sm font-semibold text-ivory/70 underline underline-offset-4 decoration-gold/40 hover:text-gold-400">
                 {t("section_register_lookup") || "Find my registration"}
               </Link>
             </div>

@@ -13,6 +13,7 @@ import { notifyOfflineSubmitted } from '@/lib/notify';
 import { ageError } from '@/lib/age';
 import { sanitizeAttendees } from '@/lib/attendees';
 import { isRegistrationOpen } from '@/lib/registrationStatus';
+import { recordConsent } from '@/lib/consent';
 
 export const dynamic = 'force-dynamic';
 
@@ -130,6 +131,9 @@ export async function POST(request) {
             if (upErr) { console.warn('Proof upload failed:', upErr.message); proofPath = null; }
             else await supabaseAdmin.from('registrations').update({ offline_proof_path: proofPath }).eq('id', inserted.id);
         }
+
+        // Record the declaration/Samanti Patra acceptance (no-op if disabled).
+        await recordConsent({ kind: 'registration', registrationId: inserted.id, name: fullName, phone: attendee.phone, email: String(attendee.email).toLowerCase().trim(), dob: attendee.dob || null, request });
 
         notifyOfflineSubmitted({
             first_name: attendee.firstName, last_name: attendee.lastName,

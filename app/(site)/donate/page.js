@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Handshake, ArrowRight } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
+import DeclarationGate from "@/components/site/DeclarationGate";
 
 const PRESETS = [1100, 2100, 5100, 11000];
 
@@ -114,6 +115,7 @@ export default function DonatePage() {
 
     return (
         <div>
+            <DeclarationGate />
             <section className="relative overflow-hidden bg-[hsl(350,45%,16%)] text-ivory py-16 md:py-20">
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,hsla(32,95%,55%,0.18),transparent_60%)]" />
                 <div className="container-luxury max-w-2xl text-center relative z-10">

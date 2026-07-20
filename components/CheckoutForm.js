@@ -1,7 +1,7 @@
 // components/CheckoutForm.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ShieldCheck,
   AlertCircle,
@@ -13,6 +13,10 @@ import {
   Users,
   Heart,
   Loader2,
+  ScrollText,
+  ArrowLeft,
+  ArrowRight,
+  Check,
 } from "lucide-react";
 import {
   TextField,
@@ -63,6 +67,13 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
   const [termsError, setTermsError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({}); // per-field, shown below field
   const [successData, setSuccessData] = useState(null);
+  // Declaration / Samanti Patra — when enabled it becomes STEP 1 of a 2-step flow
+  // (declaration + identity → then the full form). Fetched client-side.
+  const [declaration, setDeclaration] = useState(null);
+  const [step, setStep] = useState(1);
+  const [declAccepted, setDeclAccepted] = useState(false);
+  const [declAtEnd, setDeclAtEnd] = useState(false);
+  const declBodyRef = useRef(null);
   const [formData, setFormData] = useState({
     salutation: "",
     firstName: "",
@@ -96,6 +107,20 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
       .then((d) => setServerFields(Array.isArray(d.fields) ? d.fields : []))
       .catch(() => setServerFields([]));
   }, [category.id]);
+
+  useEffect(() => {
+    fetch("/api/declaration")
+      .then((r) => r.json())
+      .then((d) => setDeclaration(d?.declaration || null))
+      .catch(() => setDeclaration(null));
+  }, []);
+
+  // If the declaration text is short enough that it doesn't scroll, treat it as
+  // already read so the accept checkbox is enabled.
+  useEffect(() => {
+    const el = declBodyRef.current;
+    if (el && el.scrollHeight <= el.clientHeight + 8) setDeclAtEnd(true);
+  }, [declaration, step, lang]);
 
   const builtinByKey = {};
   (serverFields || []).forEach((f) => {
@@ -542,9 +567,92 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
   const coreValid = agreedToTerms && Object.keys(validate()).length === 0;
   const payValid = coreValid && !(isOffline && needsProof && !proofFile);
 
+  // ── DECLARATION (Samanti Patra) — step 1 of 2 when enabled ─────────────
+  const declTitle = declaration?.title?.[lang] || declaration?.title?.en || t("declaration_title") || "Declaration";
+  const declBody = declaration?.body?.[lang] || declaration?.body?.en || "";
+  const twoStep = !!(declaration?.enabled && declBody);
+
+  const nameOk = (v) => !!String(v || "").trim() && /^[\p{L}\s.'-]+$/u.test(String(v).trim());
+  const step1Valid =
+    declAccepted &&
+    nameOk(formData.firstName) && nameOk(formData.lastName) &&
+    !!formData.dob && formData.dob <= TODAY_STR && (!hasAgeLimit || !ageError(category, formData.dob)) &&
+    validatePhone(formData.phone);
+
+  const onDeclScroll = (e) => {
+    const el = e.currentTarget;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 24) setDeclAtEnd(true);
+  };
+  const goToDetails = () => {
+    if (!step1Valid) return;
+    setStep(2);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const StepProgress = ({ current }) => (
+    <div className="flex items-center gap-3 mb-1">
+      <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${current >= 1 ? "bg-orange-600 text-white" : "bg-neutral-200 text-neutral-500"}`}>{current > 1 ? <Check className="w-4 h-4" /> : "1"}</span>
+      <span className={`h-0.5 w-8 ${current > 1 ? "bg-orange-600" : "bg-neutral-200"}`} />
+      <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${current >= 2 ? "bg-orange-600 text-white" : "bg-neutral-200 text-neutral-500"}`}>2</span>
+      <span className="ml-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">
+        {current === 1 ? (t("declaration_step_label") || "Declaration") : (t("declaration_step2_label") || "Your details")}
+      </span>
+    </div>
+  );
+
+  if (twoStep && step === 1) {
+    return (
+      <div className="space-y-6">
+        <StepProgress current={1} />
+
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <ScrollText className="w-5 h-5 text-orange-600" />
+            <h3 className="text-lg font-bold text-neutral-900">{declTitle}</h3>
+          </div>
+          <div ref={declBodyRef} onScroll={onDeclScroll} className="max-h-72 overflow-y-auto rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-[14px] leading-[1.85] text-neutral-700 whitespace-pre-wrap">
+            {declBody}
+          </div>
+          {!declAtEnd && <p className="mt-2 text-xs text-neutral-400">{t("declaration_scroll_hint") || "Please scroll to the bottom to continue."}</p>}
+        </div>
+
+        <div>
+          <h4 className="text-sm font-bold text-neutral-900 mb-3 uppercase tracking-wider">{t("declaration_your_details") || "Your details (for this declaration)"}</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <TextField fullWidth label={t("form_first_name")} name="firstName" required value={formData.firstName} onChange={handleChange} variant="outlined" />
+            <TextField fullWidth label={t("form_last_name")} name="lastName" required value={formData.lastName} onChange={handleChange} variant="outlined" />
+            <TextField fullWidth label={t("form_dob")} name="dob" type="date" required value={formData.dob} onChange={handleChange} variant="outlined" slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: TODAY_STR }, input: adorn(<Calendar className="w-5 h-5 text-neutral-400" />) }} />
+            <TextField fullWidth label={t("form_whatsapp")} name="phone" type="tel" required value={formData.phone} onChange={handleChange} variant="outlined" slotProps={{ input: adorn(<Phone className="w-5 h-5 text-neutral-400" />), htmlInput: { inputMode: "numeric", maxLength: 13 } }} />
+          </div>
+        </div>
+
+        <FormControlLabel
+          control={<Checkbox checked={declAccepted} disabled={!declAtEnd} onChange={(e) => setDeclAccepted(e.target.checked)} />}
+          label={<span className="text-sm text-neutral-700">{t("declaration_accept_personal") || "I have read and I accept the above declaration."}</span>}
+        />
+
+        <Button onClick={goToDetails} disabled={!step1Valid} variant="contained" fullWidth
+          sx={{ py: 1.5, backgroundColor: "#171717", "&:hover": { backgroundColor: "#ea580c" }, "&:disabled": { backgroundColor: "#d4d4d4", color: "#737373" }, textTransform: "none", fontSize: "1.05rem", fontWeight: 600 }}>
+          <span className="flex items-center justify-center gap-2">{t("declaration_continue") || "Accept & Continue"} <ArrowRight className="w-4 h-4" /></span>
+        </Button>
+        {declAtEnd && !step1Valid && (
+          <p className="text-center text-xs text-neutral-400">{t("declaration_step1_hint") || "Fill your name, date of birth and mobile, then accept to continue."}</p>
+        )}
+      </div>
+    );
+  }
+
   // ── FORM ──────────────────────────────────────────────────────────────
   return (
     <form onSubmit={handlePayment} noValidate className="space-y-8">
+      {twoStep && (
+        <div className="flex items-center justify-between gap-3 pb-2 border-b border-neutral-100">
+          <StepProgress current={2} />
+          <button type="button" onClick={() => setStep(1)} className="inline-flex items-center gap-1 text-xs font-semibold text-neutral-500 hover:text-orange-600">
+            <ArrowLeft className="w-4 h-4" /> {t("declaration_back") || "Declaration"}
+          </button>
+        </div>
+      )}
       {/* Full-screen loader while we create the order + load Razorpay, before
           the gateway modal appears — so the wait never looks frozen. Sits below
           Razorpay's own overlay (which takes over once the modal opens). */}

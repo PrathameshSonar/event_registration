@@ -599,6 +599,30 @@ CREATE TABLE IF NOT EXISTS contact_messages (
 ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT false;
 GRANT ALL ON contact_messages TO service_role;
 
+-- Consent / Samanti Patra acceptance records. One row per registration / donation /
+-- enquiry submission when the declaration (app_settings.declaration) is enabled.
+-- Stores a SNAPSHOT of the exact text agreed to plus who/when/IP, so a signed
+-- consent document can be reproduced later for any dispute.
+CREATE TABLE IF NOT EXISTS consents (
+    id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    kind               TEXT NOT NULL,   -- 'registration' | 'donation' | 'enquiry'
+    registration_id    UUID REFERENCES registrations(id) ON DELETE SET NULL,
+    donation_id        UUID REFERENCES donations(id) ON DELETE SET NULL,
+    name               TEXT,
+    phone              TEXT,
+    email              TEXT,
+    dob                TEXT,            -- captured on the declaration step
+    declaration_title  TEXT,
+    declaration_body   TEXT,            -- snapshot of the exact declaration accepted
+    accepted_at        TIMESTAMPTZ DEFAULT now(),
+    ip                 TEXT,
+    created_at         TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE consents ADD COLUMN IF NOT EXISTS dob TEXT;
+CREATE INDEX IF NOT EXISTS consents_created_idx ON consents (created_at DESC);
+CREATE INDEX IF NOT EXISTS consents_phone_idx   ON consents (phone);
+GRANT ALL ON consents TO service_role;
+
 
 -- 8) ── Homepage hero background image (per event) ──────────────────────────
 ALTER TABLE events

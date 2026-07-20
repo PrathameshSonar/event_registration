@@ -592,6 +592,22 @@ CREATE TABLE IF NOT EXISTS contact_messages (
 );
 GRANT ALL ON contact_messages TO service_role;
 
+-- Consent / Samanti Patra acceptance records (see run_all.sql for the full note).
+CREATE TABLE IF NOT EXISTS consents (
+    id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    kind               TEXT NOT NULL,
+    registration_id    UUID REFERENCES registrations(id) ON DELETE SET NULL,
+    donation_id        UUID REFERENCES donations(id) ON DELETE SET NULL,
+    name               TEXT, phone TEXT, email TEXT, dob TEXT,
+    declaration_title  TEXT, declaration_body TEXT,
+    accepted_at        TIMESTAMPTZ DEFAULT now(),
+    ip                 TEXT,
+    created_at         TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS consents_created_idx ON consents (created_at DESC);
+CREATE INDEX IF NOT EXISTS consents_phone_idx   ON consents (phone);
+GRANT ALL ON consents TO service_role;
+
 
 -- 8) ── Homepage hero image + "Plan Your Visit" (per event) ──────────────────
 ALTER TABLE events

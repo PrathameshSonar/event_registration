@@ -15,6 +15,8 @@ import FormFieldsManager from '@/components/FormFieldsManager';
 import HomeContentManager from '@/components/HomeContentManager';
 import ContactSocialManager from '@/components/ContactSocialManager';
 import ContactMessagesManager from '@/components/ContactMessagesManager';
+import DeclarationManager from '@/components/DeclarationManager';
+import ConsentsManager from '@/components/ConsentsManager';
 import PageHeadersManager from '@/components/PageHeadersManager';
 import AuditLogPanel from '@/components/AuditLogPanel';
 import EnquiriesPanel from '@/components/EnquiriesPanel';
@@ -64,7 +66,7 @@ export default function AdminDashboard() {
     const can = (perm: string) => isAdmin || permissions.includes(perm);
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'enquiries' | 'scanlog' | 'settings' | 'audit'>('dashboard');
-    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'library' | 'branding' | 'pageheaders' | 'templates' | 'checkpoints' | 'formfields' | 'homecontent' | 'contactsocial' | 'contactmessages' | 'payment' | 'users' | 'waitlist' | 'donations' | 'sevacategories' | 'sponsors' | 'messages' | 'feedback'>('events');
+    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'library' | 'branding' | 'pageheaders' | 'templates' | 'checkpoints' | 'formfields' | 'homecontent' | 'contactsocial' | 'contactmessages' | 'declaration' | 'consents' | 'payment' | 'users' | 'waitlist' | 'donations' | 'sevacategories' | 'sponsors' | 'messages' | 'feedback'>('events');
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -1256,6 +1258,8 @@ export default function AdminDashboard() {
                                 { group: 'Registration', items: [
                                     { k: 'tiers', Icon: Ticket, label: 'Ticket Tiers' },
                                     { k: 'formfields', Icon: ListFilter, label: 'Form Fields' },
+                                    { k: 'declaration', Icon: ScrollText, label: 'Declaration' },
+                                    { k: 'consents', Icon: ScrollText, label: 'Consent Records' },
                                     { k: 'checkpoints', Icon: QrCode, label: 'Entry Checkpoints' },
                                     { k: 'waitlist', Icon: ListFilter, label: 'Waitlist' },
                                 ] },
@@ -1496,6 +1500,8 @@ export default function AdminDashboard() {
                             {settingsSubTab === 'homecontent' && <HomeContentManager events={eventsList} />}
                             {settingsSubTab === 'contactsocial' && <ContactSocialManager />}
                             {settingsSubTab === 'contactmessages' && <ContactMessagesManager />}
+                            {settingsSubTab === 'declaration' && <DeclarationManager />}
+                            {settingsSubTab === 'consents' && <ConsentsManager />}
                             {settingsSubTab === 'payment' && <PaymentSettingsManager />}
                             {settingsSubTab === 'users' && <AdminUsersManager />}
                             {settingsSubTab === 'waitlist' && <WaitlistManager />}

@@ -9,6 +9,7 @@ import { validateSubmission } from '@/lib/formFieldsServer';
 import { upsertProfile } from '@/lib/profiles';
 import { ageError } from '@/lib/age';
 import { isRegistrationOpen } from '@/lib/registrationStatus';
+import { recordConsent } from '@/lib/consent';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,7 +60,7 @@ export async function POST(request) {
         const profileId = await upsertProfile(supabaseAdmin, attendee);
 
         const fullName = `${attendee.salutation || ''} ${attendee.firstName} ${attendee.lastName}`.trim();
-        const { error: dbError } = await supabaseAdmin.from('registrations').insert([
+        const { data: enqRow, error: dbError } = await supabaseAdmin.from('registrations').insert([
             {
                 category_id: category.id,
                 profile_id: profileId,
@@ -82,12 +83,15 @@ export async function POST(request) {
                 total_amount: 0,
                 payment_status: 'enquired',
             },
-        ]);
+        ]).select('id').single();
 
         if (dbError) {
             console.error('Failed to persist enquiry:', dbError);
             return NextResponse.json({ error: 'Failed to submit enquiry. Please try again.' }, { status: 500 });
         }
+
+        // Record the declaration/Samanti Patra acceptance (no-op if disabled).
+        await recordConsent({ kind: 'enquiry', registrationId: enqRow?.id, name: fullName, phone: attendee.phone, email: String(attendee.email || '').toLowerCase().trim() || null, dob: attendee.dob || null, request });
 
         return NextResponse.json({ status: 'ok' }, { status: 200 });
     } catch (error) {

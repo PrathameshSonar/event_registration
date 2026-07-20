@@ -12,6 +12,7 @@ import { upsertProfile } from '@/lib/profiles';
 import { ageError } from '@/lib/age';
 import { sanitizeAttendees } from '@/lib/attendees';
 import { isRegistrationOpen } from '@/lib/registrationStatus';
+import { recordConsent } from '@/lib/consent';
 
 export const dynamic = 'force-dynamic';
 
@@ -165,7 +166,7 @@ export async function POST(request) {
 
         // 7. Insert the pending registration server-side (single source of truth)
         const fullName = `${attendee.salutation || ''} ${attendee.firstName} ${attendee.lastName}`.trim();
-        const { error: dbError } = await supabaseAdmin.from('registrations').insert([
+        const { data: regRow, error: dbError } = await supabaseAdmin.from('registrations').insert([
             {
                 category_id: category.id,
                 profile_id: profileId,
@@ -193,12 +194,15 @@ export async function POST(request) {
                 razorpay_order_id: order.id,
                 payment_status: 'pending',
             },
-        ]);
+        ]).select('id').single();
 
         if (dbError) {
             console.error('Failed to persist pending registration:', dbError);
             return NextResponse.json({ error: 'Failed to initialize registration. Please try again.' }, { status: 500 });
         }
+
+        // Record the declaration/Samanti Patra acceptance (no-op if it's disabled).
+        await recordConsent({ kind: 'registration', registrationId: regRow?.id, name: fullName, phone: attendee.phone, email: String(attendee.email).toLowerCase().trim(), dob: attendee.dob || null, request });
 
         // 7. Return only what the browser needs to open checkout
         return NextResponse.json(
