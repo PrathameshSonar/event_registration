@@ -615,10 +615,10 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
 
   const StepProgress = ({ current }) => (
     <div className="flex items-center gap-2">
-      <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ${current >= 1 ? "bg-orange-600 text-white" : "bg-neutral-200 text-neutral-500"}`}>{current > 1 ? <Check className="w-3.5 h-3.5" /> : "1"}</span>
-      <span className={`h-0.5 w-5 ${current > 1 ? "bg-orange-600" : "bg-neutral-200"}`} />
-      <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ${current >= 2 ? "bg-orange-600 text-white" : "bg-neutral-200 text-neutral-500"}`}>2</span>
-      <span className="ml-1.5 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-neutral-500 truncate">
+      <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ${current >= 1 ? "bg-vermillion text-white shadow-sm" : "bg-gold/15 text-brown/50"}`}>{current > 1 ? <Check className="w-3.5 h-3.5" /> : "1"}</span>
+      <span className={`h-0.5 w-5 ${current > 1 ? "bg-vermillion" : "bg-gold/20"}`} />
+      <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ${current >= 2 ? "bg-vermillion text-white shadow-sm" : "bg-gold/15 text-brown/50"}`}>2</span>
+      <span className="ml-1.5 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-brown/55 truncate">
         {current === 1 ? (t("declaration_step_label") || "Declaration") : (t("declaration_step2_label") || "Your details")}
       </span>
     </div>

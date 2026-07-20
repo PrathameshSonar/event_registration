@@ -647,6 +647,10 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
 
 Keep newest first. Add an entry for every meaningful change.
 
+- **2026-07-20 (Register form re-theme + Emergent structure + "Seva")**
+  - **Theme fix:** the checkout form's black MUI buttons → luxury **`btn-gold` / `btn-outline-gold`** (Continue / Pay / Enquire); payment-method chips + file button → vermillion; the MUI fields are wrapped in a warm theme (rounded, gold-tinted borders, cream tint, vermillion focus) via `ThemeProvider`. Step indicator recoloured to vermillion/gold.
+  - **Emergent structure** ([RegisterPageContent](components/RegisterPageContent.js)): a **"← All Sevas"** back link, a **"Register for *[name]*"** header with the price, and a **sticky "What's included" sidebar** (image + price + perks) beside the form.
+  - **"Seva" naming:** tiers are presented as Sevas publicly — back link "All Sevas", tier button "Register Now" → **"Choose this Seva"** (`category_register`), homepage "See all categories" → **"See all Sevas"**. Trilingual.
 - **2026-07-20 (Declaration / Samanti Patra + consent records)**
   - **Declaration setting** — `app_settings.declaration` (`{ enabled, title:{en,hi,mr}, body:{en,hi,mr} }`) edited in **Settings → Registration → Declaration** ([DeclarationManager](components/DeclarationManager.js)); public read via `GET /api/declaration`.
   - **Registration is a 2-step form** ([CheckoutForm](components/CheckoutForm.js)): **Step 1 = the declaration** — the full text (scroll-to-bottom) + the person's **Name, DOB, Mobile** + "I have read & I accept" → Continue; **Step 2 = the rest of the form + payment** (name/dob/mobile carried over). Shown every time (no session-skip). The **donate** page keeps the blocking modal ([DeclarationGate](components/site/DeclarationGate.js)).
