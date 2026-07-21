@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, ArrowRight, Search, Lock } from "lucide-react";
+import { Check, ArrowRight, Search, Lock, CreditCard } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { pick } from "@/lib/i18n";
 import PageHero from "@/components/site/PageHero";
@@ -22,6 +22,7 @@ const CARD_THEMES = {
     bar: "bg-gradient-to-r from-gold to-amber2", perkIcon: "text-gold-600", perkText: "text-brown/80",
     btn: "bg-gradient-to-br from-[hsl(10,72%,44%)] via-[hsl(24,90%,50%)] to-[hsl(38,82%,52%)] text-white shadow-gold",
     btnAlt: "border-2 border-gold/50 text-brown hover:bg-gold/10",
+    emi: "border-gold/40 text-vermillion bg-vermillion/5",
   },
   gold: {
     card: "bg-gradient-to-br from-[hsl(43,74%,50%)] via-[hsl(38,88%,53%)] to-[hsl(24,90%,55%)] shadow-gold",
@@ -29,12 +30,14 @@ const CARD_THEMES = {
     desc: "text-brown/80", label: "text-brown/70", track: "bg-brown/15", bar: "bg-brown/70",
     perkIcon: "text-brown", perkText: "text-brown/85",
     btn: "bg-brown text-gold-400 hover:bg-[hsl(20,30%,15%)]", btnAlt: "border-2 border-brown/30 text-brown hover:bg-brown/5",
+    emi: "border-brown/25 text-brown/80 bg-white/25",
   },
   maroon: {
     card: "bg-[hsl(350,45%,18%)] shadow-luxury", kicker: "text-gold-400/85", title: "text-ivory", price: "text-gold-400",
     note: "text-ivory/55", desc: "text-ivory/80", label: "text-ivory/65", track: "bg-gold/15",
     bar: "bg-gradient-to-r from-gold to-amber2", perkIcon: "text-gold-400", perkText: "text-ivory/85",
     btn: "bg-gradient-to-r from-gold to-amber2 text-brown hover:brightness-110", btnAlt: "border-2 border-gold/40 text-gold-400 hover:bg-gold/10",
+    emi: "border-gold/30 text-gold-400 bg-white/5",
   },
 };
 
@@ -76,8 +79,9 @@ export default function RegistrationListContent({ categories, seatsTaken, regist
                 const desc = pick(c, "description", lang);
                 const perks = Array.isArray(c.perks) ? c.perks : [];
                 const priceLabel = c.price > 0 ? `₹${Number(c.price).toLocaleString("en-IN")}` : (t("category_enquire_price") || "Enquire");
-                // Availability bar: only for tiers that declare a real capacity.
-                const filledPct = cap > 0 ? Math.min(100, Math.round(((seats[c.id] || 0) / cap) * 100)) : null;
+                // Availability bar: only when the admin opts in (show_availability) AND
+                // the Seva declares a real capacity.
+                const filledPct = (c.show_availability && cap > 0) ? Math.min(100, Math.round(((seats[c.id] || 0) / cap) * 100)) : null;
                 // Per-Seva colour theme; a recommended tier is forced to the gold theme.
                 const th = CARD_THEMES[featured ? "gold" : (c.color || "default")] || CARD_THEMES.default;
 
@@ -101,6 +105,11 @@ export default function RegistrationListContent({ categories, seatsTaken, regist
                       <h3 className={`mt-2 font-display text-2xl ${th.title}`}>{title}</h3>
                       <p className={`mt-3 font-display text-3xl ${th.price}`}>{priceLabel}</p>
                       {c.price > 0 && <p className={`mt-1 text-xs ${th.note}`}>{t("reg_price_note") || "per Yajmaan · one-time"}</p>}
+                      {c.show_emi_badge && c.price > 0 && (
+                        <span className={`mt-3 inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${th.emi}`}>
+                          <CreditCard className="h-3.5 w-3.5" /> {t("reg_emi_available") || "EMI available"}
+                        </span>
+                      )}
                       {desc && <p className={`mt-3 text-sm leading-relaxed ${th.desc}`}>{desc}</p>}
 
                       {filledPct !== null && !isFull && (

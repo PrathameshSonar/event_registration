@@ -5,7 +5,7 @@
 "use client";
 
 import Link from 'next/link';
-import { Check, Lock, ArrowLeft } from 'lucide-react';
+import { Check, Lock, ArrowLeft, CreditCard } from 'lucide-react';
 import CheckoutForm from './CheckoutForm';
 import SectionKicker from './site/SectionKicker';
 import { useLanguage } from './LanguageProvider';
@@ -78,6 +78,11 @@ export default function RegisterPageContent({ category, paymentSettings = null, 
                                 <h3 className="mt-1.5 font-display text-2xl text-brown">{catTitle}</h3>
                                 {category.price > 0 && (
                                     <p className="mt-3 font-display text-3xl text-vermillion">₹{Number(category.price).toLocaleString('en-IN')}</p>
+                                )}
+                                {category.show_emi_badge && category.price > 0 && (
+                                    <span className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-full border border-gold/40 bg-vermillion/5 px-2.5 py-1 text-[11px] font-semibold text-vermillion">
+                                        <CreditCard className="h-3.5 w-3.5" /> {t('reg_emi_available') || 'EMI available'}
+                                    </span>
                                 )}
                                 {catDesc && <p className="mt-3 text-sm text-brown/70 leading-relaxed whitespace-pre-wrap">{catDesc}</p>}
                                 {perks.length > 0 && (

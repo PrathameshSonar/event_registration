@@ -1060,27 +1060,27 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
 
           {/* --- PART PAYMENT OPTION --- */}
           {canPartPay && (
-            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="mt-2 grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={() => setPayAdvance(false)}
-                className={`text-left p-4 rounded-xl border-2 transition ${!payAdvance ? "border-orange-500 bg-orange-50" : "border-neutral-200 hover:border-neutral-300"}`}
+                className={`text-left p-3 rounded-xl border-2 transition ${!payAdvance ? "border-vermillion bg-vermillion/5" : "border-neutral-200 hover:border-neutral-300"}`}
               >
-                <div className="font-bold text-neutral-900 text-sm">Pay Full</div>
-                <div className="text-2xl font-black text-orange-600 mt-1">₹{totalAmount.toLocaleString("en-IN")}</div>
-                <div className="text-xs text-neutral-500 mt-1">Complete payment now</div>
+                <div className="font-bold text-neutral-900 text-[13px]">Pay Full</div>
+                <div className="text-lg font-bold text-vermillion mt-0.5">₹{totalAmount.toLocaleString("en-IN")}</div>
+                <div className="text-[11px] text-neutral-500 mt-0.5">Complete payment now</div>
               </button>
               <button
                 type="button"
                 onClick={() => setPayAdvance(true)}
-                className={`text-left p-4 rounded-xl border-2 transition ${payAdvance ? "border-orange-500 bg-orange-50" : "border-neutral-200 hover:border-neutral-300"}`}
+                className={`text-left p-3 rounded-xl border-2 transition ${payAdvance ? "border-vermillion bg-vermillion/5" : "border-neutral-200 hover:border-neutral-300"}`}
               >
-                <div className="font-bold text-neutral-900 text-sm">Pay {advancePct}% Advance</div>
-                <div className="text-2xl font-black text-orange-600 mt-1">₹{advanceAmount.toLocaleString("en-IN")}</div>
-                <div className="text-xs text-neutral-500 mt-1">Balance ₹{balanceAmount.toLocaleString("en-IN")} via link later</div>
+                <div className="font-bold text-neutral-900 text-[13px]">Pay {advancePct}% Advance</div>
+                <div className="text-lg font-bold text-vermillion mt-0.5">₹{advanceAmount.toLocaleString("en-IN")}</div>
+                <div className="text-[11px] text-neutral-500 mt-0.5">Balance ₹{balanceAmount.toLocaleString("en-IN")} later</div>
               </button>
               {payAdvance && (
-                <p className="sm:col-span-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <p className="col-span-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                   We&apos;ll send a payment link for the ₹{balanceAmount.toLocaleString("en-IN")} balance by email &amp; WhatsApp. Your entry pass is issued only after full payment. <strong>No-refund policy applies.</strong>
                 </p>
               )}
