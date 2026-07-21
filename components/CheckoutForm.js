@@ -647,7 +647,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
 
         <div>
           <h4 className="text-sm font-bold text-neutral-900 mb-3 uppercase tracking-wider">{t("declaration_your_details") || "Your details (for this declaration)"}</h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 sm:gap-x-4 gap-y-5">
             <TextField fullWidth size="small" label={t("form_first_name")} name="firstName" required value={formData.firstName} onChange={handleChange} variant="outlined" />
             <TextField fullWidth size="small" label={t("form_last_name")} name="lastName" required value={formData.lastName} onChange={handleChange} variant="outlined" />
             <TextField fullWidth size="small" label={t("form_dob")} name="dob" type="date" required value={formData.dob} onChange={handleChange} variant="outlined" slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: TODAY_STR }, input: adorn(<Calendar className="w-5 h-5 text-neutral-400" />) }} />
@@ -724,7 +724,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
         <h4 className="text-sm font-bold text-neutral-900 mb-4 uppercase tracking-wider">
           {t("form_personal_details")}
         </h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-6">
           <div className="col-span-1 md:col-span-2 flex gap-4">
             {isVisible("salutation") && (
               <TextField
@@ -826,7 +826,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
         <h4 className="text-sm font-bold text-neutral-900 mb-4 uppercase tracking-wider">
           {t("form_contact_location")}
         </h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-6">
           <TextField
             fullWidth
             label={t("form_whatsapp")}
@@ -900,7 +900,10 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
         <h4 className="text-sm font-bold text-neutral-900 mb-4 uppercase tracking-wider">
           {t("form_event_contribution")}
         </h4>
-        <div className="space-y-4">
+        {/* space-y-6, not 4: an MUI floating label sits ABOVE its field's top
+            border, so a 16px gap leaves only ~8px of real clearance and the next
+            label collides with the previous field's bottom border. */}
+        <div className="space-y-6">
           {isVisible("problem") && (
             <TextField
               fullWidth

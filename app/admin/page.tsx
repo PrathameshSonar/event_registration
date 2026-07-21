@@ -12,6 +12,7 @@ import {
 import { youtubeThumbnail } from '@/lib/youtube';
 import { buildTranslations } from '@/lib/i18n';
 import FormFieldsManager from '@/components/FormFieldsManager';
+import EntryBandsManager from '@/components/EntryBandsManager';
 import HomeContentManager from '@/components/HomeContentManager';
 import ContactSocialManager from '@/components/ContactSocialManager';
 import ContactMessagesManager from '@/components/ContactMessagesManager';
@@ -1359,7 +1360,7 @@ export default function AdminDashboard() {
                                         { k: 'declaration', Icon: ScrollText, label: 'Declaration', kw: 'samanti patra consent terms' },
                                         { k: 'consents', Icon: ScrollText, label: 'Consent Records', kw: 'samanti patra signed accepted' },
                                         { k: 'waitlist', Icon: ListFilter, label: 'Waitlist', kw: 'full sold out' },
-                                        { k: 'checkpoints', Icon: QrCode, label: 'Entry Checkpoints', kw: 'scan gate qr' },
+                                        { k: 'checkpoints', Icon: QrCode, label: 'Entry Checkpoints', kw: 'scan gate qr band wristband colour color' },
                                     ] },
                                     { group: 'Payments & Donations', items: [
                                         { k: 'payment', Icon: IndianRupee, label: 'Payment Details', kw: 'bank upi cheque offline razorpay account' },
@@ -1600,6 +1601,8 @@ export default function AdminDashboard() {
                                             ))}
                                         </div>
                                     )}
+                                    {/* Gate operations: which wristband colour each Seva gets. */}
+                                    <EntryBandsManager categories={categoriesList} />
                                 </div>
                             )}
 

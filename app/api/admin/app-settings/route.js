@@ -52,11 +52,13 @@ export async function PATCH(request) {
         }
         saved[key] = value;
 
-        // These are read through unstable_cache (so a layout/page can use them
-        // without going dynamic). Without busting the tag here, a save wouldn't
-        // reach the public site until the cache revalidates on its own. Most tags
-        // match the key; `contact` is cached under "contact-info".
-        if (['branding', 'seo', 'page_heroes'].includes(key)) revalidateTag(key);
+        // Settings are read through unstable_cache (so a layout/page can use them
+        // without going dynamic). Without busting the tag here, a save wouldn't take
+        // effect until the 5-minute cache expires — which for `entry_bands` would
+        // mean volunteers handing out the wrong wristband mid-event. Every reader is
+        // tagged with its own key, so bust the key unconditionally (a no-op for keys
+        // nothing caches); `contact` is additionally cached under "contact-info".
+        revalidateTag(key);
         if (key === 'contact') revalidateTag('contact-info');
 
         await logAudit({
