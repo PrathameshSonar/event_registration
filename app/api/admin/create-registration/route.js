@@ -16,6 +16,7 @@ import { upsertProfile } from '@/lib/profiles';
 import { ageError } from '@/lib/age';
 import { dispatchTicket } from '@/lib/ticket';
 import { logAudit } from '@/lib/auditLog';
+import { flagCapacityOverage } from '@/lib/payments';
 
 export const dynamic = 'force-dynamic';
 
@@ -124,6 +125,15 @@ export async function POST(request) {
         await dispatchTicket(inserted, reference || `offline-${method}`);
     }
 
+    // Manual adds deliberately IGNORE capacity — an admin must always be able to seat
+    // a walk-in or a VIP even on a full tier. But the override shouldn't be invisible:
+    // if this row pushes the tier past max_capacity, record it like any other oversell
+    // so it shows in the audit log and Health, and tell the admin in the response.
+    let overage = null;
+    if (status === 'completed' || status === 'advance_paid') {
+        overage = await flagCapacityOverage(inserted);
+    }
+
     await logAudit({
         session, request,
         action: 'registration.create',
@@ -132,5 +142,5 @@ export async function POST(request) {
         metadata: { status, method: status === 'pending' ? null : method, total, paid, due, seats },
     });
 
-    return NextResponse.json({ ok: true, id: inserted.id, status });
+    return NextResponse.json({ ok: true, id: inserted.id, status, overage });
 }

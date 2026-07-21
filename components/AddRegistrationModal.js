@@ -103,6 +103,11 @@ export default function AddRegistrationModal({ categories = [], onClose, onCreat
         setSaving(false);
         if (!res.ok) { toast.error(data.error || "Could not create the registration."); return; }
         toast.success(status === "completed" ? "Registration created & marked Paid — ticket sent." : status === "advance_paid" ? "Registration created as Advance-Paid." : "Registration created as Pending.");
+        // A manual add is allowed to exceed capacity (walk-ins/VIPs), but say so out
+        // loud — it's recorded in the audit log and will show in Health.
+        if (data.overage) {
+            toast.error(`⚠️ This tier is now oversold — ${data.overage.taken} of ${data.overage.max} seats held (over by ${data.overage.over}). Recorded in the audit log.`);
+        }
         onCreated();
     };
 

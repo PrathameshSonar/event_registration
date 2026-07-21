@@ -654,6 +654,8 @@ form → offline method → payment_review ──approve full──────�
 
 Keep newest first. Add an entry for every meaningful change.
 
+- **2026-07-22 (Manual add on a full tier is an audited override)**
+  - **Admin manual add deliberately ignores capacity** — [create-registration](app/api/admin/create-registration/route.js) has no `max_capacity`/`is_full` check, so a walk-in or VIP can always be seated even on a sold-out tier. That override is now **visible instead of silent**: `flagCapacityOverage()` runs after a seat-holding manual add, writing a `capacity.oversold` audit entry, and the modal shows *"This tier is now oversold — 12 of 10 seats held"*. Capacity limits remain enforced on the **public** paths only (`/api/razorpay`, `/api/offline-payment`).
 - **2026-07-22 (Admin hardening: identity, linked donations, oversell alerting)**
   - **Phone is now stored E.164** (`+91XXXXXXXXXX`) by the razorpay / offline-payment / enquiry creators via `normalizePhone()`, matching `profiles.phone` — previously the raw typed value (`07264810290`) was stored, so the ledger and the canonical profile disagreed. Safe to change: every registration lookup (`/api/my-registration`) already matches on the **last 10 digits**, not equality.
   - **Admin edits validate phone** like they already validated email — [registrations PATCH](app/api/admin/registrations/route.js) rejects a malformed number instead of saving it and silently breaking WhatsApp/QR delivery, and stores it normalised.
