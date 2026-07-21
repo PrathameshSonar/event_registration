@@ -464,6 +464,30 @@ export default function AdminDashboard() {
         toast.success(`Confirmation re-sent${parts ? ` — ${parts}` : ''}.`);
     };
 
+    // Change/remove the optional donation on a registration (people often add one at
+    // checkout and later ask the desk to drop it and pay only the Seva fee).
+    const handleAdjustDonation = async (reg: Registration) => {
+        const current = Number(reg.donation_amount) || 0;
+        const val = await promptDialog({
+            title: 'Adjust donation',
+            message: `Donation for ${reg.first_name} ${reg.last_name} (₹). Enter 0 to remove it — the Seva fee is unaffected and the balance due is recalculated.`,
+            defaultValue: String(current),
+            inputType: 'number',
+            required: true,
+            confirmLabel: 'Update',
+        });
+        if (val === null) return;
+        setManagingId(reg.id);
+        const { ok, data } = await mutate('/api/admin/adjust-donation', 'POST', { id: reg.id, donation: Number(val) });
+        setManagingId(null);
+        if (!ok) { toast.error(data.error || 'Could not update the donation.'); return; }
+        if (data.unchanged) { toast.info('Donation unchanged.'); return; }
+        const inr = (n: number) => `₹${Number(n).toLocaleString('en-IN')}`;
+        toast.success(`Donation set to ${inr(data.donation)} — total ${inr(data.total)}, due ${inr(data.amount_due)}${data.completed ? ' · marked Paid' : ''}.`);
+        setSelectedRegistration(null);
+        await fetchAllData();
+    };
+
     // ----- Offline payment verification -----
     const [verifyingId, setVerifyingId] = useState<string | null>(null);
     const viewProof = async (id: string) => {
@@ -1008,6 +1032,7 @@ export default function AdminDashboard() {
                     onVerify={handleVerifyPayment}
                     onCopyLink={handleCopyLink}
                     onCopyBalanceLink={handleCopyBalanceLink}
+                    onAdjustDonation={handleAdjustDonation}
                     onSyncBalance={handleSyncBalance}
                     onEdit={setEditingReg}
                     onResendConfirmation={handleResendConfirmation}

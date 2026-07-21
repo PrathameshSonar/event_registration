@@ -22,6 +22,7 @@ interface Props {
     onVerify: (reg: Registration, action: string) => void;
     onCopyLink: (url: string) => void;
     onCopyBalanceLink: (reg: Registration) => void;
+    onAdjustDonation: (reg: Registration) => void;
     onSyncBalance: (id: string) => void;
     onEdit: (reg: Registration) => void;
     onResendConfirmation: (reg: Registration) => void;
@@ -35,7 +36,7 @@ const NOT_CANCELLABLE = ['cancelled', 'refunded', 'failed', 'closed'];
 
 export default function RegistrationDetailModal({
     reg, onClose, can, isAdmin, verifyingId, syncingId, managingId, copiedLink,
-    onViewProof, onVerify, onCopyLink, onCopyBalanceLink, onSyncBalance, onEdit, onResendConfirmation, onRefund, onCancel,
+    onViewProof, onVerify, onCopyLink, onCopyBalanceLink, onAdjustDonation, onSyncBalance, onEdit, onResendConfirmation, onRefund, onCancel,
 }: Props) {
     const cancellable = isAdmin && !NOT_CANCELLABLE.includes(reg.payment_status);
     return (
@@ -91,6 +92,28 @@ export default function RegistrationDetailModal({
                                     <p><span className="text-neutral-500 block text-xs">Recorded</span><span className="font-bold text-amber-700">₹{reg.amount_paid}</span><span className="block text-[11px] text-neutral-400">short of ₹{reg.total_amount}</span></p>
                                 ) : (
                                     <p><span className="text-neutral-500 block text-xs">Plan</span><span className="font-semibold capitalize">{reg.payment_plan || 'full'}</span></p>
+                                )}
+                            </div>
+                            {/* Donation is editable on purpose: people add one at checkout and
+                                then ask the desk to drop it and pay only the Seva fee. */}
+                            <div className="mt-3 pt-3 border-t border-neutral-100 flex items-end justify-between gap-3 flex-wrap">
+                                <div>
+                                    <span className="text-neutral-500 block text-xs">Donation (Seva contribution)</span>
+                                    <span className="font-bold text-neutral-900">₹{Number(reg.donation_amount || 0).toLocaleString('en-IN')}</span>
+                                    <span className="text-[11px] text-neutral-400 ml-2">
+                                        Seva fee ₹{Math.max(0, Number(reg.total_amount || 0) - Number(reg.donation_amount || 0)).toLocaleString('en-IN')}
+                                    </span>
+                                </div>
+                                {can('payments:verify') && !['refunded', 'cancelled', 'failed', 'closed'].includes(reg.payment_status) && (
+                                    <button
+                                        type="button"
+                                        onClick={() => onAdjustDonation(reg)}
+                                        disabled={managingId === reg.id}
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs font-semibold text-neutral-700 hover:bg-neutral-100 transition disabled:opacity-50"
+                                        title="Change or remove the donation — the Seva fee is unaffected and the balance due is recalculated"
+                                    >
+                                        Adjust donation
+                                    </button>
                                 )}
                             </div>
                             {reg.razorpay_payment_id && (
