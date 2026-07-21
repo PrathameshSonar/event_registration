@@ -3,6 +3,8 @@
 import { NextResponse } from 'next/server';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { getEntryBands } from '@/lib/settingsServer';
+import { BAND_COLORS } from '@/lib/appSettings';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,7 +27,7 @@ export async function POST(request, { params }) {
 
     const { data: reg, error } = await supabaseAdmin
         .from('registrations')
-        .select('id, first_name, last_name, salutation, attendees_count, payment_status, categories(title)')
+        .select('id, first_name, last_name, salutation, attendees_count, payment_status, category_id, categories(title)')
         .eq('id', id)
         .single();
 
@@ -36,6 +38,13 @@ export async function POST(request, { params }) {
     if (reg.payment_status !== 'completed') {
         return NextResponse.json({ status: 'NOT_PAID', reg });
     }
+
+    // Wristband colour for this Seva (Settings → Entry Checkpoints). Returned with
+    // the result so the scanner can show the volunteer which band to hand over.
+    // Only for paid entries — an unpaid scan gets no band.
+    const bands = await getEntryBands();
+    const bandKey = reg.category_id ? bands[reg.category_id] : null;
+    const band = bandKey && BAND_COLORS[bandKey] ? { key: bandKey, ...BAND_COLORS[bandKey] } : null;
 
     // Count existing scans for this registration at this specific checkpoint.
     const { count: existingCount } = await supabaseAdmin
@@ -50,7 +59,7 @@ export async function POST(request, { params }) {
     // checkpoint are reported as DUPLICATE but do NOT add another row.
     if (isFirst) {
         await supabaseAdmin.from('checkins').insert({ registration_id: id, checkpoint_id: checkpointId, manual: !!manual });
-        return NextResponse.json({ status: 'NEW', reg });
+        return NextResponse.json({ status: 'NEW', reg, band });
     }
-    return NextResponse.json({ status: 'DUPLICATE', reg, count: existingCount });
+    return NextResponse.json({ status: 'DUPLICATE', reg, band, count: existingCount });
 }

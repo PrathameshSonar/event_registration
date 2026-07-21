@@ -13,6 +13,8 @@ interface Checkpoint { id: string; name: string; sort_order: number; }
 interface CheckInResult {
     status: Status;
     reg?: { first_name: string; last_name: string; salutation?: string; attendees_count: number; categories?: { title: string } };
+    /** Wristband for this Seva (Settings → Entry Checkpoints). Null when unmapped. */
+    band?: { key: string; label: string; hex: string; text: string } | null;
     count?: number;
 }
 interface HistoryEntry { time: Date; result: CheckInResult; }
@@ -389,11 +391,27 @@ export default function ScanPage() {
 
             {/* Result / status banner */}
             {cfg ? (
-                <div className={`${cfg.bg} px-6 py-5 text-white text-center shrink-0`}>
-                    <p className="text-4xl font-black tracking-tight leading-none">{cfg.icon} {cfg.label}</p>
-                    <p className="text-base font-semibold mt-2 opacity-90">
+                <div className={`${cfg.bg} px-6 py-4 text-white text-center shrink-0`}>
+                    <p className="text-2xl font-black tracking-tight leading-none">{cfg.icon} {cfg.label}</p>
+
+                    {/* Seva + wristband: the two things a gate volunteer acts on, so
+                        they're the biggest thing on screen after the verdict. */}
+                    {result?.reg && (
+                        <p className="text-3xl font-black leading-tight mt-2 break-words">{result.reg.categories?.title || '—'}</p>
+                    )}
+                    {result?.band && (
+                        <div
+                            className="mt-2 inline-flex items-center gap-2.5 rounded-xl px-4 py-2 ring-2 ring-white/40"
+                            style={{ backgroundColor: result.band.hex, color: result.band.text }}
+                        >
+                            <span className="text-[10px] font-bold uppercase tracking-widest opacity-75">Band</span>
+                            <span className="text-xl font-black leading-none">{result.band.label}</span>
+                        </div>
+                    )}
+
+                    <p className="text-sm font-semibold mt-2 opacity-90">
                         {nameOf(result?.reg)}
-                        {result?.reg && ` · ${result.reg.categories?.title || ''} · ${result.reg.attendees_count} person(s)`}
+                        {result?.reg && ` · ${result.reg.attendees_count} person(s)`}
                         {result?.status === 'DUPLICATE' && ` · Scan #${result.count} here`}
                     </p>
                 </div>
