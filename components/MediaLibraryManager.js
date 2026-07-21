@@ -11,7 +11,8 @@
 // invoices — stored in a separate private bucket, opened only via a signed URL).
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Upload, Loader2, Trash2, Search, FileText, Image as ImageIcon, Lock, Globe, Download, Mail, ExternalLink, Copy, Check } from "lucide-react";
 import { toast, confirmDialog } from "@/lib/uiStore";
 
@@ -24,35 +25,38 @@ const fmtSize = (b) => {
 const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }); } catch { return "—"; } };
 
 export default function MediaLibraryManager() {
-    const [items, setItems] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const qc = useQueryClient();
     const [busy, setBusy] = useState(false);
     const [q, setQ] = useState("");
     const [kind, setKind] = useState("");
+    const [debouncedQ, setDebouncedQ] = useState("");
     const [copiedId, setCopiedId] = useState(null);
 
     // Documents can be uploaded privately; images are always public (they have to be
     // fetchable by <img src> to render at all).
     const [uploadPrivate, setUploadPrivate] = useState(false);
 
-    const load = useCallback(async () => {
-        setLoading(true);
-        const params = new URLSearchParams();
-        if (kind) params.set("kind", kind);
-        if (q.trim()) params.set("q", q.trim());
-        try {
-            const res = await fetch(`/api/admin/media-library?${params}`);
-            const d = await res.json().catch(() => ({}));
-            if (res.ok) setItems(d.items || []);
-            else toast.error(d.error || "Could not load the media library.");
-        } catch { /* keep the last good list */ }
-        setLoading(false);
-    }, [kind, q]);
-
+    // Debounce the search into the query key (no request per keystroke).
     useEffect(() => {
-        const t = setTimeout(load, 250);
+        const t = setTimeout(() => setDebouncedQ(q.trim()), 250);
         return () => clearTimeout(t);
-    }, [load]);
+    }, [q]);
+
+    const { data, isLoading: loading } = useQuery({
+        queryKey: ["admin", "media-library", kind, debouncedQ],
+        queryFn: async () => {
+            const params = new URLSearchParams();
+            if (kind) params.set("kind", kind);
+            if (debouncedQ) params.set("q", debouncedQ);
+            const res = await fetch(`/api/admin/media-library?${params}`);
+            if (!res.ok) throw new Error("Could not load the media library.");
+            return res.json();
+        },
+        placeholderData: (prev) => prev,
+    });
+    const items = data?.items || [];
+    // Refetch the library after an upload / edit / delete.
+    const load = () => qc.invalidateQueries({ queryKey: ["admin", "media-library"] });
 
     const upload = async (e) => {
         const file = e.target.files?.[0];
