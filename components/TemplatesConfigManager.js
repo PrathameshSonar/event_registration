@@ -7,7 +7,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Save, Mail, MessageCircle, QrCode, CreditCard, RotateCcw, Eye, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { Save, Mail, MessageCircle, QrCode, CreditCard, RotateCcw, Eye, CheckCircle2, XCircle, AlertTriangle, Send } from "lucide-react";
 import { toast, confirmDialog } from "@/lib/uiStore";
 import { EMAIL_TEMPLATES, EMAIL_TEMPLATE_KINDS } from "@/lib/emailTemplates";
 import { DEFAULT_QR, DEFAULT_WHATSAPP_TEMPLATES } from "@/lib/appSettings";
@@ -43,6 +43,28 @@ export default function TemplatesConfigManager() {
     const [dirty, setDirty] = useState(false);
     const [kind, setKind] = useState(EMAIL_TEMPLATE_KINDS[0]);
     const [preview, setPreview] = useState(false);
+    // "Send test email" — verify the provider end-to-end from the Gateway tab.
+    const [testTo, setTestTo] = useState("");
+    const [testing, setTesting] = useState(false);
+    const [testResult, setTestResult] = useState(null); // { ok, msg }
+
+    const sendTest = async () => {
+        setTestResult(null);
+        setTesting(true);
+        const res = await fetch("/api/admin/test-email", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: testTo.trim() }),
+        });
+        const d = await res.json().catch(() => ({}));
+        setTesting(false);
+        if (res.ok) {
+            setTestResult({ ok: true, msg: `Sent to ${d.to} — check the inbox (and spam).` });
+            toast.success("Test email sent.");
+        } else {
+            setTestResult({ ok: false, msg: d.error || "Send failed." });
+            toast.error(d.error || "Send failed.");
+        }
+    };
 
     const load = useCallback(async () => {
         try {
@@ -336,12 +358,42 @@ export default function TemplatesConfigManager() {
                             </p>
                         </div>
 
-                        <div className="p-4 flex items-center justify-between gap-3 flex-wrap">
-                            <div>
-                                <p className="text-sm font-semibold text-neutral-900">Email</p>
-                                <p className="text-xs text-neutral-400 font-mono break-all">{gateway.email.from}</p>
+                        <div className="p-4">
+                            <div className="flex items-center justify-between gap-3 flex-wrap">
+                                <div>
+                                    <p className="text-sm font-semibold text-neutral-900">Email</p>
+                                    <p className="text-xs text-neutral-400 font-mono break-all">{gateway.email.from}</p>
+                                </div>
+                                <Status ok={gateway.email.configured}>{gateway.email.configured ? "Configured" : "Not configured"}</Status>
                             </div>
-                            <Status ok={gateway.email.configured}>{gateway.email.configured ? "Configured" : "Not configured"}</Status>
+                            {gateway.email.configured ? (
+                                <div className="mt-3">
+                                    <label className="block text-xs font-semibold text-neutral-600 mb-1">Send a test email</label>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <input
+                                            type="email"
+                                            value={testTo}
+                                            onChange={(e) => { setTestTo(e.target.value); setTestResult(null); }}
+                                            onKeyDown={(e) => { if (e.key === "Enter" && testTo.trim() && !testing) sendTest(); }}
+                                            placeholder="you@example.com"
+                                            className={`${input} flex-1 min-w-[200px] max-w-xs`}
+                                        />
+                                        <button
+                                            onClick={sendTest}
+                                            disabled={testing || !testTo.trim()}
+                                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-neutral-900 hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            <Send className={`w-4 h-4 ${testing ? "animate-pulse" : ""}`} /> {testing ? "Sending…" : "Send test"}
+                                        </button>
+                                    </div>
+                                    {testResult && (
+                                        <p className={`mt-2 text-xs font-semibold ${testResult.ok ? "text-green-700" : "text-rose-700"}`}>{testResult.msg}</p>
+                                    )}
+                                    <p className="text-[11px] text-neutral-400 mt-1.5">Goes through the real send path and is recorded in the Message Log — if it fails, the provider error is captured there.</p>
+                                </div>
+                            ) : (
+                                <p className="text-[11px] text-amber-700 mt-2">Set <code>EMAIL_API_KEY</code> and <code>EMAIL_FROM</code> to enable sending and testing.</p>
+                            )}
                         </div>
 
                         <div className="p-4 flex items-center justify-between gap-3 flex-wrap">
