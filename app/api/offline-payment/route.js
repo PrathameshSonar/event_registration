@@ -31,6 +31,7 @@ export async function POST(request) {
         const categoryId = form.get('categoryId');
         const paymentMethod = String(form.get('paymentMethod') || '');
         const offlineReference = String(form.get('offlineReference') || '').trim();
+        const paymentPlan = String(form.get('paymentPlan') || 'full');
         const agreedToTerms = form.get('agreedToTerms') === 'true';
         const attendee = JSON.parse(form.get('attendee') || '{}');
         const attendeesRaw = (() => { try { return JSON.parse(form.get('attendees') || 'null'); } catch { return null; } })();
@@ -72,7 +73,7 @@ export async function POST(request) {
 
         const { data: category, error: catError } = await supabaseAdmin
             .from('categories')
-            .select('id, title, price, is_enquiry_only, is_full, max_attendees_per_reg, min_age, max_age, events(registration_open, end_at)')
+            .select('id, title, price, is_enquiry_only, is_full, max_attendees_per_reg, min_age, max_age, allow_part_payment, advance_percent, events(registration_open, end_at)')
             .eq('id', categoryId)
             .single();
         if (catError || !category) return bad('Selected category does not exist.');
@@ -84,6 +85,14 @@ export async function POST(request) {
 
         const totalAmount = Number(category.price) + donationValue;
         if (!(totalAmount > 0)) return bad('This tier has no price set; offline payment is unavailable.');
+
+        // Part payment: the advance is a % of the tier PRICE only (never the
+        // donation). We store the plan + the balance so the admin knows this row
+        // is meant to be paid in two parts — the advance is confirmed at verify
+        // time from the actual amount received (see verify-payment/route.js).
+        const isPartial = paymentPlan === 'partial' && category.allow_part_payment === true && Number(category.price) > 0;
+        const advancePct = Math.min(100, Math.max(1, Number(category.advance_percent) || 25));
+        const advanceAmount = isPartial ? Math.round(Number(category.price) * (advancePct / 100)) : 0;
 
         const maxPerReg = Math.min(MAX_ATTENDEES, category.max_attendees_per_reg || 5);
         const seats = Math.min(maxPerReg, Math.max(1, parseInt(attendeesCount, 10) || 1));
@@ -110,7 +119,9 @@ export async function POST(request) {
             problem_samasya: sanitizedProblem || null, custom_fields: cleanCustom || {},
             attendees_count: seats, attendees: sanitizeAttendees(attendeesRaw, seats),
             donation_amount: donationValue, total_amount: totalAmount,
-            amount_paid: 0, amount_due: totalAmount, payment_plan: 'full',
+            amount_paid: 0,
+            amount_due: isPartial ? (totalAmount - advanceAmount) : totalAmount,
+            payment_plan: isPartial ? 'partial' : 'full',
             payment_method: paymentMethod, offline_reference: offlineReference || null,
             payment_status: 'payment_review',
         }]).select('id').single();

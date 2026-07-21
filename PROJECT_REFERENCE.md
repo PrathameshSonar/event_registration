@@ -308,8 +308,8 @@ Global overview (all figures **global**, never tied to the Registrations filter 
 ### Registrations (everyone) — the ledger workspace
 - **Filters:** search (name/gotra/phone), date range, event, category.
 - **Section tabs** (saved views by status, with live counts respecting other filters): Master List, To Verify, Cheque Pending, Advance Paid, Paid, Pending, **Amount Mismatch**, Rejected, Failed, **Cancelled**, Refunded. Keys map to `payment_status` (RBAC-ready).
-- **Desktop table / mobile cards** (no horizontal scroll on mobile). Shared render helpers keep both in sync.
-- **Row actions:** view details (modal), download QR (Paid only), **Sync payment** ↻ (advance_paid + amount_mismatch), re-send balance link (advance_paid), offline verify/reject/record. Inline status dropdown (locked for terminal states).
+- **Desktop table / mobile cards** (no horizontal scroll on mobile). Shared render helpers keep both in sync. A **Registered** column shows each row's `created_at` (date + time); also in the detail modal ("Registered on") and mobile card.
+- **Row actions:** view details (modal), download QR (Paid only), **Sync payment** ↻ (advance_paid + amount_mismatch), re-send balance link (advance_paid), **Reconcile** (amount_mismatch → re-run approve, complete or convert to advance), offline verify/reject/record. Inline status dropdown (locked for terminal states).
 - **Bulk:** select rows → **Send QR** (smart, see §10), with sticky bar on mobile.
 - **Detail modal:** full profile/payment/custom fields + per-person activity timeline; balance link with **Copy link** + **Sync payment**; **Edit details**, **Resend confirmation**, **Refund**, **Cancel registration**.
 - **Export:** CSV, Excel, Receipts PDF, Financial statement — all over the filtered set ([lib/adminExports.ts](lib/adminExports.ts)).
@@ -334,8 +334,11 @@ Event Setup, Ticket Tiers, Media Gallery, Entry Checkpoints, Form Fields ([compo
 ### Offline payments (bank transfer / cheque / cash / DD)
 A second, human-verified completion path alongside online Razorpay.
 - **Public:** on a payable tier, [components/CheckoutForm.js](components/CheckoutForm.js) shows a **payment-method chooser** (Online + the offline methods enabled in settings) when `bank_details.offline_enabled` is on. Picking offline shows the bank/UPI/payee instructions, a **reference** field (UTR / cheque no / receipt no) and a **proof upload** (image/PDF; required for transfer/cheque). Submits to `POST /api/offline-payment` (multipart) → status **`payment_review`**, proof stored in the private **`payment-proofs`** bucket, user emailed "under verification". **No Razorpay order, no seat held.**
-- **Admin verify** (Registrations tab, section tabs **To Verify** / **Cheque Pending** / **Rejected**): **View proof** (signed URL via `/api/admin/payment-proof/[id]`), **Approve** (confirm amount; short amount → `amount_mismatch`), **Reject** (reason → `payment_rejected`, user notified to resubmit). **Cheque** is two-step: **Cheque in hand** (→ `cheque_received`) → **Cleared** (→ `completed`) / **Bounced** (→ `failed`). Approved → `completed` + ticket + QR-eligible. Completed offline rows can be **Reversed** (→ refunded/failed, seat released) from the detail modal. All via `POST /api/admin/verify-payment`.
-- **Walk-in / cash-at-desk:** admin **Record ₹** on a `pending`/`rejected` row (or an enquiry) → method + amount + reference → `completed` in one step.
+  - **Offline part payment:** if the tier allows part payment and the user picked **Pay Advance**, the form now sends `paymentPlan=partial` and the route records `payment_plan='partial'` with `amount_due = total − advance` (advance = `advance_percent`% of the price only, never the donation) — so the admin sees it is a two-part row. The advance itself is confirmed from the actual amount received at verify time.
+- **Admin verify** (Registrations tab, section tabs **To Verify** / **Cheque Pending** / **Rejected**): **View proof** (signed URL via `/api/admin/payment-proof/[id]`), **Approve** (confirm amount), **Reject** (reason → `payment_rejected`, user notified to resubmit). **Cheque** is two-step: **Cheque in hand** (→ `cheque_received`) → **Cleared** (→ `completed`) / **Bounced** (→ `failed`). Approved → `completed` + ticket + QR-eligible. Completed offline rows can be **Reversed** (→ refunded/failed, seat released) from the detail modal. All via `POST /api/admin/verify-payment`.
+  - **Short amount at verify** — an amount short of the tier total is either an **advance** or a genuine **mismatch**, and the admin decides: if the row is already on a `partial` plan (or the admin confirms "Record part payment"), it becomes **`advance_paid`** with `amount_due = total − received` (balance link/reminder available, no pass until fully paid); otherwise it is flagged **`amount_mismatch`**. Drive this with `partial:true` on the verify-payment body.
+  - **Reconcile a mismatch:** `amount_mismatch` rows are no longer a dead end — a **Reconcile** button (row action + detail modal) re-runs `approve`, pre-filled with the recorded amount, so the admin can complete it (full amount) or convert it to an advance with the balance kept due.
+- **Walk-in / cash-at-desk:** admin **Record ₹** on a `pending`/`rejected` row (or an enquiry) → method + amount + reference → `completed` (full), **`advance_paid`** (short + confirmed as part payment), or `amount_mismatch` (short shortfall). On a price-less enquiry the amount received defines the total.
 - **Global settings:** Settings → **Payment Details** ([components/PaymentSettingsManager.js](components/PaymentSettingsManager.js)) edits the `bank_details` config (account/IFSC/UPI/payee/instructions + which methods are enabled) via `GET|PATCH /api/admin/app-settings`.
 - **Reconciliation:** offline statuses are excluded from the Razorpay cron/Sync (no order to check) — never add them to those filters.
 - Dashboard shows a **Payments to Verify** stat.
@@ -607,7 +610,9 @@ completed ──refund───────► refunded
 
 Offline pipeline (verified by admins, in the Registrations tab):
 ```
-form → offline method → payment_review ──approve(bank/cash/dd)──► completed
+form → offline method → payment_review ──approve full──────────► completed
+                             ├─ approve advance (partial plan / admin) ─► advance_paid (balance due)
+                             ├─ approve short (unexpected) ────────────► amount_mismatch ──Reconcile──► completed / advance_paid
                              ├─ cheque: cheque_received → completed / failed(bounced)
                              └─ reject → payment_rejected (resubmit) ; completed → reverse → refunded
 ```
@@ -647,6 +652,11 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
 
 Keep newest first. Add an entry for every meaningful change.
 
+- **2026-07-21 (Offline part payment + mismatch reconcile + registration timestamp)**
+  - **Offline part payment is now honored end-to-end.** Previously the offline route hardcoded `payment_plan='full'` / `amount_due=total`, so an advance paid offline tripped the shortfall guard and got stuck in `amount_mismatch`. Now [CheckoutForm](components/CheckoutForm.js) sends `paymentPlan` on offline submissions and [/api/offline-payment](app/api/offline-payment/route.js) records `partial` with `amount_due = total − advance` (advance = `advance_percent`% of the price only).
+  - **Verify-payment supports an intentional advance** ([/api/admin/verify-payment](app/api/admin/verify-payment/route.js)): a short amount → **`advance_paid`** (balance kept due, no pass) when `partial:true` OR the row is on a `partial` plan; otherwise `amount_mismatch`. Price-less enquiry rows still let the received amount define the total.
+  - **Amount Mismatch is no longer a dead end.** New **Reconcile** action (row + detail modal) re-runs `approve` pre-filled with the recorded amount so the admin completes it (full) or converts to an advance (balance due). The Approve/Record flows now ask "part payment vs flag mismatch" when the amount is short, and auto-detect `partial`-plan rows.
+  - **Registration timestamp** surfaced on every admin record: a **Registered** column in the desktop table, "Registered on" in the detail modal, and a line on the mobile card (`created_at` already stored; this is display-only).
 - **2026-07-21 (TanStack Query adoption — admin server state)**
   - Added **`@tanstack/react-query`** for the ADMIN only ([QueryProvider](components/admin/QueryProvider.tsx) via [app/admin/layout.tsx](app/admin/layout.tsx)). The public site stays on RSC — deliberately not touched.
   - Migrated self-contained admin panels off hand-rolled `fetch + useState + useEffect` to `useQuery` / `useMutation` (+ optimistic updates + `invalidateQueries`): **Contact Messages** (reference pilot), **Donations**, **Consent Records**, **Feedback**, **Waitlist**, **Audit Log**, **Message Log**, **Sponsors**, **Admin Users**, **Media Library**. Patterns covered: read, read+debounced-filters, read+mutation, and CRUD (list = `useQuery`, mutations → `invalidateQueries`). All self-contained admin panels are now migrated. Remaining (optional): the settings *form* panels (small payoff — core state is the edit form), `HomeContentManager`, and the big `admin/page.tsx` dashboard (**post-launch**, touches registration/payment ops).

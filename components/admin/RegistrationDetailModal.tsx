@@ -61,6 +61,9 @@ export default function RegistrationDetailModal({
                             <p className="mt-3"><span className="text-neutral-500 block text-xs">Gotra</span><span className="font-semibold">{reg.gotra || 'Not provided'}</span></p>
                             <p className="mt-3"><span className="text-neutral-500 block text-xs">DOB / Gender</span><span>{reg.date_of_birth} ({reg.gender})</span></p>
                             <p className="mt-3"><span className="text-neutral-500 block text-xs">Total Attendees</span><span className="font-bold">{reg.attendees_count} Person(s)</span></p>
+                            {reg.created_at && (
+                                <p className="mt-3"><span className="text-neutral-500 block text-xs">Registered on</span><span className="font-semibold">{new Date(reg.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></p>
+                            )}
                             {Array.isArray(reg.attendees) && reg.attendees.length > 0 && (
                                 <div className="mt-3"><span className="text-neutral-500 block text-xs mb-1">Attendee Names</span><ol className="list-decimal ml-4 text-sm text-neutral-800 space-y-0.5">{reg.attendees.map((a, i) => <li key={i}>{a.name}</li>)}</ol></div>
                             )}
@@ -83,6 +86,8 @@ export default function RegistrationDetailModal({
                                         <p><span className="text-neutral-500 block text-xs">Paid</span><span className="font-bold text-green-700">₹{reg.amount_paid}</span></p>
                                         <p><span className="text-neutral-500 block text-xs">Balance Due</span><span className="font-bold text-amber-700">₹{reg.amount_due}</span></p>
                                     </>
+                                ) : reg.payment_status === 'amount_mismatch' ? (
+                                    <p><span className="text-neutral-500 block text-xs">Recorded</span><span className="font-bold text-amber-700">₹{reg.amount_paid}</span><span className="block text-[11px] text-neutral-400">short of ₹{reg.total_amount}</span></p>
                                 ) : (
                                     <p><span className="text-neutral-500 block text-xs">Plan</span><span className="font-semibold capitalize">{reg.payment_plan || 'full'}</span></p>
                                 )}
@@ -100,6 +105,9 @@ export default function RegistrationDetailModal({
                                         )}
                                         {can('payments:verify') && reg.payment_status === 'completed' && (
                                             <button type="button" onClick={() => onVerify(reg, 'reverse')} disabled={verifyingId === reg.id} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-rose-200 rounded-lg text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 transition disabled:opacity-50"><X className="w-3.5 h-3.5" /> Reverse payment</button>
+                                        )}
+                                        {can('payments:verify') && reg.payment_status === 'amount_mismatch' && (
+                                            <button type="button" onClick={() => onVerify(reg, 'approve')} disabled={verifyingId === reg.id} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-amber-300 rounded-lg text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 transition disabled:opacity-50">Reconcile amount</button>
                                         )}
                                     </div>
                                 </div>

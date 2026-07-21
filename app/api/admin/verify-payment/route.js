@@ -1,11 +1,15 @@
 // app/api/admin/verify-payment/route.js
 // Admin verification state machine for offline payments. Admin only.
-//   POST { id, action, amount?, note?, method?, reference? }
+//   POST { id, action, amount?, note?, method?, reference?, partial? }
 //   action ∈ approve | reject | cheque_received | cheque_cleared | cheque_bounced | reverse | record
 // approve/cheque_cleared/record → completed (+ ticket). reject → payment_rejected
 // (+ notify). cheque_received → cheque_received. cheque_bounced/reverse → failed.
-// If a confirmed amount ≠ tier total, the row is flagged amount_mismatch instead
-// of completed. Every action is audit-logged.
+// A confirmed amount short of the tier total normally flags amount_mismatch. When
+// it is an intentional advance — partial:true from the admin, OR the row was
+// submitted on a part-payment plan — it is recorded as advance_paid with the
+// balance kept due (no pass until fully paid). This also lets an admin reconcile
+// a stuck amount_mismatch by re-running approve with the actual amount received.
+// Every action is audit-logged.
 import { NextResponse } from 'next/server';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
@@ -21,7 +25,7 @@ export async function POST(request) {
     const { response, session } = await authorize({ requirePermission: 'payments:verify' });
     if (response) return response;
 
-    const { id, action, amount, note, method, reference } = await request.json();
+    const { id, action, amount, note, method, reference, partial } = await request.json();
     if (!id || !action) return NextResponse.json({ error: 'Missing id or action.' }, { status: 400 });
 
     const { data: reg, error } = await supabaseAdmin
@@ -47,11 +51,32 @@ export async function POST(request) {
         }
         const price = Number(reg.total_amount) || 0;
         const received = amount != null && amount !== '' ? Number(amount) : price;
-        const expected = action === 'record' ? (received || price) : price;
+        // For a price-less enquiry row the amount received defines the total.
+        const expected = price > 0 ? price : received;
+        const isShort = expected > 0 && received > 0 && received < expected - 1;
 
-        // Money guard: a confirmed amount short of the tier price is a mismatch,
-        // not a completion (over/equal is fine).
-        if (expected > 0 && received < expected - 1) {
+        // ── ADVANCE / PART PAYMENT ───────────────────────────────────────────
+        // A short amount is a legitimate advance when the admin marks it partial,
+        // or the row was submitted on a part-payment plan. Record advance_paid and
+        // keep the balance due — no entry pass is issued until it is fully paid.
+        if (isShort && (partial === true || reg.payment_plan === 'partial')) {
+            const due = Math.max(0, expected - received);
+            const update = {
+                payment_status: 'advance_paid',
+                amount_paid: received, amount_due: due, payment_plan: 'partial', ...stamp,
+            };
+            if (action === 'record') {
+                update.payment_method = method;
+                update.offline_reference = reference || reg.offline_reference || null;
+            }
+            const { error: upErr } = await supabaseAdmin.from('registrations').update(update).eq('id', id);
+            if (upErr) return NextResponse.json({ error: 'Update failed.' }, { status: 500 });
+            await audit(`Recorded advance ₹${received} (offline: ${action === 'record' ? method : reg.payment_method || 'offline'})${note ? ` — ${note}` : ''} · balance ₹${due} due`, { received, due, note: note || null });
+            return NextResponse.json({ ok: true, status: 'advance_paid', amount_due: due });
+        }
+
+        // ── AMOUNT MISMATCH (unexpected shortfall) ───────────────────────────
+        if (isShort) {
             await supabaseAdmin.from('registrations').update({
                 payment_status: 'amount_mismatch', amount_paid: received,
                 payment_method: action === 'record' ? method : reg.payment_method,

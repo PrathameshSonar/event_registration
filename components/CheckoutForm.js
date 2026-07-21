@@ -445,6 +445,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
         fd.append("categoryId", category.id);
         fd.append("paymentMethod", paymentMethod);
         fd.append("offlineReference", offlineReference);
+        fd.append("paymentPlan", usePartial ? "partial" : "full");
         fd.append("agreedToTerms", "true");
         fd.append("attendee", JSON.stringify(attendeePayload));
         fd.append("attendees", JSON.stringify(attendeesList));
@@ -469,6 +470,9 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
           category: category.title,
           amount: totalAmount,
           attendees: formData.attendeesCount,
+          partial: usePartial,
+          paidNow: payNow,
+          balance: usePartial ? balanceAmount : 0,
         });
       } catch {
         setFormError("Network error. Please try again.");
@@ -896,7 +900,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
         <h4 className="text-sm font-bold text-neutral-900 mb-4 uppercase tracking-wider">
           {t("form_event_contribution")}
         </h4>
-        <div className="grid grid-cols-1 gap-4">
+        <div className="space-y-4">
           {isVisible("problem") && (
             <TextField
               fullWidth

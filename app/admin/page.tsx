@@ -459,9 +459,27 @@ export default function AdminDashboard() {
     const handleVerifyPayment = async (reg: Registration, action: string) => {
         const body: Record<string, unknown> = { id: reg.id, action };
         if (action === 'approve' || action === 'cheque_cleared') {
-            const amt = await promptDialog({ title: 'Confirm payment', message: 'Amount received (₹):', defaultValue: String(reg.total_amount || ''), inputType: 'number', required: true, confirmLabel: 'Approve' });
+            const total = Number(reg.total_amount) || 0;
+            const isPartialPlan = reg.payment_plan === 'partial';
+            // Sensible default: for a reconcile use what was already recorded; for a
+            // part-payment row the amount due already reflects the advance (total −
+            // advance), so pre-fill the expected advance; otherwise the full price.
+            const defaultAmt = reg.payment_status === 'amount_mismatch' && Number(reg.amount_paid) > 0
+                ? Number(reg.amount_paid)
+                : (isPartialPlan && Number(reg.amount_due) > 0 ? Math.max(0, total - Number(reg.amount_due)) : total);
+            const amt = await promptDialog({ title: 'Confirm payment', message: isPartialPlan ? `Advance received (₹) — full price is ₹${total.toLocaleString('en-IN')}:` : 'Amount received (₹):', defaultValue: String(defaultAmt || ''), inputType: 'number', required: true, confirmLabel: 'Approve' });
             if (amt === null) return;
-            body.amount = Number(amt);
+            const received = Number(amt);
+            body.amount = received;
+            // A short amount → part payment (balance kept due) or flag as mismatch.
+            if (received > 0 && total > 0 && received < total - 1) {
+                const asPartial = isPartialPlan ? true : await confirmDialog({
+                    title: 'Less than the full amount',
+                    message: `₹${received.toLocaleString('en-IN')} is less than the full ₹${total.toLocaleString('en-IN')}. Record it as a PART payment (₹${(total - received).toLocaleString('en-IN')} balance stays due)? Choose "Flag mismatch" to mark it for review instead.`,
+                    confirmLabel: 'Record part payment', cancelLabel: 'Flag mismatch',
+                });
+                if (asPartial) body.partial = true;
+            }
         } else if (action === 'reject') {
             const reason = await promptDialog({ title: 'Reject payment', message: 'Reason for rejection (sent to the customer):', placeholder: 'e.g. UTR not found', confirmLabel: 'Reject' });
             if (reason === null) return;
@@ -479,21 +497,36 @@ export default function AdminDashboard() {
         setVerifyingId(null);
         if (!ok) { toast.error(data.error || 'Action failed.'); return; }
         if (data.status === 'amount_mismatch') toast.error('⚠️ Recorded amount is short of the tier price — flagged as Amount Mismatch (not marked Paid).');
+        else if (data.status === 'advance_paid') toast.success(`Advance recorded — ₹${Number(data.amount_due || 0).toLocaleString('en-IN')} balance due.`);
         else toast.success('Done.');
         await fetchAllData();
     };
     const handleRecordOffline = async (reg: Registration) => {
-        const method = await promptDialog({ title: 'Record offline payment', message: 'Payment method — bank_transfer / cheque / cash / dd:', defaultValue: 'cash', required: true });
+        const presetMethod = reg.payment_method && ['bank_transfer', 'cheque', 'cash', 'dd'].includes(reg.payment_method) ? reg.payment_method : 'cash';
+        const method = await promptDialog({ title: 'Record offline payment', message: 'Payment method — bank_transfer / cheque / cash / dd:', defaultValue: presetMethod, required: true });
         if (!method) return;
         if (!['bank_transfer', 'cheque', 'cash', 'dd'].includes(method)) { toast.error('Invalid method.'); return; }
+        const total = Number(reg.total_amount) || 0;
         const amt = await promptDialog({ title: 'Record offline payment', message: 'Amount received (₹):', defaultValue: String(reg.total_amount || ''), inputType: 'number', required: true });
         if (amt === null) return;
+        const received = Number(amt);
         const reference = (await promptDialog({ title: 'Record offline payment', message: 'Reference (UTR / cheque no / receipt no) — optional:' })) || '';
+        const body: Record<string, unknown> = { id: reg.id, action: 'record', method, amount: received, reference };
+        // A short amount → part payment (balance kept due) or flag as mismatch.
+        if (received > 0 && total > 0 && received < total - 1) {
+            const asPartial = reg.payment_plan === 'partial' ? true : await confirmDialog({
+                title: 'Less than the full amount',
+                message: `₹${received.toLocaleString('en-IN')} is less than the full ₹${total.toLocaleString('en-IN')}. Record it as a PART payment (₹${(total - received).toLocaleString('en-IN')} balance stays due)? Choose "Flag mismatch" to mark it for review instead.`,
+                confirmLabel: 'Record part payment', cancelLabel: 'Flag mismatch',
+            });
+            if (asPartial) body.partial = true;
+        }
         setVerifyingId(reg.id);
-        const { ok, data } = await mutate('/api/admin/verify-payment', 'POST', { id: reg.id, action: 'record', method, amount: Number(amt), reference });
+        const { ok, data } = await mutate('/api/admin/verify-payment', 'POST', body);
         setVerifyingId(null);
         if (!ok) { toast.error(data.error || 'Failed.'); return; }
         if (data.status === 'amount_mismatch') toast.error('⚠️ Amount is short of the tier price — flagged as Amount Mismatch.');
+        else if (data.status === 'advance_paid') toast.success(`Advance recorded — ₹${Number(data.amount_due || 0).toLocaleString('en-IN')} balance due.`);
         else toast.success('Payment recorded — marked Paid.');
         await fetchAllData();
     };
@@ -733,6 +766,9 @@ export default function AdminDashboard() {
             )}
             {(!isVolunteer || can('reminders:send')) && reg.payment_status === 'advance_paid' && (
                 <button onClick={() => handleResendBalance(reg.id)} disabled={resendingId === reg.id} className="p-2 border border-amber-200 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition shadow-sm disabled:opacity-50" title="Re-send balance payment link"><IndianRupee className="w-4 h-4" /></button>
+            )}
+            {can('payments:verify') && reg.payment_status === 'amount_mismatch' && (
+                <button onClick={() => handleVerifyPayment(reg, 'approve')} disabled={verifyingId === reg.id} className="px-2.5 py-1.5 border border-amber-300 rounded-lg bg-amber-50 text-amber-800 hover:bg-amber-100 transition shadow-sm text-xs font-semibold disabled:opacity-50" title="Reconcile — record the actual amount received (full payment, or an advance with balance due)">Reconcile</button>
             )}
 
             {/* Offline payment verification */}
@@ -1149,10 +1185,10 @@ export default function AdminDashboard() {
                             <div className="hidden md:block overflow-x-auto">
                                 <table className="w-full text-left text-sm whitespace-nowrap">
                                     <thead className="bg-neutral-100 text-neutral-600 font-medium border-b border-neutral-200">
-                                        <tr><th className="w-10 px-4 py-3"><input type="checkbox" className="w-4 h-4 rounded border-neutral-300 text-orange-600 focus:ring-orange-500" checked={pagedRegistrations.length > 0 && pagedRegistrations.every(r => selectedIds.has(r.id))} onChange={(e) => { const next = new Set(selectedIds); pagedRegistrations.forEach(r => e.target.checked ? next.add(r.id) : next.delete(r.id)); setSelectedIds(next); }} /></th><th className="px-6 py-4">Status</th><th className="px-6 py-4">Name & Contact</th><th className="px-6 py-4">Gotra</th><th className="px-6 py-4">Category</th><th className="px-6 py-4">Amount</th><th className="px-6 py-4 text-center">Action</th></tr>
+                                        <tr><th className="w-10 px-4 py-3"><input type="checkbox" className="w-4 h-4 rounded border-neutral-300 text-orange-600 focus:ring-orange-500" checked={pagedRegistrations.length > 0 && pagedRegistrations.every(r => selectedIds.has(r.id))} onChange={(e) => { const next = new Set(selectedIds); pagedRegistrations.forEach(r => e.target.checked ? next.add(r.id) : next.delete(r.id)); setSelectedIds(next); }} /></th><th className="px-6 py-4">Status</th><th className="px-6 py-4">Name & Contact</th><th className="px-6 py-4">Gotra</th><th className="px-6 py-4">Category</th><th className="px-6 py-4">Amount</th><th className="px-6 py-4">Registered</th><th className="px-6 py-4 text-center">Action</th></tr>
                                     </thead>
                                     <tbody className="divide-y divide-neutral-100">
-                                        {loading ? (<tr><td colSpan={7} className="px-6 py-8 text-center text-neutral-400">Loading ledger data...</td></tr>) : filteredRegistrations.length === 0 ? (<tr><td colSpan={7} className="px-6 py-8 text-center text-neutral-400">No records match your filters.</td></tr>) : (
+                                        {loading ? (<tr><td colSpan={8} className="px-6 py-8 text-center text-neutral-400">Loading ledger data...</td></tr>) : filteredRegistrations.length === 0 ? (<tr><td colSpan={8} className="px-6 py-8 text-center text-neutral-400">No records match your filters.</td></tr>) : (
                                             pagedRegistrations.map((reg) => (
                                                 <tr key={reg.id} className="hover:bg-neutral-50 transition">
                                                     <td className="px-4 py-4"><input type="checkbox" className="w-4 h-4 rounded border-neutral-300 text-orange-600 focus:ring-orange-500" checked={selectedIds.has(reg.id)} onChange={(e) => toggleSelected(reg.id, e.target.checked)} /></td>
@@ -1164,6 +1200,7 @@ export default function AdminDashboard() {
                                                     <td className="px-6 py-4 text-neutral-600">{reg.gotra || '-'}</td>
                                                     <td className="px-6 py-4 text-neutral-600">{reg.categories?.title || 'Deleted Category'}</td>
                                                     <td className="px-6 py-4 font-bold text-neutral-900">{renderAmountCell(reg)}</td>
+                                                    <td className="px-6 py-4 text-neutral-600 text-xs whitespace-nowrap">{reg.created_at ? <>{new Date(reg.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}<br /><span className="text-neutral-400">{new Date(reg.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span></> : '—'}</td>
                                                     <td className="px-6 py-4"><div className="flex justify-center">{renderRowActions(reg)}</div></td>
                                                 </tr>
                                             ))
@@ -1195,6 +1232,7 @@ export default function AdminDashboard() {
                                                         <span>{reg.categories?.title || 'Deleted Category'}</span>
                                                         {reg.gotra && <span className="truncate ml-2">Gotra: {reg.gotra}</span>}
                                                     </div>
+                                                    {reg.created_at && <p className="text-[11px] text-neutral-400">Registered {new Date(reg.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>}
                                                     <div className="flex items-end justify-between gap-2 pt-1">
                                                         <div className="font-bold text-neutral-900 text-sm">{renderAmountCell(reg)}</div>
                                                         {renderRowActions(reg)}
