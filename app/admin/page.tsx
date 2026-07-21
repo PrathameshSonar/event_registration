@@ -440,12 +440,27 @@ export default function AdminDashboard() {
         await fetchAllData();
     };
 
-    const handleResendConfirmation = async (reg: Registration) => {
+    // retryFailedOnly=true (the ⚠️ button) re-sends ONLY the channel(s) that failed,
+    // so a delivered email/WhatsApp is never sent twice. The modal's "Resend
+    // confirmation" omits it → a deliberate full resend (e.g. corrected email).
+    const handleResendConfirmation = async (reg: Registration, retryFailedOnly = false) => {
+        let channels: string[] | undefined;
+        if (retryFailedOnly) {
+            channels = [
+                reg.ticket_email_status !== 'sent' ? 'email' : null,
+                reg.ticket_wa_status !== 'sent' ? 'whatsapp' : null,
+            ].filter(Boolean) as string[];
+            if (channels.length === 0) { toast.info('Both channels already delivered.'); return; }
+        }
         setManagingId(reg.id);
-        const { ok, data } = await mutate('/api/admin/resend-confirmation', 'POST', { id: reg.id });
+        const { ok, data } = await mutate('/api/admin/resend-confirmation', 'POST', { id: reg.id, channels });
         setManagingId(null);
         if (!ok) { toast.error(data.error || 'Failed to resend.'); return; }
-        toast.success(`Confirmation re-sent to ${reg.email}.`);
+        const parts = [
+            data.emailStatus ? `email ${data.emailStatus}` : null,
+            data.waStatus ? `WhatsApp ${data.waStatus}` : null,
+        ].filter(Boolean).join(' · ');
+        toast.success(`Confirmation re-sent${parts ? ` — ${parts}` : ''}.`);
     };
 
     // ----- Offline payment verification -----
@@ -787,7 +802,7 @@ export default function AdminDashboard() {
                 <a href={`/api/admin/qr/${reg.id}`} className="p-2 border border-neutral-200 rounded-lg bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition shadow-sm" title="Download QR Code"><QrCode className="w-4 h-4" /></a>
             )}
             {can('registrations:manage') && reg.payment_status === 'completed' && (reg.ticket_email_status === 'failed' || reg.ticket_wa_status === 'failed') && (
-                <button onClick={() => handleResendConfirmation(reg)} disabled={managingId === reg.id} className="p-2 border border-rose-200 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition shadow-sm disabled:opacity-50 animate-pulse" title={`Ticket delivery failed (${[reg.ticket_email_status === 'failed' ? 'email' : null, reg.ticket_wa_status === 'failed' ? 'WhatsApp' : null].filter(Boolean).join(' + ')}) — click to retry`}>⚠️</button>
+                <button onClick={() => handleResendConfirmation(reg, true)} disabled={managingId === reg.id} className="p-2 border border-rose-200 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition shadow-sm disabled:opacity-50 animate-pulse" title={`Ticket delivery failed (${[reg.ticket_email_status === 'failed' ? 'email' : null, reg.ticket_wa_status === 'failed' ? 'WhatsApp' : null].filter(Boolean).join(' + ')}) — retry only the failed channel`}>⚠️</button>
             )}
             {(!isVolunteer || can('payments:verify')) && (reg.payment_status === 'advance_paid' || reg.payment_status === 'amount_mismatch') && (
                 <button onClick={() => handleSyncBalance(reg.id)} disabled={syncingId === reg.id} className="p-2 border border-green-200 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition shadow-sm disabled:opacity-50" title="Re-check this payment against Razorpay"><RefreshCw className={`w-4 h-4 ${syncingId === reg.id ? 'animate-spin' : ''}`} /></button>

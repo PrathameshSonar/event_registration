@@ -52,7 +52,12 @@ export async function POST(request) {
     const qrCfg = await getQrConfig();
 
     for (const reg of regs) {
+        // verifyUrl = what the QR encodes → the STAFF scan-verify screen (VALID/INVALID).
+        // passUrl   = the ATTENDEE'S own pass page (shows the QR to be scanned). The
+        // attendee must only ever get passUrl — never the verify URL, or they could
+        // just flash the green "VALID" screen at the gate without being scanned.
         const verifyUrl = `${siteUrl}/entry/${reg.id}`;
+        const passUrl = `${siteUrl}/pass/${reg.id}`;
         const salutation = reg.salutation ? `${reg.salutation} ` : '';
         const fullName = `${salutation}${reg.first_name} ${reg.last_name}`;
         const categoryTitle = reg.categories?.title || 'General Admission';
@@ -102,7 +107,11 @@ export async function POST(request) {
                     tier: categoryTitle,
                     attendees: reg.attendees_count,
                     total: reg.total_amount,
-                    qrImage: qrDataUrl,
+                    // Hosted URL first: Gmail (and most clients) STRIP inline data: URIs,
+                    // so the data URI showed as a broken image. The signed bucket URL
+                    // renders everywhere; data URI is only a fallback if the upload failed.
+                    qrImage: qrPublicUrl || qrDataUrl,
+                    passUrl,
                     verifyUrl,
                     shortId,
                 },
@@ -113,7 +122,7 @@ export async function POST(request) {
         // ── WHATSAPP ──────────────────────────────────────────
         if (reg.phone && waConfigured()) {
             try {
-                const caption = `🎟️ *BaglaBhairav Entry Pass*\n\n👤 *Name:* ${fullName}\n🏷️ *Category:* ${categoryTitle}\n👥 *Attendees:* ${reg.attendees_count}\n💰 *Paid:* ₹${reg.total_amount}\n\n📲 *Scan QR or open:*\n${verifyUrl}`;
+                const caption = `🎟️ *BaglaBhairav Entry Pass*\n\n👤 *Name:* ${fullName}\n🏷️ *Category:* ${categoryTitle}\n👥 *Attendees:* ${reg.attendees_count}\n💰 *Paid:* ₹${reg.total_amount}\n\n📲 *View your pass:*\n${passUrl}`;
 
                 // Send as image if we have a public URL; otherwise fall back to text with link.
                 const ok = qrPublicUrl

@@ -43,28 +43,30 @@ export default function TemplatesConfigManager() {
     const [dirty, setDirty] = useState(false);
     const [kind, setKind] = useState(EMAIL_TEMPLATE_KINDS[0]);
     const [preview, setPreview] = useState(false);
-    // "Send test email" — verify the provider end-to-end from the Gateway tab.
+    // "Send test email" — one recipient, shared across both tests below.
     const [testTo, setTestTo] = useState("");
+    // Gateway tab: generic deliverability probe.
     const [testing, setTesting] = useState(false);
     const [testResult, setTestResult] = useState(null); // { ok, msg }
+    // Email-templates tab: send the current template (with edits) as a test.
+    const [testingTpl, setTestingTpl] = useState(false);
+    const [tplTestResult, setTplTestResult] = useState(null); // { ok, msg }
 
-    const sendTest = async () => {
-        setTestResult(null);
-        setTesting(true);
+    const runTest = async (body, setBusy, setRes, okMsg) => {
+        setRes(null);
+        setBusy(true);
         const res = await fetch("/api/admin/test-email", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ to: testTo.trim() }),
+            body: JSON.stringify(body),
         });
         const d = await res.json().catch(() => ({}));
-        setTesting(false);
-        if (res.ok) {
-            setTestResult({ ok: true, msg: `Sent to ${d.to} — check the inbox (and spam).` });
-            toast.success("Test email sent.");
-        } else {
-            setTestResult({ ok: false, msg: d.error || "Send failed." });
-            toast.error(d.error || "Send failed.");
-        }
+        setBusy(false);
+        if (res.ok) { setRes({ ok: true, msg: okMsg(d) }); toast.success("Test email sent."); }
+        else { setRes({ ok: false, msg: d.error || "Send failed." }); toast.error(d.error || "Send failed."); }
     };
+
+    const sendTest = () =>
+        runTest({ to: testTo.trim() }, setTesting, setTestResult, (d) => `Sent to ${d.to} — check the inbox (and spam).`);
 
     const load = useCallback(async () => {
         try {
@@ -108,6 +110,11 @@ export default function TemplatesConfigManager() {
     const customised = !!(override && (override.subject || override.html?.trim()));
     const subject = override?.subject ?? def.subject;
     const html = override?.html ?? def.html;
+
+    // Send the CURRENTLY-SELECTED template (with any unsaved edits) to a test
+    // address, filled with sample data — see what a registrant actually receives.
+    const sendTemplateTest = () =>
+        runTest({ to: testTo.trim(), kind, subject, html }, setTestingTpl, setTplTestResult, (d) => `Sent “${def.label}” to ${d.to}.`);
 
     const editTpl = (field, v) => {
         setEmailTpl((p) => ({
@@ -200,6 +207,32 @@ export default function TemplatesConfigManager() {
                         <p className="text-[11px] text-neutral-400 mt-2">
                             Values are HTML-escaped automatically. <code>{"{{#if x}}…{{/if}}"}</code> includes a block only when <code>x</code> has a value.
                         </p>
+                    </div>
+
+                    {/* Send THIS template (with unsaved edits) to a test inbox, filled with sample data. */}
+                    <div className="bg-orange-50/60 border border-orange-200 rounded-xl p-3">
+                        <p className="text-xs font-semibold text-neutral-700 mb-1.5 flex items-center gap-1.5"><Send className="w-3.5 h-3.5 text-orange-600" /> Send this template as a test</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <input
+                                type="email"
+                                value={testTo}
+                                onChange={(e) => { setTestTo(e.target.value); setTplTestResult(null); }}
+                                onKeyDown={(e) => { if (e.key === "Enter" && testTo.trim() && !testingTpl) sendTemplateTest(); }}
+                                placeholder="you@example.com"
+                                className={`${input} flex-1 min-w-[200px] max-w-xs bg-white`}
+                            />
+                            <button
+                                onClick={sendTemplateTest}
+                                disabled={testingTpl || !testTo.trim()}
+                                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <Send className={`w-4 h-4 ${testingTpl ? "animate-pulse" : ""}`} /> {testingTpl ? "Sending…" : "Send test"}
+                            </button>
+                        </div>
+                        {tplTestResult && (
+                            <p className={`mt-2 text-xs font-semibold ${tplTestResult.ok ? "text-green-700" : "text-rose-700"}`}>{tplTestResult.msg}</p>
+                        )}
+                        <p className="text-[11px] text-neutral-500 mt-1.5">Sends the <strong>{def.label}</strong> email — with your current edits (even unsaved) — filled with sample data, so you see exactly what a registrant receives.</p>
                     </div>
 
                     {preview ? (
