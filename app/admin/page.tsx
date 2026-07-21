@@ -484,6 +484,11 @@ export default function AdminDashboard() {
         if (data.unchanged) { toast.info('Donation unchanged.'); return; }
         const inr = (n: number) => `₹${Number(n).toLocaleString('en-IN')}`;
         toast.success(`Donation set to ${inr(data.donation)} — total ${inr(data.total)}, due ${inr(data.amount_due)}${data.completed ? ' · marked Paid' : ''}.`);
+        // A stale link that couldn't be cancelled is still payable at the OLD amount —
+        // the admin must void it in the Razorpay dashboard.
+        if (typeof data.linkCancelled === 'string') {
+            toast.error(`⚠️ The old balance link could NOT be cancelled (${data.linkCancelled}). Cancel it in the Razorpay dashboard — it can still be paid at the old amount.`);
+        }
         setSelectedRegistration(null);
         await fetchAllData();
     };

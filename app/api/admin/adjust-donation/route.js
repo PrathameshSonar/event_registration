@@ -17,6 +17,7 @@ import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAudit } from '@/lib/auditLog';
 import { dispatchTicket } from '@/lib/ticket';
+import { cancelPaymentLink } from '@/lib/payments';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,9 +62,17 @@ export async function POST(request) {
     const newDue = Math.max(0, newTotal - paid);
     const update = { donation_amount: newDonation, total_amount: newTotal, amount_due: newDue };
 
-    // The stored balance link was priced at the OLD amount — drop it so the next
-    // send/copy creates one for the corrected balance.
+    // The stored balance link was priced at the OLD amount. CANCEL it on Razorpay
+    // before dropping it — clearing our columns alone would leave a live link that a
+    // devotee holding the earlier email/WhatsApp could still pay at the stale amount,
+    // and an over-capture is accepted by the money guard, so it would silently
+    // complete with an unrecorded overpayment.
+    let linkCancelled = null;
     if (reg.balance_link_url || reg.balance_link_id) {
+        if (reg.balance_link_id) {
+            const res = await cancelPaymentLink(reg.balance_link_id);
+            linkCancelled = res.ok ? true : res.error;
+        }
         update.balance_link_url = null;
         update.balance_link_id = null;
     }
@@ -87,12 +96,14 @@ export async function POST(request) {
     await logAudit({
         session, request,
         action: 'registration.adjust_donation', entity: 'registration', entityId: id,
-        summary: `Donation ${inr(oldDonation)} → ${inr(newDonation)} for ${who} · total ${inr(newTotal)}, due ${inr(update.amount_due)}${completing ? ' · marked Paid' : ''}`,
-        metadata: { oldDonation, newDonation, base, newTotal, paid, newDue: update.amount_due, completed: completing },
+        summary: `Donation ${inr(oldDonation)} → ${inr(newDonation)} for ${who} · total ${inr(newTotal)}, due ${inr(update.amount_due)}${completing ? ' · marked Paid' : ''}${linkCancelled === true ? ' · old balance link cancelled' : linkCancelled ? ' · ⚠️ old balance link NOT cancelled' : ''}`,
+        metadata: { oldDonation, newDonation, base, newTotal, paid, newDue: update.amount_due, completed: completing, linkCancelled },
     });
 
     return NextResponse.json({
         ok: true, donation: newDonation, total: newTotal,
         amount_due: update.amount_due, completed: completing,
+        // true = cancelled, a string = Razorpay's reason it couldn't be, null = none existed.
+        linkCancelled,
     });
 }

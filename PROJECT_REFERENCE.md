@@ -654,6 +654,10 @@ form → offline method → payment_review ──approve full──────�
 
 Keep newest first. Add an entry for every meaningful change.
 
+- **2026-07-21 (Stale balance links are now cancelled, not just forgotten)**
+  - `adjust-donation` cleared `balance_link_url`/`balance_link_id` but left the link **live on Razorpay**, still payable at the OLD amount. Because the money guard only flags **shortfalls** (over-capture is accepted by design — customer-borne fees), a devotee paying the stale link would have silently completed the registration with an **unrecorded overpayment**.
+  - New `cancelPaymentLink(linkId)` in [lib/payments.js](lib/payments.js) (best-effort — an already-paid link can't be cancelled and must never block the caller). `adjust-donation` now cancels the superseded link **before** dropping it, records the outcome in the audit summary + metadata, and returns `linkCancelled` (`true` / Razorpay's reason / `null`). If it couldn't be cancelled the admin gets an explicit toast telling them to void it in the Razorpay dashboard.
+  - ⚠️ **Rule: never clear a `balance_link_id` without cancelling the link first.** Links created before this fix may still be live — check the Razorpay dashboard for orphans.
 - **2026-07-21 (Fix: "Could not create a payment link" on Copy balance link)**
   - `ensureBalanceLink()` reused the plain `reference_id: bal_<regId>` copied from the first-creation path, but **Razorpay rejects a duplicate `reference_id`** — so any registration that already had a link (minted at advance capture, or orphaned on Razorpay after `adjust-donation` cleared the stored URL) failed on **Copy balance link**. Now timestamped (`bal_<regId>_<ts>`), the same thing [resend-balance](app/api/admin/resend-balance/route.js) has always done. ⚠️ **Any new balance-link creator must use a unique reference_id.**
   - It now returns `{ url, error }` and [/api/admin/balance-link](app/api/admin/balance-link/route.js) surfaces **Razorpay's own message** (502) instead of a blank "could not create a payment link", so a gateway/config failure is diagnosable.
