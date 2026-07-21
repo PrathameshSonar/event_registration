@@ -7,7 +7,7 @@ import {
     Trash2, Plus, Image as ImageIcon, Video, CalendarDays,
     Ticket, Calendar as CalendarIcon, Search, LogOut, QrCode, Check,
     LayoutDashboard, ScrollText, RefreshCw, MessageSquare, Send, UserPlus, Megaphone,
-    Gift, UserCheck, Handshake, Mail, FolderOpen, Palette, FileCode, Phone
+    Gift, UserCheck, Handshake, Mail, FolderOpen, Palette, FileCode, Phone, Copy, Link2
 } from 'lucide-react';
 import { youtubeThumbnail } from '@/lib/youtube';
 import { buildTranslations } from '@/lib/i18n';
@@ -556,6 +556,34 @@ export default function AdminDashboard() {
         toast.success(`Balance link sent — ✉️ ${data.emailed ? 'email' : 'no email'}, 📱 ${data.waSent ? 'WhatsApp' : 'no WhatsApp'}.`);
     };
 
+    // Copy the balance payment link for an advance-paid reg (create if missing, no
+    // send) so the admin can share it by hand when the WhatsApp/email didn't land.
+    const [copyingLinkId, setCopyingLinkId] = useState<string | null>(null);
+    const handleCopyBalanceLink = async (reg: Registration) => {
+        setCopyingLinkId(reg.id);
+        let url = reg.balance_link_url;
+        if (!url) {
+            const { ok, data } = await mutate('/api/admin/balance-link', 'POST', { id: reg.id });
+            if (!ok) { toast.error(data.error || 'Could not get the payment link.'); setCopyingLinkId(null); return; }
+            url = data.link;
+        }
+        if (url) { await handleCopyLink(url); toast.success('Balance link copied — paste it to the devotee.'); }
+        setCopyingLinkId(null);
+    };
+
+    // One-click "Sync all": re-check every open registration against Razorpay.
+    const [syncingAll, setSyncingAll] = useState(false);
+    const handleSyncAll = async () => {
+        if (!(await confirmDialog({ title: 'Sync all payments', message: 'Re-check every pending, advance and amount-mismatch registration against Razorpay and apply any payment the webhook missed? This may take a few seconds.', confirmLabel: 'Sync all' }))) return;
+        setSyncingAll(true);
+        const { ok, data } = await mutate('/api/admin/reconcile-all', 'POST', {});
+        setSyncingAll(false);
+        if (!ok) { toast.error(data.error || 'Sync failed.'); return; }
+        const changed = (data.completed || 0) + (data.advance_recorded || 0);
+        toast.success(`Checked ${data.checked || 0} · ${data.completed || 0} completed · ${data.advance_recorded || 0} advance · ${data.amount_mismatch || 0} mismatch${changed ? '' : ' · nothing new to apply'}.`);
+        await fetchAllData();
+    };
+
     // Re-check a balance payment against Razorpay; completes the registration if
     // the link is actually paid (catches missed payment_link.paid webhooks).
     const [syncingId, setSyncingId] = useState<string | null>(null);
@@ -765,7 +793,10 @@ export default function AdminDashboard() {
                 <button onClick={() => handleSyncBalance(reg.id)} disabled={syncingId === reg.id} className="p-2 border border-green-200 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition shadow-sm disabled:opacity-50" title="Re-check this payment against Razorpay"><RefreshCw className={`w-4 h-4 ${syncingId === reg.id ? 'animate-spin' : ''}`} /></button>
             )}
             {(!isVolunteer || can('reminders:send')) && reg.payment_status === 'advance_paid' && (
-                <button onClick={() => handleResendBalance(reg.id)} disabled={resendingId === reg.id} className="p-2 border border-amber-200 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition shadow-sm disabled:opacity-50" title="Re-send balance payment link"><IndianRupee className="w-4 h-4" /></button>
+                <button onClick={() => handleCopyBalanceLink(reg)} disabled={copyingLinkId === reg.id} className="p-2 border border-neutral-200 rounded-lg bg-white hover:bg-neutral-100 transition shadow-sm disabled:opacity-50" title="Copy the balance payment link to share manually (e.g. WhatsApp didn't arrive)">{copyingLinkId === reg.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}</button>
+            )}
+            {(!isVolunteer || can('reminders:send')) && reg.payment_status === 'advance_paid' && (
+                <button onClick={() => handleResendBalance(reg.id)} disabled={resendingId === reg.id} className="p-2 border border-amber-200 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition shadow-sm disabled:opacity-50" title="Re-send balance payment link by email & WhatsApp"><IndianRupee className="w-4 h-4" /></button>
             )}
             {can('payments:verify') && reg.payment_status === 'amount_mismatch' && (
                 <button onClick={() => handleVerifyPayment(reg, 'approve')} disabled={verifyingId === reg.id} className="px-2.5 py-1.5 border border-amber-300 rounded-lg bg-amber-50 text-amber-800 hover:bg-amber-100 transition shadow-sm text-xs font-semibold disabled:opacity-50" title="Reconcile — record the actual amount received (full payment, or an advance with balance due)">Reconcile</button>
@@ -960,6 +991,7 @@ export default function AdminDashboard() {
                     onViewProof={viewProof}
                     onVerify={handleVerifyPayment}
                     onCopyLink={handleCopyLink}
+                    onCopyBalanceLink={handleCopyBalanceLink}
                     onSyncBalance={handleSyncBalance}
                     onEdit={setEditingReg}
                     onResendConfirmation={handleResendConfirmation}
@@ -1100,6 +1132,7 @@ export default function AdminDashboard() {
                                 </div>
                                 {can('registrations:manage') && <button onClick={() => setShowAddReg(true)} className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><UserPlus className="w-4 h-4" /> Add Registration</button>}
                                 {can('reminders:send') && <button onClick={() => setShowBroadcast(true)} className="bg-neutral-900 hover:bg-orange-600 text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><Megaphone className="w-4 h-4" /> Broadcast</button>}
+                                {can('payments:verify') && <button onClick={handleSyncAll} disabled={syncingAll} title="Re-check all pending / advance / mismatch registrations against Razorpay in one go" className="bg-green-700 hover:bg-green-800 text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap disabled:opacity-60"><RefreshCw className={`w-4 h-4 ${syncingAll ? 'animate-spin' : ''}`} /> {syncingAll ? 'Syncing…' : 'Sync all'}</button>}
                                 <button onClick={downloadCSV} className="bg-neutral-900 hover:bg-orange-600 text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><Download className="w-4 h-4" /> CSV</button>
                                 <button onClick={downloadExcel} className="bg-neutral-900 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><Download className="w-4 h-4" /> Excel</button>
                                 <button onClick={printReceipts} title="Combined receipts for paid registrations in the current filter → save as PDF" className="border border-neutral-300 text-neutral-700 hover:bg-neutral-100 px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm transition whitespace-nowrap"><Download className="w-4 h-4" /> Receipts PDF</button>

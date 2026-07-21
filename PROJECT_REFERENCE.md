@@ -256,8 +256,9 @@ Verifies HMAC signature (`RAZORPAY_WEBHOOK_SECRET`, constant-time). Handles:
 - `sendBalanceLink(reg)`: creates a Razorpay Payment Link for `amount_due` (`reference_id = bal_<regId>`, `notes.registration_id`), stores `balance_link_url` + `balance_link_id`, and emails/WhatsApps the link.
 - `dispatchTicket(reg, paymentId)` lives in [lib/ticket.js](lib/ticket.js): the "Registration Confirmed" email + WhatsApp template. (QR pass is sent separately.)
 
-### Balance link re-send — [app/api/admin/resend-balance/route.js](app/api/admin/resend-balance/route.js)
-Admin action: re-sends (or freshly creates) the balance link for an `advance_paid` reg; stores `balance_link_url`/`balance_link_id`.
+### Balance link — re-send vs copy
+- **Re-send** [app/api/admin/resend-balance/route.js](app/api/admin/resend-balance/route.js): re-sends (or freshly creates) the balance link for an `advance_paid` reg by **email + WhatsApp**; stores `balance_link_url`/`balance_link_id`. Row action = the ₹ button.
+- **Copy** [app/api/admin/balance-link/route.js](app/api/admin/balance-link/route.js): returns the link (creating one via `ensureBalanceLink()` if missing) **without notifying the customer**, so the admin can paste it manually when the WhatsApp/email didn't arrive. Row action = the Copy button; also the **Copy link** button in the detail modal.
 
 ---
 
@@ -266,12 +267,12 @@ Admin action: re-sends (or freshly creates) the balance link for an `advance_pai
 Goal: DB matches Razorpay's reality; no silent under-recording or underpayment.
 
 - **Layer 1 — amount assertion** (in the finalizers above): every capture is checked; a shortfall → `amount_mismatch` (status is locked, no ticket, surfaced via the **Amount Mismatch** section tab in admin). Over/equal is accepted.
-- **Layer 2 — scheduled cron** [app/api/cron/reconcile/route.js](app/api/cron/reconcile/route.js): walks `pending` / `advance_paid` / `amount_mismatch` rows in the last `RECONCILE_WINDOW_DAYS` (default 30, batch 100) and calls `reconcileRegistrationWithRazorpay()`:
+- **Layer 2 — batch reconcile** — shared helper [lib/reconcileBatch.js](lib/reconcileBatch.js) `reconcileBatch()` walks `pending` / `advance_paid` / `amount_mismatch` / `awaiting_payment` rows (oldest-open first, `batch 100`) and calls `reconcileRegistrationWithRazorpay()`:
   - `pending`/`amount_mismatch` → fetch the order's payments; a captured payment → `finalizeOrderCapture` (heals missed webhooks; re-evaluates wrongly-flagged mismatches; genuine shortfalls stay flagged).
   - `advance_paid` → fetch the balance link (by `balance_link_id` or `reference_id`); if paid → `finalizeBalancePaid`.
-  - Writes an audit entry (`actor_role: 'system'`, action `reconcile.cron`) when it changes anything.
-  - **Auth:** `Authorization: Bearer $CRON_SECRET` (Vercel sends this automatically; external schedulers must add it).
-- **Admin "Sync payment"** [app/api/admin/reconcile-balance/route.js](app/api/admin/reconcile-balance/route.js): same `reconcileRegistrationWithRazorpay` path, triggered by the green ↻ button on `advance_paid` + `amount_mismatch` rows. Verified against Razorpay, never a blind mark-paid.
+  - Writes one audit entry when it changes anything (action `reconcile.cron` or `reconcile.manual`).
+  - Two triggers, same helper: **scheduled cron** [app/api/cron/reconcile/route.js](app/api/cron/reconcile/route.js) (window `RECONCILE_WINDOW_DAYS`, default 30; auth `Authorization: Bearer $CRON_SECRET`, Vercel sends it automatically), and **admin one-click "Sync all"** [app/api/admin/reconcile-all/route.js](app/api/admin/reconcile-all/route.js) (window 365d; `payments:verify`; the green **Sync all** button in the Registrations toolbar — reports `checked/completed/advance/mismatch`).
+- **Admin per-row "Sync payment"** [app/api/admin/reconcile-balance/route.js](app/api/admin/reconcile-balance/route.js): same `reconcileRegistrationWithRazorpay` path, triggered by the green ↻ button on a single `advance_paid` + `amount_mismatch` row. Verified against Razorpay, never a blind mark-paid.
 
 **Not yet built (Layers 3–4):** settlement-level reconciliation vs bank deposits (gross vs net of fees), and a dedicated exceptions dashboard.
 
@@ -309,7 +310,8 @@ Global overview (all figures **global**, never tied to the Registrations filter 
 - **Filters:** search (name/gotra/phone), date range, event, category.
 - **Section tabs** (saved views by status, with live counts respecting other filters): Master List, To Verify, Cheque Pending, Advance Paid, Paid, Pending, **Amount Mismatch**, Rejected, Failed, **Cancelled**, Refunded. Keys map to `payment_status` (RBAC-ready).
 - **Desktop table / mobile cards** (no horizontal scroll on mobile). Shared render helpers keep both in sync. A **Registered** column shows each row's `created_at` (date + time); also in the detail modal ("Registered on") and mobile card.
-- **Row actions:** view details (modal), download QR (Paid only), **Sync payment** ↻ (advance_paid + amount_mismatch), re-send balance link (advance_paid), **Reconcile** (amount_mismatch → re-run approve, complete or convert to advance), offline verify/reject/record. Inline status dropdown (locked for terminal states).
+- **Row actions:** view details (modal), download QR (Paid only), **Sync payment** ↻ (advance_paid + amount_mismatch), **Copy balance link** + **re-send balance link** (advance_paid), **Reconcile** (amount_mismatch → re-run approve, complete or convert to advance), offline verify/reject/record. Inline status dropdown (locked for terminal states).
+- **Toolbar:** **Sync all** re-checks every open registration against Razorpay in one click (see §9); plus Add Registration, Broadcast, and the CSV/Excel/Receipts/Financial exports.
 - **Bulk:** select rows → **Send QR** (smart, see §10), with sticky bar on mobile.
 - **Detail modal:** full profile/payment/custom fields + per-person activity timeline; balance link with **Copy link** + **Sync payment**; **Edit details**, **Resend confirmation**, **Refund**, **Cancel registration**.
 - **Export:** CSV, Excel, Receipts PDF, Financial statement — all over the filtered set ([lib/adminExports.ts](lib/adminExports.ts)).
@@ -652,6 +654,9 @@ form → offline method → payment_review ──approve full──────�
 
 Keep newest first. Add an entry for every meaningful change.
 
+- **2026-07-21 (Copy balance link + one-click Sync all)**
+  - **Copy balance link** — new [/api/admin/balance-link](app/api/admin/balance-link/route.js) (+ `ensureBalanceLink()` in [lib/payments.js](lib/payments.js)) returns an `advance_paid` reg's balance link, creating one if missing, **without notifying the customer**. New **Copy** row action + a create-on-demand **Copy link** button in the detail modal — for when the WhatsApp/email didn't reach the devotee and the admin wants to paste it manually. (The ₹ button still *re-sends* by email + WhatsApp.)
+  - **One-click "Sync all"** — the per-row "Sync payment" ↻ was tedious across many records. Factored the cron's reconcile loop into a shared [lib/reconcileBatch.js](lib/reconcileBatch.js) `reconcileBatch()`, reused by the cron and a new [/api/admin/reconcile-all](app/api/admin/reconcile-all/route.js) (`payments:verify`, 365-day window, batch 100). A green **Sync all** button in the Registrations toolbar re-checks every pending/advance/mismatch row against Razorpay at once and reports the counts.
 - **2026-07-21 (Offline part payment + mismatch reconcile + registration timestamp)**
   - **Offline part payment is now honored end-to-end.** Previously the offline route hardcoded `payment_plan='full'` / `amount_due=total`, so an advance paid offline tripped the shortfall guard and got stuck in `amount_mismatch`. Now [CheckoutForm](components/CheckoutForm.js) sends `paymentPlan` on offline submissions and [/api/offline-payment](app/api/offline-payment/route.js) records `partial` with `amount_due = total − advance` (advance = `advance_percent`% of the price only).
   - **Verify-payment supports an intentional advance** ([/api/admin/verify-payment](app/api/admin/verify-payment/route.js)): a short amount → **`advance_paid`** (balance kept due, no pass) when `partial:true` OR the row is on a `partial` plan; otherwise `amount_mismatch`. Price-less enquiry rows still let the received amount define the total.

@@ -21,6 +21,7 @@ interface Props {
     onViewProof: (id: string) => void;
     onVerify: (reg: Registration, action: string) => void;
     onCopyLink: (url: string) => void;
+    onCopyBalanceLink: (reg: Registration) => void;
     onSyncBalance: (id: string) => void;
     onEdit: (reg: Registration) => void;
     onResendConfirmation: (reg: Registration) => void;
@@ -34,7 +35,7 @@ const NOT_CANCELLABLE = ['cancelled', 'refunded', 'failed', 'closed'];
 
 export default function RegistrationDetailModal({
     reg, onClose, can, isAdmin, verifyingId, syncingId, managingId, copiedLink,
-    onViewProof, onVerify, onCopyLink, onSyncBalance, onEdit, onResendConfirmation, onRefund, onCancel,
+    onViewProof, onVerify, onCopyLink, onCopyBalanceLink, onSyncBalance, onEdit, onResendConfirmation, onRefund, onCancel,
 }: Props) {
     const cancellable = isAdmin && !NOT_CANCELLABLE.includes(reg.payment_status);
     return (
@@ -118,12 +119,12 @@ export default function RegistrationDetailModal({
                                         <a href={reg.balance_link_url} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-orange-600 hover:underline break-all">Balance payment link →</a>
                                     )}
                                     <div className="flex flex-wrap items-center gap-2 mt-2">
-                                        {reg.balance_link_url && (
+                                        {can('reminders:send') && (
                                             <button
                                                 type="button"
-                                                onClick={() => onCopyLink(reg.balance_link_url!)}
+                                                onClick={() => onCopyBalanceLink(reg)}
                                                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs font-semibold text-neutral-700 hover:bg-neutral-100 transition"
-                                                title="Copy balance payment link to clipboard"
+                                                title="Copy the balance payment link to share manually (creates one if needed; does not notify the customer)"
                                             >
                                                 {copiedLink ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
                                                 {copiedLink ? 'Copied!' : 'Copy link'}
