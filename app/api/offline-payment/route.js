@@ -83,16 +83,16 @@ export async function POST(request) {
         const ageErr = ageError(category, attendee.dob);
         if (ageErr) return bad(ageErr);
 
-        const totalAmount = Number(category.price) + donationValue;
-        if (!(totalAmount > 0)) return bad('This tier has no price set; offline payment is unavailable.');
-
-        // Part payment: the advance is a % of the tier PRICE only (never the
-        // donation). We store the plan + the balance so the admin knows this row
-        // is meant to be paid in two parts — the advance is confirmed at verify
-        // time from the actual amount received (see verify-payment/route.js).
+        // Part payment: the advance is a % of the tier PRICE only. A part payment
+        // NEVER carries a donation (it could only sit unpaid in the balance) —
+        // part-payers are pointed at /donate instead. Enforced server-side.
         const isPartial = paymentPlan === 'partial' && category.allow_part_payment === true && Number(category.price) > 0;
+        const effectiveDonation = isPartial ? 0 : donationValue;
         const advancePct = Math.min(100, Math.max(1, Number(category.advance_percent) || 25));
         const advanceAmount = isPartial ? Math.round(Number(category.price) * (advancePct / 100)) : 0;
+
+        const totalAmount = Number(category.price) + effectiveDonation;
+        if (!(totalAmount > 0)) return bad('This tier has no price set; offline payment is unavailable.');
 
         const maxPerReg = Math.min(MAX_ATTENDEES, category.max_attendees_per_reg || 5);
         const seats = Math.min(maxPerReg, Math.max(1, parseInt(attendeesCount, 10) || 1));
@@ -118,7 +118,7 @@ export async function POST(request) {
             pincode: attendee.pincode || null, taluka: attendee.taluka || null, state: attendee.state || null,
             problem_samasya: sanitizedProblem || null, custom_fields: cleanCustom || {},
             attendees_count: seats, attendees: sanitizeAttendees(attendeesRaw, seats),
-            donation_amount: donationValue, total_amount: totalAmount,
+            donation_amount: effectiveDonation, total_amount: totalAmount,
             amount_paid: 0,
             amount_due: isPartial ? (totalAmount - advanceAmount) : totalAmount,
             payment_plan: isPartial ? 'partial' : 'full',

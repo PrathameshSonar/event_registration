@@ -654,6 +654,12 @@ form → offline method → payment_review ──approve full──────�
 
 Keep newest first. Add an entry for every meaningful change.
 
+- **2026-07-21 (A part payment never carries a donation — problem removed, not patched)**
+  - **Rule: `partial` plan ⇒ `donation_amount = 0`.** The advance is a % of the Seva fee only, so a donation could *only* sit unpaid in the balance — the source of "please remove my donation" requests, stale-priced balance links, and totals nobody could explain. Rather than keep explaining it, part-payers simply can't attach one.
+  - **Enforced server-side** in [razorpay](app/api/razorpay/route.js) and [offline-payment](app/api/offline-payment/route.js) (`effectiveDonation = isPartial ? 0 : donationValue`, used for both `total_amount` and `donation_amount`) — the UI is a convenience, not the guard.
+  - **UI:** selecting *Pay Advance* replaces the donation box with a short note + a **"Offer Seva separately →"** link to `/donate` (new tab), and clears anything already typed so the displayed total always matches what's charged. Trilingual (`form_donation_partial_note`, `form_donation_partial_cta`).
+  - Removed the now-impossible messaging added earlier the same day (`form_sum_donation_in_balance`, `form_sum_balance_split`) — a part-payment balance is now always just the rest of the Seva fee.
+  - Side benefit: contributions from part-payers are now collected **immediately** via `/donate` instead of being deferred into a balance that often never got paid. `adjust-donation` remains for full-payment rows that do carry a donation.
 - **2026-07-21 (Stale balance links are now cancelled, not just forgotten)**
   - `adjust-donation` cleared `balance_link_url`/`balance_link_id` but left the link **live on Razorpay**, still payable at the OLD amount. Because the money guard only flags **shortfalls** (over-capture is accepted by design — customer-borne fees), a devotee paying the stale link would have silently completed the registration with an **unrecorded overpayment**.
   - New `cancelPaymentLink(linkId)` in [lib/payments.js](lib/payments.js) (best-effort — an already-paid link can't be cancelled and must never block the caller). `adjust-donation` now cancels the superseded link **before** dropping it, records the outcome in the audit summary + metadata, and returns `linkCancelled` (`true` / Razorpay's reason / `null`). If it couldn't be cancelled the admin gets an explicit toast telling them to void it in the Razorpay dashboard.

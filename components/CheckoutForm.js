@@ -1045,7 +1045,12 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
               </button>
               <button
                 type="button"
-                onClick={() => setPayAdvance(true)}
+                onClick={() => {
+                  setPayAdvance(true);
+                  // A part payment never carries a donation, so drop anything already
+                  // typed — otherwise the shown total wouldn't match what's charged.
+                  setFormData((prev) => (prev.donation ? { ...prev, donation: "" } : prev));
+                }}
                 className={`text-left p-3 rounded-xl border-2 transition ${payAdvance ? "border-vermillion bg-vermillion/5" : "border-neutral-200 hover:border-neutral-300"}`}
               >
                 <div className="font-bold text-neutral-900 text-[13px]">Pay {advancePct}% Advance</div>
@@ -1060,7 +1065,30 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
             </div>
           )}
 
-          {!isEnquiry && (
+          {/* On an advance plan the donation box is replaced by a pointer to the
+              standalone Seva page: a part payment never carries a donation, so there
+              is nothing to enter here and nothing to explain away later. */}
+          {!isEnquiry && usePartial && (
+            <div className="mt-4 p-5 border border-orange-100 bg-orange-50/50 rounded-xl">
+              <h4 className="text-sm font-bold text-orange-900 mb-2 flex items-center gap-2">
+                <Heart className="w-4 h-4 text-orange-600" />
+                {t("form_donation_title")}
+              </h4>
+              <p className="text-xs text-orange-800 leading-relaxed">
+                {t("form_donation_partial_note")}
+              </p>
+              <a
+                href="/donate"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-orange-700 hover:text-orange-900 underline underline-offset-2"
+              >
+                {t("form_donation_partial_cta")}
+              </a>
+            </div>
+          )}
+
+          {!isEnquiry && !usePartial && (
             <div className="mt-4 p-6 border border-orange-100 bg-orange-50/50 rounded-xl">
               <h4 className="text-sm font-bold text-orange-900 mb-2 flex items-center gap-2">
                 <Heart className="w-4 h-4 text-orange-600" />
@@ -1093,13 +1121,6 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
                   },
                 }}
               />
-              {/* Point-of-action warning: on an advance plan the donation is NOT part
-                  of what you pay now — it rides entirely in the later balance. */}
-              {usePartial && donationValue > 0 && (
-                <p className="mt-3 text-[11px] leading-relaxed text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2">
-                  {t("form_sum_donation_in_balance", donationValue.toLocaleString("en-IN"), advancePct)}
-                </p>
-              )}
             </div>
           )}
         </div>
@@ -1255,16 +1276,8 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
                 <span className="text-neutral-500">{t("form_sum_balance")}</span>
                 <span className="font-bold text-amber-700">₹{balanceAmount.toLocaleString("en-IN")}</span>
               </div>
-              {/* With a donation the balance is NOT just "the rest of the Seva fee" —
-                  it carries the whole donation too. (The full explanation sits at the
-                  donation input itself; here we only itemise it.) */}
-              {donationValue > 0 && (
-                <p className="text-[11px] text-neutral-500 text-right">
-                  {t("form_sum_balance_split",
-                    (category.price - advanceAmount).toLocaleString("en-IN"),
-                    donationValue.toLocaleString("en-IN"))}
-                </p>
-              )}
+              {/* No donation split needed: a part payment never carries one, so the
+                  balance is always just the rest of the Seva fee. */}
             </>
           )}
         </div>

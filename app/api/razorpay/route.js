@@ -137,13 +137,18 @@ export async function POST(request) {
         }
 
         // 4. Authoritative amount
-        const totalAmount = Number(category.price) + donationValue;
+        // A PART PAYMENT NEVER CARRIES A DONATION. The advance is a % of the Seva fee
+        // only, so a donation could only sit unpaid in the balance — which is where
+        // "please remove my donation" requests, stale-priced balance links and
+        // confused totals all came from. Part-payers are pointed at /donate instead,
+        // where a contribution is collected immediately. Enforced HERE, not just in
+        // the UI, so a crafted request can't smuggle one in.
+        const isPartial = paymentPlan === 'partial' && category.allow_part_payment === true;
+        const effectiveDonation = isPartial ? 0 : donationValue;
+
+        const totalAmount = Number(category.price) + effectiveDonation;
         if (!(totalAmount > 0)) return badRequest('Computed amount is invalid.');
 
-        // Part payment: charge an advance now (% of PRICE only, never the donation).
-        // The remaining balance (rest of price + full donation) is collected later
-        // via a Razorpay Payment Link created in the webhook on advance capture.
-        const isPartial = paymentPlan === 'partial' && category.allow_part_payment === true;
         const advancePct = Math.min(100, Math.max(1, Number(category.advance_percent) || 25));
         const advanceAmount = isPartial ? Math.round(Number(category.price) * advancePct / 100) : totalAmount;
         const chargeNow = isPartial ? advanceAmount : totalAmount;
@@ -186,7 +191,7 @@ export async function POST(request) {
                 custom_fields: cleanCustom || {},
                 attendees_count: seats,
                 attendees: sanitizeAttendees(attendees, seats),
-                donation_amount: donationValue,
+                donation_amount: effectiveDonation,
                 total_amount: totalAmount,
                 amount_paid: 0,
                 amount_due: isPartial ? (totalAmount - advanceAmount) : 0,
