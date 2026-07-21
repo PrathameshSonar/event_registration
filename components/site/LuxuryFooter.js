@@ -44,11 +44,11 @@ export default function LuxuryFooter({ event, contact }) {
       <div className="pointer-events-none absolute inset-x-0 -top-px h-24 bg-gradient-to-b from-background to-transparent" />
 
       {/* Big CTA */}
-      <div className="container-luxury pt-24 pb-16">
-        <div className="grid gap-12 md:grid-cols-[1.3fr_1fr] items-end">
+      <div className="container-luxury pt-12 pb-10 md:pt-14 md:pb-12">
+        <div className="grid gap-6 md:gap-10 md:grid-cols-[1.3fr_1fr] items-end">
           <div>
             <p className="kicker text-gold/80">{t("footer_cta_kicker") || "Join the sacred gathering"}</p>
-            <h2 className="mt-4 font-display text-4xl md:text-5xl lg:text-6xl text-ivory leading-[1.05]">
+            <h2 className="mt-3 font-display text-xl sm:text-2xl md:text-3xl lg:text-4xl text-ivory leading-tight">
               {t("footer_cta_title") || "Let the fire of a thousand mantras bless you."}
             </h2>
           </div>
