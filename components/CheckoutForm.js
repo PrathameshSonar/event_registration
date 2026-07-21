@@ -1029,6 +1029,37 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
             </div>
           )}
 
+          {/* --- PART PAYMENT OPTION --- */}
+          {/* Comes BEFORE the donation box on purpose: decide how you're paying the
+              Seva fee first, then decide on an optional extra on top. */}
+          {canPartPay && (
+            <div className="mt-2 grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => setPayAdvance(false)}
+                className={`text-left p-3 rounded-xl border-2 transition ${!payAdvance ? "border-vermillion bg-vermillion/5" : "border-neutral-200 hover:border-neutral-300"}`}
+              >
+                <div className="font-bold text-neutral-900 text-[13px]">Pay Full</div>
+                <div className="text-lg font-bold text-vermillion mt-0.5">₹{totalAmount.toLocaleString("en-IN")}</div>
+                <div className="text-[11px] text-neutral-500 mt-0.5">Complete payment now</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPayAdvance(true)}
+                className={`text-left p-3 rounded-xl border-2 transition ${payAdvance ? "border-vermillion bg-vermillion/5" : "border-neutral-200 hover:border-neutral-300"}`}
+              >
+                <div className="font-bold text-neutral-900 text-[13px]">Pay {advancePct}% Advance</div>
+                <div className="text-lg font-bold text-vermillion mt-0.5">₹{advanceAmount.toLocaleString("en-IN")}</div>
+                <div className="text-[11px] text-neutral-500 mt-0.5">Balance ₹{balanceAmount.toLocaleString("en-IN")} later</div>
+              </button>
+              {payAdvance && (
+                <p className="col-span-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  We&apos;ll send a payment link for the ₹{balanceAmount.toLocaleString("en-IN")} balance by email &amp; WhatsApp. Your entry pass is issued only after full payment. <strong>No-refund policy applies.</strong>
+                </p>
+              )}
+            </div>
+          )}
+
           {!isEnquiry && (
             <div className="mt-4 p-6 border border-orange-100 bg-orange-50/50 rounded-xl">
               <h4 className="text-sm font-bold text-orange-900 mb-2 flex items-center gap-2">
@@ -1062,33 +1093,11 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
                   },
                 }}
               />
-            </div>
-          )}
-
-          {/* --- PART PAYMENT OPTION --- */}
-          {canPartPay && (
-            <div className="mt-2 grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={() => setPayAdvance(false)}
-                className={`text-left p-3 rounded-xl border-2 transition ${!payAdvance ? "border-vermillion bg-vermillion/5" : "border-neutral-200 hover:border-neutral-300"}`}
-              >
-                <div className="font-bold text-neutral-900 text-[13px]">Pay Full</div>
-                <div className="text-lg font-bold text-vermillion mt-0.5">₹{totalAmount.toLocaleString("en-IN")}</div>
-                <div className="text-[11px] text-neutral-500 mt-0.5">Complete payment now</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPayAdvance(true)}
-                className={`text-left p-3 rounded-xl border-2 transition ${payAdvance ? "border-vermillion bg-vermillion/5" : "border-neutral-200 hover:border-neutral-300"}`}
-              >
-                <div className="font-bold text-neutral-900 text-[13px]">Pay {advancePct}% Advance</div>
-                <div className="text-lg font-bold text-vermillion mt-0.5">₹{advanceAmount.toLocaleString("en-IN")}</div>
-                <div className="text-[11px] text-neutral-500 mt-0.5">Balance ₹{balanceAmount.toLocaleString("en-IN")} later</div>
-              </button>
-              {payAdvance && (
-                <p className="col-span-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                  We&apos;ll send a payment link for the ₹{balanceAmount.toLocaleString("en-IN")} balance by email &amp; WhatsApp. Your entry pass is issued only after full payment. <strong>No-refund policy applies.</strong>
+              {/* Point-of-action warning: on an advance plan the donation is NOT part
+                  of what you pay now — it rides entirely in the later balance. */}
+              {usePartial && donationValue > 0 && (
+                <p className="mt-3 text-[11px] leading-relaxed text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2">
+                  {t("form_sum_donation_in_balance", donationValue.toLocaleString("en-IN"), advancePct)}
                 </p>
               )}
             </div>
@@ -1246,6 +1255,16 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
                 <span className="text-neutral-500">{t("form_sum_balance")}</span>
                 <span className="font-bold text-amber-700">₹{balanceAmount.toLocaleString("en-IN")}</span>
               </div>
+              {/* With a donation the balance is NOT just "the rest of the Seva fee" —
+                  it carries the whole donation too. (The full explanation sits at the
+                  donation input itself; here we only itemise it.) */}
+              {donationValue > 0 && (
+                <p className="text-[11px] text-neutral-500 text-right">
+                  {t("form_sum_balance_split",
+                    (category.price - advanceAmount).toLocaleString("en-IN"),
+                    donationValue.toLocaleString("en-IN"))}
+                </p>
+              )}
             </>
           )}
         </div>

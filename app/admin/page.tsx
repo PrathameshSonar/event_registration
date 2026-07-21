@@ -869,6 +869,16 @@ export default function AdminDashboard() {
     const renderAmountCell = (reg: Registration) => (
         <>
             ₹{reg.total_amount}
+            {/* Split the total so it's never ambiguous how much of it is the Seva fee
+                and how much is the optional donation (they're billed differently —
+                a part-payment advance is a % of the Seva fee only). */}
+            {Number(reg.donation_amount) > 0 && (
+                <div className="text-[11px] font-normal text-neutral-500 mt-0.5">
+                    Seva ₹{Math.max(0, Number(reg.total_amount || 0) - Number(reg.donation_amount || 0)).toLocaleString('en-IN')}
+                    {' + '}
+                    <span className="text-rose-600">Donation ₹{Number(reg.donation_amount).toLocaleString('en-IN')}</span>
+                </div>
+            )}
             <div className="text-[11px] font-normal text-neutral-400 mt-0.5">via {PAYMENT_MODE_LABEL[reg.payment_method || 'razorpay'] || 'Online'}</div>
             {reg.payment_status === 'advance_paid' && (
                 <div className="text-[11px] font-semibold text-amber-700 mt-0.5">Paid ₹{reg.amount_paid} · Due ₹{reg.amount_due}</div>
