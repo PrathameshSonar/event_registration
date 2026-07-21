@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { validateSubmission } from '@/lib/formFieldsServer';
 import { upsertProfile } from '@/lib/profiles';
+import { normalizePhone } from '@/lib/phone';
 import { ageError } from '@/lib/age';
 import { sanitizeAttendees } from '@/lib/attendees';
 import { isRegistrationOpen } from '@/lib/registrationStatus';
@@ -183,7 +184,8 @@ export async function POST(request) {
                 gender: attendee.gender || null,
                 date_of_birth: attendee.dob || null,
                 email: String(attendee.email).toLowerCase().trim(),
-                phone: attendee.phone,
+                // Stored E.164 to match profiles.phone — one identity per person.
+                phone: normalizePhone(attendee.phone) || attendee.phone,
                 pincode: attendee.pincode || null,
                 taluka: attendee.taluka || null,
                 state: attendee.state || null,

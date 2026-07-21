@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { validateSubmission } from '@/lib/formFieldsServer';
 import { upsertProfile } from '@/lib/profiles';
+import { normalizePhone } from '@/lib/phone';
 import { notifyOfflineSubmitted } from '@/lib/notify';
 import { ageError } from '@/lib/age';
 import { sanitizeAttendees } from '@/lib/attendees';
@@ -114,7 +115,9 @@ export async function POST(request) {
             category_id: category.id, profile_id: profileId, full_name: fullName,
             salutation: attendee.salutation || null, first_name: attendee.firstName, last_name: attendee.lastName,
             gotra: attendee.gotra || null, gender: attendee.gender || null, date_of_birth: attendee.dob || null,
-            email: String(attendee.email).toLowerCase().trim(), phone: attendee.phone,
+            email: String(attendee.email).toLowerCase().trim(),
+            // Stored E.164 to match profiles.phone -- one identity per person.
+            phone: normalizePhone(attendee.phone) || attendee.phone,
             pincode: attendee.pincode || null, taluka: attendee.taluka || null, state: attendee.state || null,
             problem_samasya: sanitizedProblem || null, custom_fields: cleanCustom || {},
             attendees_count: seats, attendees: sanitizeAttendees(attendeesRaw, seats),

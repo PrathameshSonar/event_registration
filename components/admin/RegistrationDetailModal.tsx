@@ -5,6 +5,7 @@
 
 import { X, Image as ImageIcon, RefreshCw, Check, Copy, Pencil, Mail, Undo2, Ban } from 'lucide-react';
 import RegistrationActivity from '@/components/RegistrationActivity';
+import PersonDonations from '@/components/admin/PersonDonations';
 import { STATUS_LABEL, statusClasses } from '@/app/admin/constants';
 import type { Registration } from '@/app/admin/types';
 
@@ -75,6 +76,10 @@ export default function RegistrationDetailModal({
                             <p><span className="text-neutral-500 block text-xs">Contact Info</span><span className="font-semibold block">{reg.phone}</span><span className="text-xs text-neutral-600">{reg.email}</span></p>
                             <p className="mt-3"><span className="text-neutral-500 block text-xs">Address</span><span>{reg.taluka}, {reg.state} - {reg.pincode}</span></p>
                         </div>
+                        {/* Everything else this person has paid us (standalone Seva
+                            contributions), so the registration isn't the whole story. */}
+                        <PersonDonations regId={reg.id} />
+
                         <div className="col-span-1 md:col-span-2">
                             <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2 border-b pb-1">Payment</h3>
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-start">

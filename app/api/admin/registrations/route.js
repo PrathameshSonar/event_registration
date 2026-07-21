@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAudit } from '@/lib/auditLog';
+import { normalizePhone } from '@/lib/phone';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,7 +43,18 @@ export async function PATCH(request) {
             clean.email = String(clean.email).toLowerCase().trim();
             if (clean.email && !/^\S+@\S+\.\S+$/.test(clean.email)) return NextResponse.json({ error: 'Invalid email address.' }, { status: 400 });
         }
-        if (clean.phone != null) clean.phone = String(clean.phone).trim() || null;
+        // Phone gets the same treatment as email: reject a malformed number instead
+        // of saving it and silently breaking WhatsApp/QR delivery for that person.
+        // Stored E.164 so the ledger matches profiles.phone.
+        if (clean.phone != null) {
+            const raw = String(clean.phone).trim();
+            if (!raw) clean.phone = null;
+            else {
+                const norm = normalizePhone(raw);
+                if (!norm) return NextResponse.json({ error: 'Invalid mobile number — enter a 10-digit Indian mobile.' }, { status: 400 });
+                clean.phone = norm;
+            }
+        }
         if (clean.attendees_count != null) clean.attendees_count = Math.max(1, parseInt(clean.attendees_count, 10) || 1);
         if (updates.custom_fields && typeof updates.custom_fields === 'object') {
             const cf = {};

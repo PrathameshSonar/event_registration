@@ -601,6 +601,25 @@ export default function AdminDashboard() {
         toast.success(`Balance link sent — ✉️ ${data.emailed ? 'email' : 'no email'}, 📱 ${data.waSent ? 'WhatsApp' : 'no WhatsApp'}.`);
     };
 
+    // Count of ERROR-severity health issues, badged on the Dashboard tab so real
+    // problems (oversold tier, failed ticket delivery, ₹0 "paid" rows) find the admin
+    // instead of waiting to be discovered. Detail lives in HealthPanel.
+    const [healthErrors, setHealthErrors] = useState(0);
+    useEffect(() => {
+        if (!isAdmin) return;
+        let alive = true;
+        (async () => {
+            try {
+                const res = await fetch('/api/admin/health');
+                const d = await res.json().catch(() => ({}));
+                if (!alive || !res.ok) return;
+                type Issue = { severity?: string };
+                setHealthErrors((d.issues || []).filter((i: Issue) => i.severity === 'error').length);
+            } catch { /* badge just stays 0 */ }
+        })();
+        return () => { alive = false; };
+    }, [isAdmin]);
+
     // Copy the balance payment link for an advance-paid reg (create if missing, no
     // send) so the admin can share it by hand when the WhatsApp/email didn't land.
     const [copyingLinkId, setCopyingLinkId] = useState<string | null>(null);
@@ -1074,7 +1093,7 @@ export default function AdminDashboard() {
                     instead of overflowing/wrapping. */}
                 <div className="flex gap-1 bg-neutral-200 p-1 rounded-xl overflow-x-auto no-scrollbar">
                     {([
-                        { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, show: isVolunteer ? can('dashboard:view') : true, badge: 0 },
+                        { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, show: isVolunteer ? can('dashboard:view') : true, badge: healthErrors },
                         { key: 'registrations', label: 'Registrations', icon: ListFilter, show: isVolunteer ? can('registrations:view') : true, badge: globalToVerify },
                         { key: 'enquiries', label: 'Enquiries', icon: MessageSquare, show: isVolunteer ? can('enquiries:manage') : true, badge: globalNewEnquiries },
                         { key: 'scanlog', label: 'Scan Log', icon: QrCode, show: isVolunteer ? can('scanlog:view') : true, badge: 0 },
