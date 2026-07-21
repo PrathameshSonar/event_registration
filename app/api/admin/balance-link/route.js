@@ -27,7 +27,11 @@ export async function POST(request) {
         return NextResponse.json({ error: 'No outstanding balance for this registration.' }, { status: 400 });
     }
 
-    const link = await ensureBalanceLink(reg);
-    if (!link) return NextResponse.json({ error: 'Could not create a payment link.' }, { status: 500 });
-    return NextResponse.json({ ok: true, link });
+    // Surface Razorpay's own reason — a bare "could not create a payment link" gave
+    // the admin nothing to act on.
+    const { url, error: linkErr } = await ensureBalanceLink(reg);
+    if (!url) {
+        return NextResponse.json({ error: linkErr || 'Could not create a payment link.' }, { status: 502 });
+    }
+    return NextResponse.json({ ok: true, link: url });
 }

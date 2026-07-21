@@ -654,6 +654,9 @@ form → offline method → payment_review ──approve full──────�
 
 Keep newest first. Add an entry for every meaningful change.
 
+- **2026-07-21 (Fix: "Could not create a payment link" on Copy balance link)**
+  - `ensureBalanceLink()` reused the plain `reference_id: bal_<regId>` copied from the first-creation path, but **Razorpay rejects a duplicate `reference_id`** — so any registration that already had a link (minted at advance capture, or orphaned on Razorpay after `adjust-donation` cleared the stored URL) failed on **Copy balance link**. Now timestamped (`bal_<regId>_<ts>`), the same thing [resend-balance](app/api/admin/resend-balance/route.js) has always done. ⚠️ **Any new balance-link creator must use a unique reference_id.**
+  - It now returns `{ url, error }` and [/api/admin/balance-link](app/api/admin/balance-link/route.js) surfaces **Razorpay's own message** (502) instead of a blank "could not create a payment link", so a gateway/config failure is diagnosable.
 - **2026-07-21 (Seva fee vs donation made explicit, both sides)**
   - **Checkout messaging.** The advance is a % of the **Seva fee only**, so a donation rides entirely in the later balance — which nothing told the user. Now: the donation box moved to **after** the part-payment buttons (choose how you're paying the Seva fee, then the optional extra), and typing a donation while on an advance plan shows a point-of-action note — *"your ₹X donation is not part of this advance … collected later, with the balance."* The order summary itemises it too (`Balance = Seva ₹A + Donation ₹B`). Trilingual (`form_sum_donation_in_balance`, `form_sum_balance_split`).
   - **Clearer labels**: `form_sum_ticket` "Ticket" → **"Seva fee"**, `form_sum_seva` "Seva (donation)" → **"Donation (optional)"** — both said "Seva", which was ambiguous once tiers were renamed to Sevas. EN/HI/MR.
