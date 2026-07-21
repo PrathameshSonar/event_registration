@@ -4,39 +4,44 @@
 // WhatsApp) and marks them notified. "Remove" drops them from the list.
 "use client";
 
-import { useEffect, useState } from "react";
 import { Bell, Trash2, Clock } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast, confirmDialog } from "@/lib/uiStore";
 
 const fmt = (iso) => { try { return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }); } catch { return "—"; } };
+const KEY = ["admin", "waitlist"];
 
 export default function WaitlistManager() {
-    const [rows, setRows] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [busyId, setBusyId] = useState(null);
-
-    const load = async () => {
-        setLoading(true);
-        try {
+    const qc = useQueryClient();
+    const { data, isLoading: loading } = useQuery({
+        queryKey: KEY,
+        queryFn: async () => {
             const res = await fetch("/api/admin/waitlist");
-            const data = await res.json().catch(() => ({}));
-            setRows(Array.isArray(data.waitlist) ? data.waitlist : []);
-        } catch { setRows([]); }
-        setLoading(false);
-    };
-    useEffect(() => { const t = setTimeout(load, 0); return () => clearTimeout(t); }, []);
+            if (!res.ok) throw new Error("Failed to load waitlist.");
+            return res.json();
+        },
+    });
+    const rows = Array.isArray(data?.waitlist) ? data.waitlist : [];
 
-    const act = async (row, action) => {
-        if (action === "notify" && !(await confirmDialog({ title: "Notify from waitlist", message: `Send ${row.name} a registration link for "${row.categories?.title || "this tier"}"? Do this only when a seat has actually opened.`, confirmLabel: "Notify" }))) return;
-        if (action === "remove" && !(await confirmDialog({ title: "Remove", message: `Remove ${row.name} from the waitlist?`, danger: true, confirmLabel: "Remove" }))) return;
-        setBusyId(row.id);
-        try {
-            const res = await fetch("/api/admin/waitlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: row.id, action }) });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) { toast.error(data.error || "Action failed."); return; }
-            toast.success(action === "notify" ? `Notified ${row.name}.` : `Removed ${row.name}.`);
-            load();
-        } finally { setBusyId(null); }
+    const action = useMutation({
+        mutationFn: async ({ id, action }) => {
+            const res = await fetch("/api/admin/waitlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, action }) });
+            const d = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(d.error || "Action failed.");
+            return d;
+        },
+        onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+        onError: (e) => toast.error(e.message),
+    });
+    // Which row is mid-action (for the per-row spinner) — from the mutation itself.
+    const busyId = action.isPending ? action.variables?.id : null;
+
+    const act = async (row, act) => {
+        if (act === "notify" && !(await confirmDialog({ title: "Notify from waitlist", message: `Send ${row.name} a registration link for "${row.categories?.title || "this tier"}"? Do this only when a seat has actually opened.`, confirmLabel: "Notify" }))) return;
+        if (act === "remove" && !(await confirmDialog({ title: "Remove", message: `Remove ${row.name} from the waitlist?`, danger: true, confirmLabel: "Remove" }))) return;
+        action.mutate({ id: row.id, action: act }, {
+            onSuccess: () => toast.success(act === "notify" ? `Notified ${row.name}.` : `Removed ${row.name}.`),
+        });
     };
 
     // group by tier

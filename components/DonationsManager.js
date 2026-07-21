@@ -2,26 +2,22 @@
 // Settings → Donations. Read-only list of Seva contributions + total raised.
 "use client";
 
-import { useEffect, useState } from "react";
 import { IndianRupee, Download } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 const fmt = (iso) => { try { return new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }); } catch { return "—"; } };
 
-export default function DonationsManager() {
-    const [data, setData] = useState({ donations: [], total: 0, completedCount: 0 });
-    const [loading, setLoading] = useState(true);
+async function fetchDonations() {
+    const res = await fetch("/api/admin/donations");
+    if (!res.ok) throw new Error("Failed to load donations.");
+    return res.json(); // { donations, total, completedCount }
+}
 
-    useEffect(() => {
-        const t = setTimeout(async () => {
-            try {
-                const res = await fetch("/api/admin/donations");
-                const d = await res.json().catch(() => ({}));
-                if (res.ok) setData(d);
-            } catch { /* ignore */ }
-            setLoading(false);
-        }, 0);
-        return () => clearTimeout(t);
-    }, []);
+export default function DonationsManager() {
+    const { data = { donations: [], total: 0, completedCount: 0 }, isLoading: loading } = useQuery({
+        queryKey: ["admin", "donations"],
+        queryFn: fetchDonations,
+    });
 
     // Counts across ALL rows (anonymous included — anonymity only hides the name).
     const rows = data.donations || [];

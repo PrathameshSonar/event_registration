@@ -647,6 +647,9 @@ form → offline method → payment_review ──approve(bank/cash/dd)──► 
 
 Keep newest first. Add an entry for every meaningful change.
 
+- **2026-07-21 (TanStack Query adoption — admin server state)**
+  - Added **`@tanstack/react-query`** for the ADMIN only ([QueryProvider](components/admin/QueryProvider.tsx) via [app/admin/layout.tsx](app/admin/layout.tsx)). The public site stays on RSC — deliberately not touched.
+  - Migrated self-contained admin panels off hand-rolled `fetch + useState + useEffect` to `useQuery` / `useMutation` (+ optimistic updates + `invalidateQueries`): **Contact Messages** (reference pilot), **Donations**, **Consent Records**, **Feedback**, **Waitlist**. Pattern to roll out across the rest; the big `admin/page.tsx` dashboard is the post-launch job.
 - **2026-07-21 (Admin findability + instant updates + per-Seva colours)**
   - **Admin settings: search + regroup.** The Settings sidebar now has a **search box** (filters every panel by name + keywords) and cleaner groups: Website Content · Sevas & Registration · Payments & Donations · Messages & Contact · System.
   - **Instant public updates.** New [lib/revalidate.js](lib/revalidate.js) `revalidatePublic()` (`revalidatePath('/', 'layout')` + content tags), wired into every content route (events, categories, schedule, highlights, guests, news, testimonials, faqs, media, app-settings). Admin edits now reflect on the live site on the next request instead of after the ISR/cache window (was the "1–2 min" lag).

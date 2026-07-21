@@ -3,38 +3,38 @@
 // and view the responses with the average rating.
 "use client";
 
-import { useEffect, useState } from "react";
 import { Star, Send } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { toast, confirmDialog } from "@/lib/uiStore";
 
 const fmt = (iso) => { try { return new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }); } catch { return "—"; } };
 const stars = (n) => "★★★★★".slice(0, n) + "☆☆☆☆☆".slice(0, 5 - n);
 
 export default function FeedbackManager() {
-    const [data, setData] = useState({ feedback: [], count: 0, avg: 0 });
-    const [loading, setLoading] = useState(true);
-    const [sending, setSending] = useState(false);
-
-    const load = async () => {
-        setLoading(true);
-        try {
+    const { data = { feedback: [], count: 0, avg: 0 }, isLoading: loading } = useQuery({
+        queryKey: ["admin", "feedback"],
+        queryFn: async () => {
             const res = await fetch("/api/admin/feedback");
+            if (!res.ok) throw new Error("Failed to load feedback.");
+            return res.json();
+        },
+    });
+
+    const send = useMutation({
+        mutationFn: async () => {
+            const res = await fetch("/api/admin/feedback", { method: "POST" });
             const d = await res.json().catch(() => ({}));
-            if (res.ok) setData(d);
-        } catch { /* ignore */ }
-        setLoading(false);
-    };
-    useEffect(() => { const t = setTimeout(load, 0); return () => clearTimeout(t); }, []);
+            if (!res.ok) throw new Error(d.error || "Could not send.");
+            return d;
+        },
+        onSuccess: (d) => toast.success(`Sent to ${d.recipients} — ${d.emailSent} email, ${d.waSent} WhatsApp.`),
+        onError: (e) => toast.error(e.message),
+    });
+    const sending = send.isPending;
 
     const sendThankYou = async () => {
         if (!(await confirmDialog({ title: "Send thank-you + feedback", message: "Send a thank-you message with a feedback link to ALL paid attendees (email + WhatsApp)? Do this after the event.", confirmLabel: "Send" }))) return;
-        setSending(true);
-        try {
-            const res = await fetch("/api/admin/feedback", { method: "POST" });
-            const d = await res.json().catch(() => ({}));
-            if (!res.ok) { toast.error(d.error || "Could not send."); return; }
-            toast.success(`Sent to ${d.recipients} — ${d.emailSent} email, ${d.waSent} WhatsApp.`);
-        } finally { setSending(false); }
+        send.mutate();
     };
 
     return (

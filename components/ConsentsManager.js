@@ -4,8 +4,9 @@
 // per-person consent document (name + date/time + the exact declaration accepted).
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Download, Printer, RefreshCw, Search } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 const fmt = (iso) => { try { return new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }); } catch { return "—"; } };
 const esc = (s) => String(s || "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
@@ -13,20 +14,18 @@ const esc = (s) => String(s || "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<"
 const KIND_LABEL = { registration: "Registration", donation: "Donation", enquiry: "Enquiry" };
 
 export default function ConsentsManager() {
-    const [rows, setRows] = useState([]);
-    const [q, setQ] = useState("");
-    const [loading, setLoading] = useState(true);
+    const [q, setQ] = useState("");          // the search input
+    const [search, setSearch] = useState(""); // the submitted query (what's fetched)
 
-    const load = async (query = "") => {
-        setLoading(true);
-        try {
-            const res = await fetch(`/api/admin/consents${query ? `?q=${encodeURIComponent(query)}` : ""}`);
-            const d = await res.json().catch(() => ({}));
-            if (res.ok) setRows(d.consents || []);
-        } catch { /* ignore */ }
-        setLoading(false);
-    };
-    useEffect(() => { load(); }, []);
+    const { data, isLoading: loading, isFetching, refetch } = useQuery({
+        queryKey: ["admin", "consents", search],
+        queryFn: async () => {
+            const res = await fetch(`/api/admin/consents${search ? `?q=${encodeURIComponent(search)}` : ""}`);
+            if (!res.ok) throw new Error("Failed to load consent records.");
+            return res.json();
+        },
+    });
+    const rows = data?.consents || [];
 
     const exportCsv = () => {
         const head = ["Name", "Phone", "Email", "Type", "Accepted at", "IP"];
@@ -72,14 +71,14 @@ export default function ConsentsManager() {
                     <p className="text-sm text-neutral-500">Every Samanti Patra acceptance (registration / donation / enquiry), with who, when, and the exact text agreed to.</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button onClick={() => load(q)} className="flex items-center gap-2 text-sm font-semibold text-neutral-600 hover:text-neutral-900"><RefreshCw className="w-4 h-4" /> Refresh</button>
+                    <button onClick={() => (search === q ? refetch() : setSearch(q))} className="flex items-center gap-2 text-sm font-semibold text-neutral-600 hover:text-neutral-900"><RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} /> Refresh</button>
                     {rows.length > 0 && <button onClick={exportCsv} className="flex items-center gap-2 bg-neutral-900 hover:bg-green-700 text-white text-sm font-bold px-4 py-2 rounded-lg transition"><Download className="w-4 h-4" /> Export CSV</button>}
                 </div>
             </div>
 
             <div className="relative max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load(q)} placeholder="Search name / phone / email…" className="w-full h-10 pl-9 pr-3 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white" />
+                <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && setSearch(q)} placeholder="Search name / phone / email…" className="w-full h-10 pl-9 pr-3 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:border-orange-500 focus:bg-white" />
             </div>
 
             <div className="border border-neutral-200 rounded-xl overflow-hidden">
