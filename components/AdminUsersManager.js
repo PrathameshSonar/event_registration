@@ -5,7 +5,8 @@
 // (vs. the shared-password login, which only records the role).
 "use client";
 
-import { useEffect, useState, Fragment } from "react";
+import { useState, Fragment } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { UserPlus, Trash2, KeyRound, Power, ShieldCheck } from "lucide-react";
 import { toast, confirmDialog, promptDialog } from "@/lib/uiStore";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -39,24 +40,23 @@ function PermissionPicker({ value, onChange }) {
 }
 
 export default function AdminUsersManager() {
-    const [users, setUsers] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const qc = useQueryClient();
     const [form, setForm] = useState({ username: "", name: "", password: "", role: "admin" });
     const [formPerms, setFormPerms] = useState([]);
     const [busy, setBusy] = useState(false);
     const [editId, setEditId] = useState(null);     // user whose access is being edited
     const [editPerms, setEditPerms] = useState([]);
 
-    const load = async () => {
-        setLoading(true);
-        try {
+    const { data, isLoading: loading } = useQuery({
+        queryKey: ["admin", "users"],
+        queryFn: async () => {
             const res = await fetch("/api/admin/users");
-            const data = await res.json().catch(() => ({}));
-            setUsers(Array.isArray(data.users) ? data.users : []);
-        } catch { setUsers([]); }
-        setLoading(false);
-    };
-    useEffect(() => { const t = setTimeout(load, 0); return () => clearTimeout(t); }, []);
+            if (!res.ok) throw new Error("Failed to load admin users.");
+            return res.json();
+        },
+    });
+    const users = Array.isArray(data?.users) ? data.users : [];
+    const load = () => qc.invalidateQueries({ queryKey: ["admin", "users"] });
 
     const create = async (e) => {
         e.preventDefault();

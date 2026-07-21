@@ -7,7 +7,8 @@
 // payload is replayed verbatim, and the retry is logged as its own row.
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Mail, MessageCircle, RefreshCw, Send, Check, AlertTriangle } from "lucide-react";
 import { toast, confirmDialog } from "@/lib/uiStore";
 // From messageKinds (client-safe), NOT messageLog — that one imports supabaseAdmin.
@@ -16,41 +17,48 @@ import { MESSAGE_KINDS } from "@/lib/messageKinds";
 const fmt = (iso) => { try { return new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }); } catch { return "—"; } };
 
 export default function MessageLogPanel() {
-    const [messages, setMessages] = useState([]);
-    const [counts, setCounts] = useState({ total: 0, failed: 0 });
-    const [loading, setLoading] = useState(true);
-    const [resendingId, setResendingId] = useState(null);
-
+    const qc = useQueryClient();
     const [channel, setChannel] = useState("");
     const [kind, setKind] = useState("");
     const [status, setStatus] = useState("");
     const [q, setQ] = useState("");
+    const [debouncedQ, setDebouncedQ] = useState("");
 
-    const load = useCallback(async () => {
-        setLoading(true);
-        const params = new URLSearchParams();
-        if (channel) params.set("channel", channel);
-        if (kind) params.set("kind", kind);
-        if (status) params.set("status", status);
-        if (q.trim()) params.set("q", q.trim());
-        try {
-            const res = await fetch(`/api/admin/message-log?${params}`);
-            const d = await res.json().catch(() => ({}));
-            if (res.ok) {
-                setMessages(d.messages || []);
-                setCounts({ total: d.total || 0, failed: d.failed || 0 });
-            } else {
-                toast.error(d.error || "Could not load the message log.");
-            }
-        } catch { /* keep the last good list */ }
-        setLoading(false);
-    }, [channel, kind, status, q]);
-
-    // Debounced so typing in the search box doesn't fire a request per keystroke.
+    // Debounce the search into the query key (no request per keystroke).
     useEffect(() => {
-        const t = setTimeout(load, 300);
+        const t = setTimeout(() => setDebouncedQ(q.trim()), 300);
         return () => clearTimeout(t);
-    }, [load]);
+    }, [q]);
+
+    const KEY = ["admin", "message-log", channel, kind, status, debouncedQ];
+    const { data, isLoading: loading, isFetching, refetch } = useQuery({
+        queryKey: KEY,
+        queryFn: async () => {
+            const params = new URLSearchParams();
+            if (channel) params.set("channel", channel);
+            if (kind) params.set("kind", kind);
+            if (status) params.set("status", status);
+            if (debouncedQ) params.set("q", debouncedQ);
+            const res = await fetch(`/api/admin/message-log?${params}`);
+            if (!res.ok) throw new Error("Could not load the message log.");
+            return res.json();
+        },
+        placeholderData: (prev) => prev,
+    });
+    const messages = data?.messages || [];
+    const counts = { total: data?.total || 0, failed: data?.failed || 0 };
+
+    const resendMut = useMutation({
+        mutationFn: async (id) => {
+            const res = await fetch("/api/admin/message-log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+            const d = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(d.error || "Re-send failed.");
+            return d;
+        },
+        onError: (e) => toast.error(e.message),
+        onSettled: () => qc.invalidateQueries({ queryKey: ["admin", "message-log"] }),
+    });
+    const resendingId = resendMut.isPending ? resendMut.variables : null;
 
     const resend = async (m) => {
         const label = MESSAGE_KINDS[m.kind] || m.kind || m.channel;
@@ -59,17 +67,7 @@ export default function MessageLogPanel() {
             message: `Re-send this ${label} to ${m.recipient}?\n\nThe original message is sent again exactly as it was composed.`,
             confirmLabel: "Re-send",
         }))) return;
-
-        setResendingId(m.id);
-        const res = await fetch("/api/admin/message-log", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: m.id }),
-        });
-        const d = await res.json().catch(() => ({}));
-        setResendingId(null);
-        if (!res.ok) { toast.error(d.error || "Re-send failed."); await load(); return; }
-        toast.success(`Re-sent to ${m.recipient}.`);
-        await load();
+        resendMut.mutate(m.id, { onSuccess: () => toast.success(`Re-sent to ${m.recipient}.`) });
     };
 
     const select = "px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600";
@@ -81,8 +79,8 @@ export default function MessageLogPanel() {
                     <h3 className="text-lg font-bold text-neutral-900">Message Log</h3>
                     <p className="text-sm text-neutral-500">Every email &amp; WhatsApp the system has sent, and whether it landed.</p>
                 </div>
-                <button onClick={load} disabled={loading} className="flex items-center gap-2 text-sm font-semibold text-neutral-600 border border-neutral-200 px-3 py-2 rounded-lg hover:border-orange-200 hover:bg-orange-50 hover:text-orange-600 transition disabled:opacity-50">
-                    <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Refresh
+                <button onClick={() => refetch()} disabled={isFetching} className="flex items-center gap-2 text-sm font-semibold text-neutral-600 border border-neutral-200 px-3 py-2 rounded-lg hover:border-orange-200 hover:bg-orange-50 hover:text-orange-600 transition disabled:opacity-50">
+                    <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} /> Refresh
                 </button>
             </div>
 

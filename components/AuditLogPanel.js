@@ -4,8 +4,9 @@
 // Records carry actor_role today; actor_label slots in once RBAC adds real users.
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { RefreshCw, Search, ScrollText, ChevronDown } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 // Entities the trail can filter by — keep in sync with the `entity` values
 // emitted by the instrumented routes in app/api/admin/**.
@@ -48,30 +49,29 @@ function timeAgo(iso) {
 }
 
 export default function AuditLogPanel() {
-  const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [entity, setEntity] = useState("all");
   const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
+  // Debounce the free-text search into the query key.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q.trim()), q ? 300 : 0);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  const { data, isLoading: loading, isFetching, refetch } = useQuery({
+    queryKey: ["admin", "audit-logs", entity, debouncedQ],
+    queryFn: async () => {
       const params = new URLSearchParams();
       if (entity !== "all") params.set("entity", entity);
-      if (q.trim()) params.set("q", q.trim());
+      if (debouncedQ) params.set("q", debouncedQ);
       const res = await fetch(`/api/admin/audit-logs?${params.toString()}`);
-      const data = await res.json().catch(() => ({}));
-      setLogs(res.ok ? data.logs || [] : []);
-    } finally {
-      setLoading(false);
-    }
-  }, [entity, q]);
-
-  // Reload when the entity filter changes; debounce the free-text search.
-  useEffect(() => {
-    const t = setTimeout(load, q ? 300 : 0);
-    return () => clearTimeout(t);
-  }, [load, q]);
+      if (!res.ok) throw new Error("Failed to load audit log.");
+      return res.json();
+    },
+    placeholderData: (prev) => prev, // keep old rows visible while refetching
+  });
+  const logs = data?.logs || [];
 
   return (
     <div className="space-y-4">
@@ -102,10 +102,10 @@ export default function AuditLogPanel() {
             ))}
           </select>
           <button
-            onClick={load}
+            onClick={() => refetch()}
             className="flex items-center justify-center gap-2 bg-neutral-900 hover:bg-orange-600 text-white px-4 py-2.5 rounded-lg font-semibold text-sm transition"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Refresh
+            <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} /> Refresh
           </button>
         </div>
       </div>

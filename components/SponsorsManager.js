@@ -6,7 +6,8 @@
 // who to call. Sponsors are not shown on the public site.
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IndianRupee, Plus, Trash2, Pencil, Handshake, X } from "lucide-react";
 import { toast, confirmDialog } from "@/lib/uiStore";
 import MediaPicker from "@/components/MediaPicker";
@@ -30,29 +31,24 @@ const EMPTY = {
 
 /** @param {{ events?: any[] }} props */
 export default function SponsorsManager({ events = [] }) {
-    const [sponsors, setSponsors] = useState([]);
-    const [total, setTotal] = useState(0);
-    const [loading, setLoading] = useState(true);
+    const qc = useQueryClient();
     const [saving, setSaving] = useState(false);
     const [form, setForm] = useState(EMPTY);
     const [editingId, setEditingId] = useState(null);
     const [showForm, setShowForm] = useState(false);
 
-    const load = useCallback(async () => {
-        try {
+    const { data, isLoading: loading } = useQuery({
+        queryKey: ["admin", "sponsors"],
+        queryFn: async () => {
             const res = await fetch("/api/admin/sponsors");
-            const d = await res.json().catch(() => ({}));
-            if (res.ok) { setSponsors(d.sponsors || []); setTotal(d.total || 0); }
-        } catch { /* keep the last good list */ }
-        setLoading(false);
-    }, []);
-
-    // Deferred out of the effect body so we don't set state synchronously during
-    // the effect (same pattern as DonationsManager / RegistrationActivity).
-    useEffect(() => {
-        const t = setTimeout(load, 0);
-        return () => clearTimeout(t);
-    }, [load]);
+            if (!res.ok) throw new Error("Failed to load sponsors.");
+            return res.json();
+        },
+    });
+    const sponsors = data?.sponsors || [];
+    const total = data?.total || 0;
+    // Refetch the list after any create/update/delete.
+    const reload = () => qc.invalidateQueries({ queryKey: ["admin", "sponsors"] });
 
     const openNew = () => {
         const activeEvent = events.find((e) => e.is_active);
@@ -88,7 +84,7 @@ export default function SponsorsManager({ events = [] }) {
         setShowForm(false);
         setForm(EMPTY);
         setEditingId(null);
-        await load();
+        reload();
     };
 
     const remove = async (s) => {
@@ -99,7 +95,7 @@ export default function SponsorsManager({ events = [] }) {
         });
         if (!res.ok) { toast.error("Could not remove the sponsor."); return; }
         toast.success("Sponsor removed.");
-        await load();
+        reload();
     };
 
     const input = "w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-600";
