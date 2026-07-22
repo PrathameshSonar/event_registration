@@ -3,6 +3,7 @@
 "use client";
 
 import { IndianRupee, Download } from "lucide-react";
+import { useBranding } from "@/components/BrandingProvider";
 import { useQuery } from "@tanstack/react-query";
 
 const fmt = (iso) => { try { return new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }); } catch { return "—"; } };
@@ -14,6 +15,7 @@ async function fetchDonations() {
 }
 
 export default function DonationsManager() {
+    const branding = useBranding();
     const { data = { donations: [], total: 0, completedCount: 0 }, isLoading: loading } = useQuery({
         queryKey: ["admin", "donations"],
         queryFn: fetchDonations,
@@ -32,7 +34,7 @@ export default function DonationsManager() {
         const rows = completed.map((d) => [d.is_anonymous ? "Anonymous" : (d.name || ""), d.phone || "", d.email || "", d.amount, d.razorpay_payment_id || "", d.razorpay_order_id || "", (d.message || "").replace(/"/g, "'"), fmt(d.created_at)]);
         const csv = [head, ...rows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
         const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-        const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `BaglaBhairav_Seva_${new Date().toISOString().split("T")[0]}.csv`; a.click();
+        const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${(branding.site_name || "Site").replace(/[^A-Za-z0-9]+/g, "")}_Seva_${new Date().toISOString().split("T")[0]}.csv`; a.click();
     };
 
     return (

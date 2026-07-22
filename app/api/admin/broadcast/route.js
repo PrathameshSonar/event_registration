@@ -13,6 +13,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAudit } from '@/lib/auditLog';
 import { escapeHtml } from '@/lib/escape';
 import { sendEmail, emailShell } from '@/lib/email';
+import { getSiteName } from '@/lib/branding';
 import { sendWhatsAppTemplate, waConfigured } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
@@ -63,6 +64,7 @@ export async function POST(request) {
     }
     const capped = unique.length > MAX_RECIPIENTS;
     const batch = unique.slice(0, MAX_RECIPIENTS);
+    const siteName = await getSiteName();
     if (batch.length === 0) return NextResponse.json({ ok: true, emailSent: 0, waSent: 0, recipients: 0 });
 
     const htmlBody = escapeHtml(text).replace(/\n/g, '<br>');
@@ -73,7 +75,7 @@ export async function POST(request) {
             const ok = await sendEmail({
                 to: r.email,
                 subject: String(subject).trim(),
-                html: emailShell(`<p style="color:#404040;font-size:14px;line-height:1.7;margin:0;">Namaste ${escapeHtml(r.first_name || '')},<br><br>${htmlBody}</p>`),
+                html: emailShell(`<p style="color:#404040;font-size:14px;line-height:1.7;margin:0;">Namaste ${escapeHtml(r.first_name || '')},<br><br>${htmlBody}</p>`, siteName),
                 log: { kind: 'broadcast', registrationId: r.id },
             });
             if (ok) emailSent++;

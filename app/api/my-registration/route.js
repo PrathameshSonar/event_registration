@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { sendEmail, emailShell } from '@/lib/email';
+import { getSiteName } from '@/lib/branding';
 import { sendWhatsAppText } from '@/lib/whatsapp';
 import { escapeHtml } from '@/lib/escape';
 
@@ -56,6 +57,7 @@ export async function POST(request) {
     if (matched.length === 0) return generic; // nothing to send, but stay generic
 
     const base = siteUrl();
+    const siteName = await getSiteName();
     const firstName = matched[0].first_name || 'devotee';
     const rows = matched.map((r) => {
         const label = STATUS_LABEL[r.payment_status] || r.payment_status;
@@ -67,7 +69,7 @@ export async function POST(request) {
     for (const to of emails) {
         await sendEmail({
             to,
-            subject: '🎟️ Your BaglaBhairav registration',
+            subject: `🎟️ Your ${siteName} registration`,
             html: emailShell(`
                 <p style="font-size:16px;color:#404040;margin-top:0;">Namaste <strong>${escapeHtml(firstName)}</strong>,</p>
                 <p style="font-size:14px;color:#6b7280;line-height:1.6;">Here ${rows.length > 1 ? 'are your registrations' : 'is your registration'}. Open the link to view your entry pass (or complete payment if pending):</p>
@@ -78,7 +80,7 @@ export async function POST(request) {
                         <a href="${r.link}" style="display:inline-block;background:#ea580c;color:#fff;font-weight:700;padding:8px 16px;border-radius:8px;text-decoration:none;font-size:13px;">Open my pass</a>
                     </div>`).join('')}
                 <p style="font-size:12px;color:#9ca3af;">Didn't request this? You can ignore this email.</p>
-            `),
+            `, siteName),
             // The email lists every matched registration, so it's only tied to one when there is one.
             log: matched.length === 1 ? { kind: 'self_service', registrationId: matched[0].id } : { kind: 'self_service' },
         });
@@ -86,7 +88,7 @@ export async function POST(request) {
 
     // WhatsApp — free-form to the number on file (best-effort; delivers inside the
     // 24h window). Email is the guaranteed channel.
-    const waText = `🙏 *BaglaBhairav* — here ${rows.length > 1 ? 'are your registrations' : 'is your registration'}:\n\n${rows.map((r) => `*${r.tier}* — ${r.label}\n${r.link}`).join('\n\n')}`;
+    const waText = `🙏 *${siteName}* — here ${rows.length > 1 ? 'are your registrations' : 'is your registration'}:\n\n${rows.map((r) => `*${r.tier}* — ${r.label}\n${r.link}`).join('\n\n')}`;
     await sendWhatsAppText(matched[0].phone, waText, true, { kind: 'self_service' });
 
     return generic;

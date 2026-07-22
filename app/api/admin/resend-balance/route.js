@@ -7,6 +7,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAudit } from '@/lib/auditLog';
 import { sendTemplatedEmail } from '@/lib/email';
 import { sendWhatsAppTemplate } from '@/lib/whatsapp';
+import { getSiteName } from '@/lib/branding';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,7 +45,7 @@ export async function POST(request) {
                 amount: Math.round(dueRupees * 100),
                 currency: 'INR',
                 accept_partial: false,
-                description: `Balance payment — ${categoryTitle} (BaglaBhairav)`,
+                description: `Balance payment — ${categoryTitle} (${await getSiteName()})`,
                 reference_id: `bal_${reg.id}_${Date.now()}`,
                 customer: { name: `${reg.first_name} ${reg.last_name}`.trim(), email: reg.email || undefined, contact: cleanPhone || undefined },
                 notify: { sms: false, email: false },

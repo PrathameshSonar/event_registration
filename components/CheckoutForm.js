@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useBranding } from "@/components/BrandingProvider";
 import {
   ShieldCheck,
   AlertCircle,
@@ -79,6 +80,7 @@ const adorn = (icon, extra = {}) => ({
 });
 
 export default function CheckoutForm({ category, paymentSettings = null }) {
+  const { site_name: siteName } = useBranding();
   const { t, lang } = useLanguage();
 
   const [loading, setLoading] = useState(false);
@@ -537,7 +539,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
       key: orderData.keyId,
       amount: orderData.amount,
       currency: orderData.currency || "INR",
-      name: "BaglaBhairav",
+      name: siteName,
       description: "Registration & Contribution",
       order_id: orderData.orderId,
       handler: async function (response) {
@@ -588,7 +590,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
   };
 
   // ── SUCCESS STATE ─────────────────────────────────────────────────────
-  if (successData) return <CheckoutSuccess data={successData} />;
+  if (successData) return <CheckoutSuccess data={{ ...successData, siteName }} />;
 
   // Reactive validity — mirrors validate() so the submit button stays DISABLED
   // until terms are agreed and every required field is filled/valid (instead of

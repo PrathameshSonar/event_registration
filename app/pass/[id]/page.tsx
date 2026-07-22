@@ -8,6 +8,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
 import QRCode from 'qrcode';
+import { getSiteName } from '@/lib/branding';
 import Link from 'next/link';
 import en from '@/lib/lang/en';
 import hi from '@/lib/lang/hi';
@@ -47,13 +48,14 @@ export default async function PassPage({ params }: { params: Promise<{ id: strin
     const shortId = reg.id.split('-')[0].toUpperCase();
 
     // Scannable QR encodes the same /entry/<id> verification URL the emailed pass uses.
+    const siteName = await getSiteName();
     const qrDataUrl = isPaid ? await QRCode.toDataURL(`${siteUrl}/entry/${reg.id}`, { width: 320, margin: 1, color: { dark: '#171717', light: '#ffffff' } }) : null;
 
     return (
         <main className="min-h-screen bg-ivory flex items-center justify-center p-4 [color-scheme:light]">
             <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full overflow-hidden border border-gold-100">
                 <div className={`p-5 text-center ${isPaid ? 'bg-gradient-to-b from-orange-700 to-amber-700' : 'bg-neutral-800'} text-white`}>
-                    <p className="text-white/80 text-[11px] font-bold uppercase tracking-widest">BaglaBhairav Mahotsav</p>
+                    <p className="text-white/80 text-[11px] font-bold uppercase tracking-widest">{siteName}</p>
                     <p className="font-serif text-2xl font-black mt-1">{isPaid ? t('pass_entry_pass') : t('pass_registration')}</p>
                     <p className="text-white/70 text-xs mt-1">{isPaid ? t('pass_paid_note') : t('pass_status', reg.payment_status.replace('_', ' '))}</p>
                 </div>
@@ -92,7 +94,7 @@ export default async function PassPage({ params }: { params: Promise<{ id: strin
 
                 <div className="bg-neutral-50 border-t border-neutral-200 px-6 py-3 flex items-center justify-between">
                     <p className="text-[10px] text-neutral-400 font-mono">REG #{shortId}</p>
-                    <Link href="/" className="text-[11px] text-neutral-400 hover:text-orange-600">BaglaBhairav →</Link>
+                    <Link href="/" className="text-[11px] text-neutral-400 hover:text-orange-600">{siteName} →</Link>
                 </div>
             </div>
         </main>

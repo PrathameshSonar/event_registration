@@ -5,6 +5,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { DEFAULT_BRANDING } from "@/lib/appSettings";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, Flame } from "lucide-react";
@@ -61,7 +62,7 @@ export default function LuxuryNavbar() {
   const { t } = useLanguage();
   const registrationOpen = useRegistrationOpen();
   const links = useNavLinks();
-  const brandName = branding?.site_name || "BaglaBhairav";
+  const brandName = branding?.site_name || DEFAULT_BRANDING.site_name;
   const line1 = branding?.brand_line1 || brandName;
   const line2 = branding?.brand_line2 || "";
   const subtitle = branding?.brand_subtitle || "";

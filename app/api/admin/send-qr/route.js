@@ -8,6 +8,7 @@ import { logAudit } from '@/lib/auditLog';
 import { sendTemplatedEmail } from '@/lib/email';
 import { sendWhatsAppText, sendWhatsAppImage, waConfigured } from '@/lib/whatsapp';
 import { getQrConfig } from '@/lib/settingsServer';
+import { getSiteName } from '@/lib/branding';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,7 @@ export async function POST(request) {
     const siteUrl =
         process.env.NEXT_PUBLIC_SITE_URL ||
         (process.env.NEXT_PUBLIC_VERCEL_URL ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` : 'http://localhost:3000');
+    const siteName = await getSiteName();
 
     const { data: allRegs, error } = await supabaseAdmin
         .from('registrations')
@@ -122,7 +124,7 @@ export async function POST(request) {
         // ── WHATSAPP ──────────────────────────────────────────
         if (reg.phone && waConfigured()) {
             try {
-                const caption = `🎟️ *BaglaBhairav Entry Pass*\n\n👤 *Name:* ${fullName}\n🏷️ *Category:* ${categoryTitle}\n👥 *Attendees:* ${reg.attendees_count}\n💰 *Paid:* ₹${reg.total_amount}\n\n📲 *View your pass:*\n${passUrl}`;
+                const caption = `🎟️ *${siteName} Entry Pass*\n\n👤 *Name:* ${fullName}\n🏷️ *Category:* ${categoryTitle}\n👥 *Attendees:* ${reg.attendees_count}\n💰 *Paid:* ₹${reg.total_amount}\n\n📲 *View your pass:*\n${passUrl}`;
 
                 // Send as image if we have a public URL; otherwise fall back to text with link.
                 const ok = qrPublicUrl

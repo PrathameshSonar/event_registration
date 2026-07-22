@@ -12,6 +12,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
+import { DEFAULT_BRANDING } from "@/lib/appSettings";
 
 export interface Branding {
     site_name: string;
@@ -21,7 +22,7 @@ export interface Branding {
 }
 
 const DEFAULTS: Branding = {
-    site_name: "BaglaBhairav",
+    site_name: DEFAULT_BRANDING.site_name,
     logo_url: "",
     primary_color: "#ea580c",
     accent_color: "#d4a017",

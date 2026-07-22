@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useBranding } from "@/components/BrandingProvider";
 import {
     Lock, Download, Users, IndianRupee, Activity, Eye, EyeOff, X, Settings, ListFilter,
     Trash2, Plus, Image as ImageIcon, Video, CalendarDays,
@@ -53,6 +54,7 @@ import type { Role, Registration, Category, EventItem, MediaItem, AdminStats } f
 import { TERMINAL_STATUSES, STATUS_LABEL, PAYMENT_MODE_LABEL, ENQUIRY_STATUSES, REGISTRATION_SECTIONS, statusClasses } from './constants';
 
 export default function AdminDashboard() {
+    const { site_name: siteName } = useBranding();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -816,10 +818,10 @@ export default function AdminDashboard() {
     }, {} as Record<string, number>);
 
     // Export handlers — thin wrappers over the pure builders in lib/adminExports.
-    const downloadCSV = () => downloadRegistrationsCsv(filteredRegistrations);
-    const downloadExcel = () => downloadRegistrationsExcel(filteredRegistrations);
-    const printReceipts = () => printReceiptsPdf(filteredRegistrations, activeEvent?.title || '');
-    const downloadFinancialExcel = () => downloadFinancialStatement(filteredRegistrations);
+    const downloadCSV = () => downloadRegistrationsCsv(filteredRegistrations, siteName);
+    const downloadExcel = () => downloadRegistrationsExcel(filteredRegistrations, siteName);
+    const printReceipts = () => printReceiptsPdf(filteredRegistrations, activeEvent?.title || '', siteName);
+    const downloadFinancialExcel = () => downloadFinancialStatement(filteredRegistrations, siteName);
 
     // Shared between the desktop table row and the mobile card so both stay in sync.
     const renderStatusControl = (reg: Registration) => {

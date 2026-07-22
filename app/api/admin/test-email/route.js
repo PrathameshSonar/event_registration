@@ -12,6 +12,8 @@ import { authorize } from '@/lib/adminGuard';
 import { sendEmail, emailShell, emailConfigured, EMAIL_FROM } from '@/lib/email';
 import { EMAIL_TEMPLATES, renderTemplate } from '@/lib/emailTemplates';
 import { logAudit } from '@/lib/auditLog';
+import { getBranding } from '@/lib/branding';
+import { DEFAULT_BRANDING } from '@/lib/appSettings';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,6 +57,10 @@ export async function POST(request) {
         return NextResponse.json({ error: 'Enter a valid recipient email address.' }, { status: 400 });
     }
 
+    const brand = await getBranding();
+    const siteName = (brand?.site_name || '').trim() || DEFAULT_BRANDING.site_name;
+    const brandLine2 = brand?.brand_line2 || '';
+
     let finalSubject;
     let finalHtml;
     let label = 'test';
@@ -81,13 +87,15 @@ export async function POST(request) {
             catch { sampleVars.qrImage = ''; }
         }
 
-        const rendered = renderTemplate(bodyTpl, sampleVars);
-        finalHtml = wrap ? emailShell(rendered) : rendered;
-        finalSubject = `[TEST] ${renderTemplate(subjectTpl, sampleVars)}`;
+        // The live site name is injected here too, so the preview an admin mails
+        // themselves matches exactly what a registrant would receive.
+        const rendered = renderTemplate(bodyTpl, { siteName, ...sampleVars });
+        finalHtml = wrap ? emailShell(rendered, siteName, brandLine2) : rendered;
+        finalSubject = `[TEST] ${renderTemplate(subjectTpl, { siteName, ...sampleVars })}`;
     } else {
         // ── GENERIC DELIVERABILITY PROBE ─────────────────────────────────────
         const sentAt = new Date().toISOString();
-        finalSubject = 'BaglaBhairav — test email ✅';
+        finalSubject = `${siteName} — test email ✅`;
         finalHtml = emailShell(`
             <h2 style="margin:0 0 12px;color:#171717;">✅ Test email</h2>
             <p style="margin:0 0 14px;">If you're reading this, your email provider is wired correctly — tickets, confirmations, and balance links will deliver.</p>
@@ -96,7 +104,7 @@ export async function POST(request) {
                 <tr><td style="padding:3px 14px 3px 0;color:#737373;">Sent at</td><td>${sentAt}</td></tr>
             </table>
             <p style="margin:18px 0 0;font-size:12px;color:#a3a3a3;">Sent from Admin → Settings → Templates &amp; Config.</p>
-        `);
+        `, siteName, brandLine2);
     }
 
     const ok = await sendEmail({

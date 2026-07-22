@@ -105,12 +105,16 @@ export default async function Home() {
     });
 
     // Event structured data (JSON-LD) so Google can show a rich event result.
+    // The organizer name comes from Settings → Branding & SEO like everywhere else
+    // — a rename must not leave the old name in the search result. `getBranding()`
+    // is cached, so this is not an extra DB round-trip.
+    const brandingLd = await getBranding();
     const pricedTiers = categories.filter((c) => Number(c.price) > 0).map((c) => Number(c.price));
     const minPrice = pricedTiers.length ? Math.min(...pricedTiers) : Infinity;
     const jsonLd: Record<string, unknown> = {
         '@context': 'https://schema.org',
         '@type': 'Event',
-        name: pageData?.title || 'BaglaBhairav Mahotsav',
+        name: pageData?.title || `${brandingLd.site_name} Mahotsav`,
         description: pageData?.short_description || undefined,
         eventStatus: 'https://schema.org/EventScheduled',
         eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
@@ -118,7 +122,7 @@ export default async function Home() {
         ...(pageData?.end_at ? { endDate: pageData.end_at } : {}),
         ...(pageData?.hero_image_url ? { image: [pageData.hero_image_url] } : {}),
         ...(pageData?.venue ? { location: { '@type': 'Place', name: pageData.venue } } : {}),
-        organizer: { '@type': 'Organization', name: 'BaglaBhairav' },
+        organizer: { '@type': 'Organization', name: brandingLd.site_name },
         ...(minPrice !== Infinity ? { offers: { '@type': 'Offer', price: minPrice, priceCurrency: 'INR', availability: 'https://schema.org/InStock' } } : {}),
     };
 

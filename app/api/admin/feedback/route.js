@@ -7,6 +7,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAudit } from '@/lib/auditLog';
 import { sendTemplatedEmail } from '@/lib/email';
 import { sendWhatsAppText } from '@/lib/whatsapp';
+import { getSiteName } from '@/lib/branding';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +32,7 @@ export async function POST(request) {
     if (response) return response;
 
     const link = `${siteUrl()}/feedback`;
+    const siteName = await getSiteName();
     const { data: regs } = await supabaseAdmin
         .from('registrations').select('id, first_name, last_name, email, phone')
         .eq('payment_status', 'completed').limit(MAX_BATCH + 1);
@@ -57,7 +59,7 @@ export async function POST(request) {
             if (ok) emailSent++;
         }
         if (r.phone) {
-            const ok = await sendWhatsAppText(r.phone, `🙏 *BaglaBhairav Mahotsav* — thank you for joining us! We'd love your feedback (under a minute):\n${link}`, true, { kind: 'feedback', registrationId: r.id });
+            const ok = await sendWhatsAppText(r.phone, `🙏 *${siteName}* — thank you for joining us! We'd love your feedback (under a minute):\n${link}`, true, { kind: 'feedback', registrationId: r.id });
             if (ok) waSent++;
         }
     }

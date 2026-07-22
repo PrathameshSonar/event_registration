@@ -595,6 +595,30 @@ Use **"Send this template as a test"** to mail yourself the version you're editi
 
 **Branding:** pick one colour and the whole site re-themes — the exact colour you pick lands on the buttons, and lighter/darker shades are derived for backgrounds and hovers. Changes appear immediately.
 
+### Renaming the organisation
+
+**Site name is the one place your name lives.** Change it here and it changes everywhere — you never have to hunt for it:
+
+- the navbar and footer wordmark,
+- **every email** — subject lines and headers, for confirmations, QR passes, balance links and reminders, cancellations, offline payment notices, donation receipts and feedback requests,
+- **every WhatsApp message** we write ourselves (offline payment updates, cancellations, the QR caption, the "find my pass" reply),
+- the **name shown inside the Razorpay payment window**, and the description on every payment link,
+- the **entry pass** and **verification** screens people see at the gate,
+- the **gate scanner** sign-in screen,
+- the **receipt** a devotee downloads (and its filename),
+- your **CSV / Excel / PDF export** filenames and headers,
+- the organiser name Google reads from the homepage.
+
+Changes take effect on the next page load — there's no cache to wait out.
+
+Two related fields sit alongside it:
+- **Wordmark line 1 / line 2** — an optional two-line treatment for the nav and footer. **Line 2 also becomes the second line of your email header**; leave it blank and emails show just the site name.
+- **Wordmark subtitle** — the small italic line under the wordmark.
+
+> **What does *not* change automatically:** your event's own title (that's per-event, in Event Setup), the wording of your WhatsApp templates (those live in Meta and need re-approval — see below), and any text you've typed yourself into an email template, a FAQ or a page. Search those manually after a rename.
+
+> **If you edit an email template**, keep the `{{siteName}}` placeholder in it. That's what keeps the template correct through a future rename — replace it with typed-out text and you've re-created the problem.
+
 ---
 
 ## 2.10 Audit log
@@ -641,6 +665,7 @@ You don't need the internals, but you do need to know the three layers, because 
 | **Go live** | Home Page Content → Live Stream → paste URL → save → **🔴 Go live** |
 | **Email isn't arriving** | Settings → Templates & Config → Gateway → **Send test email**, then check the Message Log for the provider's error |
 | **A WhatsApp keeps failing** | Message Log → read the error. Usually an unapproved template name or an expired token |
+| **Rename the organisation** | Settings → Branding & SEO → **Site name**. Then re-approve any WhatsApp templates in Meta that spell the old name out, and check your own typed text (event title, FAQs, edited email templates) |
 | **Give a volunteer access** | Settings → Admin Users → create → tick only what they need |
 | **Set up a gate volunteer** | Settings → Admin Users → create → tick **"Scan entry passes at the gate"**. They sign in at `/scan` with that account |
 | **Remove someone's gate access** | Untick `checkin:scan` (or deactivate the account). Their next scan is refused immediately — no redeploy |

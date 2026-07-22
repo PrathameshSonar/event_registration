@@ -1013,6 +1013,34 @@ Each case: **ID | Title | Pre-conditions | Steps | Expected**.
 | ADM-SET-134 | Cannot lock out | Delete/deactivate the last admin | Warned; recovery documented (`npm run create-admin`) | P0 |
 | ADM-SET-135 | Branding colours | Pick a seed | 600 step exactly the seed; full 50→900 ramp; inlined in `<head>`; no flash | P1 |
 | ADM-SET-136 | Site name + logo | Set | Reach client components via BrandingProvider | P1 |
+
+#### Rename sweep (ADM-SET-136a…q) — **run all of these after changing `site_name`**
+> Set `site_name` to a clearly different value (e.g. **"Testbrand Trust"**), then verify the old name appears **nowhere**. This is the regression suite for "we might change the name at any time".
+
+| ID | Surface | Expected | Pri |
+|---|---|---|---|
+| ADM-SET-136a | Nav + footer | New name in the wordmark; footer reads `© <current year> Testbrand Trust · All rights reserved` — **no doubled name, no frozen 2025** | P0 |
+| ADM-SET-136b | Confirmation email | Subject **and** header carry the new name | P0 |
+| ADM-SET-136c | QR pass email | Subject + header + body | P0 |
+| ADM-SET-136d | Balance link + balance reminder emails | Both | P0 |
+| ADM-SET-136e | Cancellation / offline-submitted / offline-rejected emails | All three | P0 |
+| ADM-SET-136f | Donation receipt + feedback emails | Both | P1 |
+| ADM-SET-136g | Email shell header | Kicker = new name; second line = `brand_line2` (absent when blank) | P0 |
+| ADM-SET-136h | Test email (generic + template modes) | Both carry the new name | P1 |
+| ADM-SET-136i | WhatsApp free-text (offline submitted/rejected, cancellation, QR caption, `/my-pass`, feedback blast) | New name | P0 |
+| ADM-SET-136j | Razorpay checkout modal (register + donate) | Merchant name shows the new name | P0 |
+| ADM-SET-136k | Razorpay payment-link description (balance + enquiry + resend) | New name in the description the payer sees | P0 |
+| ADM-SET-136l | `/entry/[id]` and `/pass/[id]` | Header + footer link | P0 |
+| ADM-SET-136m | `/scan` sign-in header | New name | P1 |
+| ADM-SET-136n | Checkout receipt PNG | Header text **and** the downloaded filename | P1 |
+| ADM-SET-136o | Admin exports | CSV/Excel/Financial filenames + the Receipts PDF header + Financial `<h3>` | P1 |
+| ADM-SET-136p | Donations CSV filename | New name | P2 |
+| ADM-SET-136q | Homepage JSON-LD | `organizer.name` and the fallback event `name` | P1 |
+| ADM-SET-136r | Immediacy | All of the above reflect the change on the **next** request — no waiting out a cache TTL (`revalidateTag('branding')`) | P0 |
+| ADM-SET-136s | Blank name | Save an empty `site_name` | Falls back to `DEFAULT_BRANDING.site_name`; nothing renders blank | P1 |
+| ADM-SET-136t | Escaping | Set `site_name` to `<b>X</b>` | Rendered escaped in emails — never as markup | P0 |
+| ADM-SET-136u | Admin template overrides | Edit a template, keep `{{siteName}}` | Still resolves; the variable palette lists `siteName` | P1 |
+| ADM-SET-136v | Grep check | Search the repo for the old name | Only `DEFAULT_BRANDING`, admin placeholders, the `EMAIL_FROM` default, and the Meta-template comments remain | P0 |
 | ADM-SET-137 | SEO | Set title/description/og_image/keywords | Used everywhere except the homepage, which prefers the active event's own | P1 |
 | ADM-SET-138 | Page Headers | Set hero per page | Applied to about/gallery/etc. | P2 |
 | ADM-SET-139 | Declaration editor | Enable + set title/body in en/hi/mr | Public register + donate reflect it | P0 |

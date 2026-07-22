@@ -11,6 +11,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { useBranding } from '@/components/BrandingProvider';
 
 type Status = 'NEW' | 'DUPLICATE' | 'NOT_PAID' | 'INVALID';
 interface Checkpoint { id: string; name: string; sort_order: number; }
@@ -61,6 +62,7 @@ function canScan(s: { role?: string; permissions?: string[] } | null) {
 }
 
 export default function ScanPage() {
+    const { site_name: siteName } = useBranding();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [authed, setAuthed] = useState(false);
@@ -266,7 +268,7 @@ export default function ScanPage() {
                 <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-2xl">
                     <div className="text-center mb-6">
                         <p className="text-orange-600 font-bold text-xs uppercase tracking-widest">Entry Scanner</p>
-                        <h1 className="text-2xl font-black text-neutral-900 mt-1">BaglaBhairav</h1>
+                        <h1 className="text-2xl font-black text-neutral-900 mt-1">{siteName}</h1>
                         <p className="text-sm text-neutral-500 mt-2">Sign in with your own account</p>
                     </div>
                     <form onSubmit={handleLogin} className="space-y-3">

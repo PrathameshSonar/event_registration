@@ -8,6 +8,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { notFound } from 'next/navigation';
 import { getEntryBands } from '@/lib/settingsServer';
 import { BAND_COLORS } from '@/lib/appSettings';
+import { getSiteName } from '@/lib/branding';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +28,7 @@ export default async function EntryPage({ params }: { params: Promise<{ id: stri
     const categoryTitle = (reg as { categories?: { title?: string } }).categories?.title || '—';
 
     // Wristband colour for this Seva (unmapped Sevas simply show no band).
+    const siteName = await getSiteName();
     const bands = await getEntryBands();
     const bandKey = reg.category_id ? (bands as Record<string, string>)[reg.category_id] : null;
     const band = bandKey ? BAND_COLORS[bandKey as keyof typeof BAND_COLORS] : null;
@@ -36,7 +38,7 @@ export default async function EntryPage({ params }: { params: Promise<{ id: stri
             <div className="bg-white rounded-2xl shadow-2xl max-w-xs w-full overflow-hidden">
                 {/* Verdict */}
                 <div className={`p-6 text-center ${isPaid ? 'bg-green-600' : 'bg-red-600'}`}>
-                    <p className="text-white/80 text-xs font-bold uppercase tracking-widest mb-2">BaglaBhairav Mahotsav</p>
+                    <p className="text-white/80 text-xs font-bold uppercase tracking-widest mb-2">{siteName}</p>
                     <p className="text-white text-3xl font-black">{isPaid ? '✓ VALID' : '✗ INVALID'}</p>
                     <p className="text-white/70 text-xs mt-1">{isPaid ? 'Entry Permitted' : `Status: ${reg.payment_status}`}</p>
                 </div>

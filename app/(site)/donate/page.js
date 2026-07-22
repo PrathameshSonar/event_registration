@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useBranding } from "@/components/BrandingProvider";
 import Link from "next/link";
 import { Handshake, ArrowRight } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
@@ -21,6 +22,7 @@ function loadRazorpay() {
 }
 
 export default function DonatePage() {
+  const { site_name: siteName } = useBranding();
     const { t } = useLanguage();
     const [amount, setAmount] = useState(1100);
     const [custom, setCustom] = useState("");
@@ -75,7 +77,7 @@ export default function DonatePage() {
 
             const rzp = new window.Razorpay({
                 key: data.keyId, amount: data.amount, currency: data.currency, order_id: data.orderId,
-                name: "BaglaBhairav", description: "Seva / Contribution",
+                name: siteName, description: "Seva / Contribution",
                 prefill: { name, email: email || undefined, contact: phone || undefined },
                 theme: { color: "#ea580c" },
                 handler: async (r) => {
@@ -121,7 +123,7 @@ export default function DonatePage() {
                 <div className="container-luxury max-w-2xl text-center relative z-10">
                     <div className="text-3xl mb-3">🪔</div>
                     <h1 className="display-section text-ivory">{t("donate_hero_title")}</h1>
-                    <p className="text-ivory/75 text-sm mt-3 max-w-md mx-auto">{t("donate_hero_desc")}</p>
+                    <p className="text-ivory/75 text-sm mt-3 max-w-md mx-auto">{t("donate_hero_desc", siteName)}</p>
                 </div>
             </section>
 

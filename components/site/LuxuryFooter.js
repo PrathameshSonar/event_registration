@@ -5,6 +5,7 @@
 "use client";
 
 import Link from "next/link";
+import { DEFAULT_BRANDING } from "@/lib/appSettings";
 import { Flame, Phone, Mail, MapPin, MessageCircle } from "lucide-react";
 import { InstagramIcon, YoutubeIcon, FacebookIcon } from "@/components/site/BrandIcons";
 import { useBranding } from "@/components/BrandingProvider";
@@ -25,7 +26,7 @@ export default function LuxuryFooter({ event, contact }) {
   const branding = useBranding();
   const { t } = useLanguage();
   const registrationOpen = useRegistrationOpen();
-  const brandName = branding?.site_name || "BaglaBhairav";
+  const brandName = branding?.site_name || DEFAULT_BRANDING.site_name;
   const line1 = branding?.brand_line1 || brandName;
   const line2 = branding?.brand_line2 || "";
   const subtitle = branding?.brand_subtitle || "";
@@ -128,7 +129,7 @@ export default function LuxuryFooter({ event, contact }) {
       <div className="h-px w-full bg-gold/15" />
 
       <div className="container-luxury flex flex-col md:flex-row items-center justify-between gap-4 py-6 text-xs text-ivory/60">
-        <p>© {brandName} · {t("footer_rights") || "All rights reserved"}</p>
+        <p>© {new Date().getFullYear()} {brandName} · {t("footer_rights") || "All rights reserved"}</p>
         <ul className="flex flex-wrap items-center gap-x-5 gap-y-2">
           <li><Link href="/privacy" className="hover:text-gold-400">{t("footer_privacy") || "Privacy"}</Link></li>
           <li><Link href="/terms" className="hover:text-gold-400">{t("footer_terms") || "Terms"}</Link></li>
