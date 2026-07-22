@@ -62,9 +62,9 @@ Your name, DOB and mobile carry over. Fill in the rest:
 | Field | Notes |
 |---|---|
 | **First & last name** | Always required |
-| **Mobile** | Indian 10-digit, starting 6–9. `+91`, `0` or `91` prefixes are fine — we clean them up |
+| **Mobile** | Always required. Indian 10-digit, starting 6–9. `+91`, `0` or `91` prefixes are fine — we clean them up |
 | **Email** | Always required — your confirmation and entry pass go here |
-| **Pincode** | 6 digits |
+| **Pincode** | 6 digits if asked for. The organisers can make it optional or hide it per Seva — when it's there, it auto-fills your taluka and state |
 | Salutation, gotra, gender, taluka, state, "your samasya" | Shown if the organisers have enabled them for this Seva |
 | Any extra questions | Set by the organisers for this Seva |
 | **Total attendees** | How many people are coming on this registration. There's a per-Seva limit (usually 5) |
@@ -227,23 +227,28 @@ Go to **`/admin`** and sign in with your **username and password**.
 | **Admin** | Everything, always |
 | **Volunteer** | Exactly the permissions an admin ticks |
 
-### The 12 permissions
+### The 13 permissions
 | Permission | Grants |
 |---|---|
 | `dashboard:view` | The Dashboard tab (numbers only — no personal data) |
 | `registrations:view` | See registrations (this is the real personal-data boundary) |
 | `registrations:manage` | Add / edit registrations and change status |
-| `qr:send` | Send QR entry passes |
+| `qr:send` | Send QR entry passes — and download an individual pass (handing one over *is* issuing it) |
 | `export:data` | Exports and receipts |
 | `payments:verify` | Verify offline payments, sync payments, adjust donations |
 | `payments:refund` | Refund and reverse payments |
 | `reminders:send` | Send payment reminders and re-send messages |
 | `enquiries:manage` | The enquiry pipeline |
-| `scanlog:view` | The scan log |
+| **`checkin:scan`** | **Opens `/scan` and admits people** — plus manual check-in and undoing a check-in |
+| `scanlog:view` | Reading the scan log (who came through, and when) |
 | `audit:view` | The audit log and the message log |
-| `settings:manage` | All event settings and content |
+| `settings:manage` | All event settings and content — including the bank details, contact record and message templates |
 
 Any permission that lets you *act* on registrations automatically grants *viewing* them.
+
+Two rules the permission list follows, so you can predict it:
+- **A "view" permission never lets you change anything.** `scanlog:view` reads the log; `checkin:scan` is what admits someone or undoes a check-in. Give a back-office volunteer the first and a gate volunteer the second — they're deliberately independent.
+- **The permission matches what the action *does*, not where the button lives.** Downloading one person's QR sits in the registrations table but needs `qr:send`, because handing that PNG over issues a working pass.
 
 **Cancelling a registration is admin-only** — no volunteer permission grants it, not even `registrations:manage`.
 
@@ -296,7 +301,7 @@ A list of data problems, each with severity and examples. The Dashboard tab badg
 | **Oversold tier** | Seats held exceed capacity | Usually a manual add — decide whether to accommodate or move people |
 
 ### Launch Check
-14 go-live checks: Razorpay keys, webhook secret, session secret, at least one admin account, email key, email sender, WhatsApp, scanner PIN, site URL, an active event, at least one payable tier, checkpoints, and the two private storage buckets. **All should be green before you go live.**
+14 go-live checks: Razorpay keys, webhook secret, session secret, at least one admin account, email key, email sender, WhatsApp, **gate scanner access** (how many accounts can open `/scan`), site URL, an active event, at least one payable tier, checkpoints, and the two private storage buckets. **All should be green before you go live.**
 
 ### Analytics
 14-day trends for registrations, revenue and Seva; payment conversion; the enquiry funnel; tier fill; a Sales-by-Category table; and per-Seva sales/enquiry chips.
@@ -463,12 +468,15 @@ Kept separate from the ledger on purpose. Tabs: **New · Contacted · Payment Li
 2. **Wristband colours** — in the same panel, assign a colour to each Seva from the fixed palette (red, blue, green, yellow, orange, purple, pink, gold, white, black).
    > A fixed palette, not a colour picker — volunteers have to match these by eye under a tent.
 3. **Send QR passes** to everyone Paid (Registrations → select → Send QR). Check the Health panel for "unsent QRs".
-4. Make sure **`SCANNER_PIN`** is set and share it with gate staff.
+4. **Give each gate volunteer an account.** Settings → Admin Users → create them and tick **"Scan entry passes at the gate"** (`checkin:scan`). Admins can always scan.
+   > There is **no shared scanner PIN**. Each volunteer signs in as themselves, so you can see who was on which gate and revoke one person's access instantly — untick the permission and their next scan is refused, with no redeploy.
+5. Have each volunteer sign in on their own phone once, the day before, so you find any device problem early.
 
 ### Scanning
-1. Staff open **`/scan`** on any phone → enter the **PIN** → pick their **checkpoint** → the camera opens.
-2. Each device works independently; run as many as you like.
-3. Results:
+1. Staff open **`/scan`** on any phone → **sign in with their own username and password** → pick their **checkpoint** → the camera opens.
+2. Staying signed in: the page remembers the session for 8 hours, so refreshing or locking the phone does **not** force a re-login. If the session does end mid-shift, the page returns to the sign-in screen and says so — it never quietly reports bad scans.
+3. Each device works independently; run as many as you like.
+4. Results:
 
 | Result | Meaning | Action |
 |---|---|---|
@@ -479,11 +487,15 @@ Kept separate from the ledger on purpose. Tabs: **New · Contacted · Payment Li
 
 The result screen leads with the **Seva name in large type** and a **block in the wristband colour**.
 
-4. If a devotee opens their QR with a plain phone camera, they land on the **verification page** which shows the same thing plus **"Bands to give = N"**.
-5. No camera? An admin can do a **manual check-in** from the Scan Log.
+5. If a devotee opens their QR with a plain phone camera, they land on the **verification page** which shows the same thing plus **"Bands to give = N"**.
+6. No camera, or a QR that won't read? Do a **manual check-in** from the Scan Log (needs `checkin:scan`). It's tagged **MANUAL** in the log so it's distinguishable from a real scan.
 
 ### Scan Log
 See who's entered, at which checkpoint, and when. The Dashboard's **Checked In** tile counts unique people, as a percentage of Paid.
+
+**One entry per person per checkpoint.** A re-scan at the same gate reports "already scanned here" and records nothing new — so waving a QR twice can never inflate your attendance figures. The same person scanned at three different checkpoints is three rows, one per checkpoint, but still counts once as "checked in".
+
+**Wrong person scanned?** Use **Undo** on that row (needs `checkin:scan`). It removes the check-in so they can be scanned in again, and writes an audit entry. A volunteer with only `scanlog:view` sees the log but no Undo button — reading the log and admitting people are separate permissions on purpose.
 
 ---
 
@@ -630,7 +642,9 @@ You don't need the internals, but you do need to know the three layers, because 
 | **Email isn't arriving** | Settings → Templates & Config → Gateway → **Send test email**, then check the Message Log for the provider's error |
 | **A WhatsApp keeps failing** | Message Log → read the error. Usually an unapproved template name or an expired token |
 | **Give a volunteer access** | Settings → Admin Users → create → tick only what they need |
-| **Prepare for entry day** | Checkpoints → wristband colours → Send QR to all Paid → check Health has no unsent QRs → test one scan end-to-end |
+| **Set up a gate volunteer** | Settings → Admin Users → create → tick **"Scan entry passes at the gate"**. They sign in at `/scan` with that account |
+| **Remove someone's gate access** | Untick `checkin:scan` (or deactivate the account). Their next scan is refused immediately — no redeploy |
+| **Prepare for entry day** | Checkpoints → wristband colours → gate accounts created and tested → Send QR to all Paid → check Health has no unsent QRs → test one scan end-to-end |
 
 ---
 
@@ -644,6 +658,7 @@ You don't need the internals, but you do need to know the three layers, because 
 6. **Send QR passes early**, and re-check the "unsent QRs" health item afterwards.
 7. **Test a QR at the gate before the day** — especially after changing QR colours.
 8. **Keep at least two admin accounts.** Losing them all means nobody can log in.
+8b. **Give gate volunteers their own accounts, never a shared one.** That's the whole reason the shared scanner PIN was removed — you can see who was on which gate, and revoke one person without disturbing anyone else.
 9. **Manual adds override capacity on purpose** — and are recorded loudly. Check the oversold warning before promising a seat.
 10. **Anything you change is logged against your name.** That's a feature.
 </content>

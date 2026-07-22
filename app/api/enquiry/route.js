@@ -29,14 +29,17 @@ export async function POST(request) {
         if (!categoryId) return badRequest('Missing category.');
         if (!attendee || typeof attendee !== 'object') return badRequest('Missing attendee details.');
 
-        const required = ['firstName', 'lastName', 'email', 'phone', 'pincode'];
+        // Core fields only — everything else (incl. pincode) is decided per
+        // category by validateSubmission. See the note in /api/razorpay.
+        const required = ['firstName', 'lastName', 'email', 'phone'];
         for (const field of required) {
             if (!attendee[field] || String(attendee[field]).trim() === '') {
                 return badRequest(`Missing required field: ${field}.`);
             }
         }
         if (!/^\S+@\S+\.\S+$/.test(String(attendee.email))) return badRequest('Invalid email address.');
-        if (!/^\d{6}$/.test(String(attendee.pincode).trim())) return badRequest('Enter a valid 6-digit pincode.');
+        const pincodeIn = String(attendee.pincode ?? '').trim();
+        if (pincodeIn && !/^\d{6}$/.test(pincodeIn)) return badRequest('Enter a valid 6-digit pincode.');
 
         // Validate admin-configured required fields + sanitize custom field answers.
         const { error: fieldErr, customFields: cleanCustom } = await validateSubmission(supabaseAdmin, categoryId, attendee, customFields);

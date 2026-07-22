@@ -1,5 +1,14 @@
 // Marks a registration as scanned at a specific checkpoint.
-// Each scan inserts one row in the checkins table (full audit trail).
+//
+// AUTH: a signed-in account holding `checkin:scan` (admin always passes). There
+// is deliberately NO shared scanner PIN any more — a PIN in env can't be
+// attributed to a person, can't be revoked for one volunteer, and the old
+// session fallback (`requireAdmin: false`) let ANY authenticated user record an
+// entry. Gate staff now log in with their own account, exactly like the panel.
+//
+// ONE `checkins` row per registration + checkpoint. Re-scans at the same
+// checkpoint report DUPLICATE (with the prior count) and insert nothing, so the
+// table stays a clean "who came through where" record, not a raw scan feed.
 import { NextResponse } from 'next/server';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
@@ -9,17 +18,12 @@ import { BAND_COLORS } from '@/lib/appSettings';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request, { params }) {
+    const { response } = await authorize({ requirePermission: 'checkin:scan' });
+    if (response) return response;
+
     const { id } = await params;
     const body = await request.json().catch(() => ({}));
-    const { scannerPin, checkpointId, manual } = body;
-
-    // Accept scanner PIN (entry staff) OR admin/volunteer session.
-    const pinEnv = process.env.SCANNER_PIN;
-    const pinOk = pinEnv && scannerPin === pinEnv;
-    if (!pinOk) {
-        const { response } = await authorize({ requireAdmin: false });
-        if (response) return response;
-    }
+    const { checkpointId, manual } = body;
 
     if (!checkpointId) {
         return NextResponse.json({ status: 'INVALID', reason: 'no_checkpoint' });
@@ -55,8 +59,6 @@ export async function POST(request, { params }) {
 
     const isFirst = !existingCount || existingCount === 0;
 
-    // One check-in row per registration + checkpoint. Re-scans at the same
-    // checkpoint are reported as DUPLICATE but do NOT add another row.
     if (isFirst) {
         await supabaseAdmin.from('checkins').insert({ registration_id: id, checkpoint_id: checkpointId, manual: !!manual });
         return NextResponse.json({ status: 'NEW', reg, band });

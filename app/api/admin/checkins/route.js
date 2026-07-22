@@ -1,7 +1,11 @@
 // app/api/admin/checkins/route.js
 // Scan log: recent entry check-ins with the registrant's name + status and the
-// checkpoint they were scanned at. GET = any authenticated role.
-// DELETE = undo a check-in (wrong person scanned) — needs scanlog:view.
+// checkpoint they were scanned at.
+//   GET    = read the log            → `scanlog:view`
+//   DELETE = undo a check-in         → `checkin:scan`
+// Deliberately different permissions: undoing lets someone walk back through the
+// gate, so it belongs to whoever is trusted to admit people — not to a read-only
+// role. A *view* permission must never authorise a delete.
 import { NextResponse } from 'next/server';
 import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
@@ -42,7 +46,7 @@ export async function GET(request) {
 // Undo a check-in — removes the row so the person can be scanned in again
 // (wrong person / mistaken tap). Frees them from the "already scanned" state.
 export async function DELETE(request) {
-    const { response, session } = await authorize({ requirePermission: 'scanlog:view' });
+    const { response, session } = await authorize({ requirePermission: 'checkin:scan' });
     if (response) return response;
 
     const { id } = await request.json().catch(() => ({}));

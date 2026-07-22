@@ -17,8 +17,13 @@ import { revalidatePublic } from '@/lib/revalidate';
 
 export const dynamic = 'force-dynamic';
 
+// Gated on `settings:manage` — the same permission that opens the Settings tab,
+// and every consumer of this route is a panel behind it. It carries the bank
+// account / UPI details, the contact record and all message templates, so a
+// volunteer with only (say) `scanlog:view` had no business reading it.
+// Public readers have their own narrow routes (/api/declaration, /api/seva-categories).
 export async function GET() {
-    const { response } = await authorize();
+    const { response } = await authorize({ requirePermission: 'settings:manage' });
     if (response) return response;
 
     const { data } = await supabaseAdmin

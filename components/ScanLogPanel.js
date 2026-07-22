@@ -19,9 +19,12 @@ function nameOf(reg) {
 }
 
 /**
- * @param {{ checkpoints?: any[] }} props
+ * `canUndo` mirrors the server: undoing a check-in needs `checkin:scan`, not the
+ * read-only `scanlog:view` that opens this panel. Without it the column is hidden
+ * rather than shown-and-403ing.
+ * @param {{ checkpoints?: any[], canUndo?: boolean }} props
  */
-export default function ScanLogPanel({ checkpoints = [] }) {
+export default function ScanLogPanel({ checkpoints = [], canUndo = false }) {
     const [checkpointId, setCheckpointId] = useState("all");
     const [q, setQ] = useState("");
     const [rows, setRows] = useState([]);
@@ -101,13 +104,13 @@ export default function ScanLogPanel({ checkpoints = [] }) {
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm whitespace-nowrap">
                         <thead className="bg-neutral-100 text-neutral-600 font-medium border-b border-neutral-200">
-                            <tr><th className="px-5 py-3">Name</th><th className="px-5 py-3">Category</th><th className="px-5 py-3">Checkpoint</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Scanned At</th><th className="px-5 py-3 text-right">Undo</th></tr>
+                            <tr><th className="px-5 py-3">Name</th><th className="px-5 py-3">Category</th><th className="px-5 py-3">Checkpoint</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Scanned At</th>{canUndo && <th className="px-5 py-3 text-right">Undo</th>}</tr>
                         </thead>
                         <tbody className="divide-y divide-neutral-100">
                             {loading ? (
-                                <tr><td colSpan={6} className="px-5 py-8 text-center text-neutral-400">Loading scans…</td></tr>
+                                <tr><td colSpan={canUndo ? 6 : 5} className="px-5 py-8 text-center text-neutral-400">Loading scans…</td></tr>
                             ) : filtered.length === 0 ? (
-                                <tr><td colSpan={6} className="px-5 py-8 text-center text-neutral-400">No scans yet.</td></tr>
+                                <tr><td colSpan={canUndo ? 6 : 5} className="px-5 py-8 text-center text-neutral-400">No scans yet.</td></tr>
                             ) : paged.map((c) => (
                                 <tr key={c.id} className="hover:bg-neutral-50 transition">
                                     <td className="px-5 py-3 font-medium text-neutral-900">{nameOf(c.registrations)}<div className="text-xs font-normal text-neutral-400">{c.registrations?.phone}</div></td>
@@ -119,9 +122,11 @@ export default function ScanLogPanel({ checkpoints = [] }) {
                                         </span>
                                     </td>
                                     <td className="px-5 py-3 text-neutral-500">{new Date(c.scanned_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
-                                    <td className="px-5 py-3 text-right">
-                                        <button onClick={() => undo(c)} disabled={undoingId === c.id} className="inline-flex items-center gap-1 px-2 py-1 border border-neutral-200 rounded-lg text-xs font-semibold text-neutral-500 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition disabled:opacity-50" title="Undo this check-in"><Undo2 className="w-3.5 h-3.5" /> Undo</button>
-                                    </td>
+                                    {canUndo && (
+                                        <td className="px-5 py-3 text-right">
+                                            <button onClick={() => undo(c)} disabled={undoingId === c.id} className="inline-flex items-center gap-1 px-2 py-1 border border-neutral-200 rounded-lg text-xs font-semibold text-neutral-500 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition disabled:opacity-50" title="Undo this check-in"><Undo2 className="w-3.5 h-3.5" /> Undo</button>
+                                        </td>
+                                    )}
                                 </tr>
                             ))}
                         </tbody>

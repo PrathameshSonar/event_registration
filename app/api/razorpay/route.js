@@ -40,14 +40,22 @@ export async function POST(request) {
         if (!categoryId) return badRequest('Missing category.');
         if (!attendee || typeof attendee !== 'object') return badRequest('Missing attendee details.');
 
-        const required = ['firstName', 'lastName', 'email', 'phone', 'pincode'];
+        // Only the CORE fields are hardcoded here — they are the ones payment,
+        // the ticket and the QR pass structurally depend on, and they can't be
+        // switched off in Form Fields either. EVERY other field (pincode, gotra,
+        // DOB, …) is admin-configurable, so whether it's required is decided by
+        // `validateSubmission` below against that category's settings. Hardcoding
+        // one of them here would silently override the admin's toggle.
+        const required = ['firstName', 'lastName', 'email', 'phone'];
         for (const field of required) {
             if (!attendee[field] || String(attendee[field]).trim() === '') {
                 return badRequest(`Missing required field: ${field}.`);
             }
         }
         if (!/^\S+@\S+\.\S+$/.test(String(attendee.email))) return badRequest('Invalid email address.');
-        if (!/^\d{6}$/.test(String(attendee.pincode).trim())) return badRequest('Enter a valid 6-digit pincode.');
+        // Format check only when a value was supplied — presence is the admin's call.
+        const pincodeIn = String(attendee.pincode ?? '').trim();
+        if (pincodeIn && !/^\d{6}$/.test(pincodeIn)) return badRequest('Enter a valid 6-digit pincode.');
 
         // Validate admin-configured required fields + sanitize custom field answers.
         const { error: fieldErr, customFields: cleanCustom } = await validateSubmission(supabaseAdmin, categoryId, attendee, customFields);

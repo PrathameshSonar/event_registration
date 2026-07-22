@@ -847,7 +847,7 @@ export default function AdminDashboard() {
     const renderRowActions = (reg: Registration) => (
         <div className="flex items-center gap-2">
             <button onClick={() => setSelectedRegistration(reg)} className="p-2 border border-neutral-200 rounded-lg bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition shadow-sm" title="View details"><Eye className="w-4 h-4" /></button>
-            {reg.payment_status === 'completed' && (
+            {can('qr:send') && reg.payment_status === 'completed' && (
                 <a href={`/api/admin/qr/${reg.id}`} className="p-2 border border-neutral-200 rounded-lg bg-white hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition shadow-sm" title="Download QR Code"><QrCode className="w-4 h-4" /></a>
             )}
             {can('registrations:manage') && reg.payment_status === 'completed' && (reg.ticket_email_status === 'failed' || reg.ticket_wa_status === 'failed') && (
@@ -1381,8 +1381,10 @@ export default function AdminDashboard() {
                 {effectiveTab === 'scanlog' && (
                     <div className="space-y-6">
                         <EventOpsPanel />
-                        <ManualCheckin registrations={registrations} checkpoints={checkpointsList} onCheckedIn={refreshRegistrations} />
-                        <ScanLogPanel checkpoints={checkpointsList} />
+                        {/* Manual check-in admits someone, so it needs the gate
+                            permission — not merely the right to read the log. */}
+                        {can('checkin:scan') && <ManualCheckin registrations={registrations} checkpoints={checkpointsList} onCheckedIn={refreshRegistrations} />}
+                        <ScanLogPanel checkpoints={checkpointsList} canUndo={can('checkin:scan')} />
                     </div>
                 )}
 

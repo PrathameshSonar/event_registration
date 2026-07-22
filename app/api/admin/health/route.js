@@ -17,12 +17,16 @@ export async function GET() {
     const { response } = await authorize({ requireAdmin: true });
     if (response) return response;
 
-    const [regRes, catRes, evRes, cpRes, adminRes] = await Promise.all([
+    const [regRes, catRes, evRes, cpRes, adminRes, scannerRes] = await Promise.all([
         supabaseAdmin.from('registrations').select('id, first_name, last_name, phone, payment_status, amount_paid, amount_due, total_amount, category_id, attendees_count, balance_link_url, qr_sent_at, ticket_email_status, ticket_wa_status, created_at, payment_method, razorpay_payment_id'),
         supabaseAdmin.from('categories').select('id, title, price, max_capacity, is_enquiry_only'),
         supabaseAdmin.from('events').select('id, title, is_active'),
         supabaseAdmin.from('checkpoints').select('id, name'),
         supabaseAdmin.from('admin_users').select('id', { count: 'exact', head: true }).eq('role', 'admin').eq('active', true),
+        // Who can actually work the gate: every admin, plus volunteers holding
+        // `checkin:scan`. Replaces the old "is SCANNER_PIN set?" check — the
+        // shared PIN is gone, so "can anyone scan?" is now an account question.
+        supabaseAdmin.from('admin_users').select('role, permissions').eq('active', true),
     ]);
     const regs = regRes.data || [];
     const cats = catRes.data || [];
@@ -103,7 +107,10 @@ export async function GET() {
     check(emailConfigured(), 'Email API key', 'EMAIL_API_KEY set (or the legacy RESEND_API_KEY)');
     check(process.env.EMAIL_FROM || process.env.RESEND_FROM, 'Email sender', 'EMAIL_FROM set (must be a verified domain sender)');
     check(waConfigured(), 'WhatsApp API', 'WHATSAPP_API_URL + WHATSAPP_ACCESS_TOKEN set');
-    check(process.env.SCANNER_PIN, 'Scanner PIN', 'SCANNER_PIN set for gate staff');
+    const scanners = (scannerRes.data || []).filter(
+        (u) => u.role === 'admin' || (Array.isArray(u.permissions) && u.permissions.includes('checkin:scan'))
+    ).length;
+    check(scanners > 0, 'Gate scanner access', `${scanners} account(s) can open /scan — admins, plus volunteers with “Scan entry passes at the gate”`);
     check(process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_VERCEL_URL, 'Site URL', 'NEXT_PUBLIC_SITE_URL set (used in payment links)');
 
     const activeEvent = (evRes.data || []).find((e) => e.is_active);

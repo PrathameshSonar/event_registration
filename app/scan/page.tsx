@@ -1,8 +1,12 @@
 // app/scan/page.tsx
-// Entry-staff QR scanner with PIN auth and per-checkpoint tracking.
-// Set SCANNER_PIN env var on Vercel; share with staff on event day.
+// Entry-staff QR scanner with per-checkpoint tracking.
 //
-// Flow: PIN → Checkpoint selection → Camera scanning
+// AUTH: the same named accounts as the admin panel. A volunteer needs the
+// `checkin:scan` permission (admin always has it). The old shared SCANNER_PIN is
+// gone — it couldn't be attributed to a person, couldn't be revoked for one
+// volunteer, and it lived in env where rotating it meant a redeploy.
+//
+// Flow: sign in → checkpoint selection → camera scanning
 // Each kiosk (Entry, Lunch Day 1, etc.) runs this page independently.
 'use client';
 
@@ -50,10 +54,22 @@ function fmt(d: Date) {
 
 const QR_READER_ID = 'bbmah-qr-reader';
 
+/** Does this session hold the gate-scanning permission? Admin always does. */
+function canScan(s: { role?: string; permissions?: string[] } | null) {
+    if (!s) return false;
+    return s.role === 'admin' || (s.permissions || []).includes('checkin:scan');
+}
+
 export default function ScanPage() {
-    const [pin, setPin] = useState('');
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
     const [authed, setAuthed] = useState(false);
-    const [pinError, setPinError] = useState('');
+    const [who, setWho] = useState('');
+    const [loginError, setLoginError] = useState('');
+    const [signingIn, setSigningIn] = useState(false);
+    // null = still checking the cookie on mount; avoids flashing the login form
+    // at a volunteer who is already signed in.
+    const [sessionChecked, setSessionChecked] = useState(false);
 
     const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
     const [selectedCheckpoint, setSelectedCheckpoint] = useState<Checkpoint | null>(null);
@@ -69,8 +85,47 @@ export default function ScanPage() {
 
     const lockRef = useRef(false);
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const storedPinRef = useRef('');
     const scannerRef = useRef<any>(null);
+
+    const loadCheckpoints = useCallback(async () => {
+        setLoadingCheckpoints(true);
+        try {
+            const cpRes = await fetch('/api/checkpoints');
+            const cpData = await cpRes.json().catch(() => ({ checkpoints: [] }));
+            setCheckpoints(cpData.checkpoints || []);
+        } catch {
+            setCheckpoints([]);
+        }
+        setLoadingCheckpoints(false);
+    }, []);
+
+    // Rehydrate from the httpOnly session cookie so a mid-event page refresh (or
+    // a phone locking itself) doesn't force the volunteer to sign in again.
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await fetch('/api/admin/session');
+                if (res.ok) {
+                    const s = await res.json();
+                    if (canScan(s)) {
+                        setAuthed(true);
+                        setWho(s.name || s.role || '');
+                        await loadCheckpoints();
+                    }
+                }
+            } catch { /* stay on the login screen */ }
+            setSessionChecked(true);
+        })();
+    }, [loadCheckpoints]);
+
+    const signOut = useCallback(async () => {
+        try { await fetch('/api/admin/logout', { method: 'POST' }); } catch { /* ignore */ }
+        scannerRef.current?.stop().catch(() => {});
+        scannerRef.current = null;
+        setAuthed(false); setWho(''); setSelectedCheckpoint(null);
+        setCheckpoints([]); setHistory([]); setResult(null);
+        setUsername(''); setPassword('');
+    }, []);
 
     const handleResult = useCallback((res: CheckInResult) => {
         setResult(res);
@@ -92,13 +147,21 @@ export default function ScanPage() {
             const res = await fetch(`/api/checkin/${match[1]}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ scannerPin: storedPinRef.current, checkpointId: selectedCheckpoint.id }),
+                body: JSON.stringify({ checkpointId: selectedCheckpoint.id }),
             });
+            // The 8h session expired mid-shift (or access was revoked) — drop back
+            // to the login screen rather than silently reporting INVALID scans.
+            if (res.status === 401 || res.status === 403) {
+                lockRef.current = false;
+                await signOut();
+                setLoginError('Your session ended. Please sign in again.');
+                return;
+            }
             handleResult(await res.json());
         } catch {
             handleResult({ status: 'INVALID' });
         }
-    }, [handleResult, selectedCheckpoint]);
+    }, [handleResult, selectedCheckpoint, signOut]);
 
     const startCamera = useCallback(async () => {
         setCameraError('');
@@ -140,26 +203,39 @@ export default function ScanPage() {
         };
     }, [authed, selectedCheckpoint, startCamera]);
 
-    const handlePin = async (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        setPinError('');
-        const res = await fetch('/api/checkin/verify-pin', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pin }),
-        });
-        if (res.ok) {
-            storedPinRef.current = pin;
-            setAuthed(true);
-            setLoadingCheckpoints(true);
-            const cpRes = await fetch('/api/checkpoints');
-            const cpData = await cpRes.json().catch(() => ({ checkpoints: [] }));
-            setCheckpoints(cpData.checkpoints || []);
-            setLoadingCheckpoints(false);
-        } else {
+        setLoginError('');
+        setSigningIn(true);
+        try {
+            const res = await fetch('/api/admin/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password }),
+            });
             const data = await res.json().catch(() => ({}));
-            setPinError(data.error || 'Wrong PIN');
-            setPin('');
+            if (!res.ok) {
+                setLoginError(data.error || 'Incorrect username or password.');
+                setPassword('');
+                return;
+            }
+            // Signed in, but this account isn't allowed to admit people. Say so
+            // plainly instead of failing later on the first scan — and end the
+            // session so the scanner kiosk isn't left holding a live cookie.
+            if (!canScan(data)) {
+                await fetch('/api/admin/logout', { method: 'POST' }).catch(() => {});
+                setLoginError('This account cannot scan entry passes. Ask an admin to enable “Scan entry passes at the gate”.');
+                setPassword('');
+                return;
+            }
+            setAuthed(true);
+            setWho(data.name || data.role || '');
+            setPassword('');
+            await loadCheckpoints();
+        } catch {
+            setLoginError('Network error. Check the connection and try again.');
+        } finally {
+            setSigningIn(false);
         }
     };
 
@@ -176,29 +252,46 @@ export default function ScanPage() {
         a.click();
     };
 
-    // ── PIN screen ───────────────────────────────────────────────────────────
+    // ── Sign-in screen ───────────────────────────────────────────────────────
     if (!authed) {
+        if (!sessionChecked) {
+            return (
+                <main className="min-h-screen bg-neutral-900 flex items-center justify-center p-6">
+                    <p className="text-neutral-400 text-sm animate-pulse">Checking your session…</p>
+                </main>
+            );
+        }
         return (
             <main className="min-h-screen bg-neutral-900 flex items-center justify-center p-6">
                 <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-2xl">
                     <div className="text-center mb-6">
                         <p className="text-orange-600 font-bold text-xs uppercase tracking-widest">Entry Scanner</p>
                         <h1 className="text-2xl font-black text-neutral-900 mt-1">BaglaBhairav</h1>
-                        <p className="text-sm text-neutral-500 mt-2">Enter the scanner PIN provided by the organiser</p>
+                        <p className="text-sm text-neutral-500 mt-2">Sign in with your own account</p>
                     </div>
-                    <form onSubmit={handlePin} className="space-y-4">
+                    <form onSubmit={handleLogin} className="space-y-3">
+                        <input
+                            type="text"
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            autoComplete="username"
+                            value={username}
+                            onChange={e => setUsername(e.target.value)}
+                            placeholder="Username"
+                            autoFocus
+                            className="w-full border-2 border-neutral-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-orange-500"
+                        />
                         <input
                             type="password"
-                            inputMode="numeric"
-                            value={pin}
-                            onChange={e => setPin(e.target.value)}
-                            placeholder="• • • • • •"
-                            autoFocus
-                            className="w-full text-center text-3xl font-bold tracking-widest border-2 border-neutral-200 rounded-xl py-4 focus:outline-none focus:border-orange-500"
+                            autoComplete="current-password"
+                            value={password}
+                            onChange={e => setPassword(e.target.value)}
+                            placeholder="Password"
+                            className="w-full border-2 border-neutral-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-orange-500"
                         />
-                        {pinError && <p className="text-red-600 text-sm text-center">{pinError}</p>}
-                        <button type="submit" disabled={!pin} className="w-full bg-orange-600 disabled:bg-neutral-200 disabled:text-neutral-400 text-white font-bold py-3 rounded-xl hover:bg-orange-700 transition">
-                            Continue
+                        {loginError && <p className="text-red-600 text-sm text-center leading-snug">{loginError}</p>}
+                        <button type="submit" disabled={!username || !password || signingIn} className="w-full bg-orange-600 disabled:bg-neutral-200 disabled:text-neutral-400 text-white font-bold py-3 rounded-xl hover:bg-orange-700 transition">
+                            {signingIn ? 'Signing in…' : 'Sign in'}
                         </button>
                     </form>
                     <p className="mt-5 text-center text-xs text-neutral-400 leading-relaxed">
@@ -240,8 +333,8 @@ export default function ScanPage() {
                             ))}
                         </div>
                     )}
-                    <button onClick={() => { setAuthed(false); setPin(''); }} className="mt-6 w-full text-xs text-neutral-400 hover:text-neutral-600 transition">
-                        ← Change PIN
+                    <button onClick={signOut} className="mt-6 w-full text-xs text-neutral-400 hover:text-neutral-600 transition">
+                        {who ? `Signed in as ${who} — sign out` : 'Sign out'}
                     </button>
                 </div>
             </main>

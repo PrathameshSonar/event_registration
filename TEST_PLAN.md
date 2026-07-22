@@ -118,7 +118,7 @@
 
 | # | Scenario |
 |---|---|
-| 41 | Open **`/scan`** → enter `SCANNER_PIN` → choose checkpoint → camera |
+| 41 | Open **`/scan`** → **sign in with a named account holding `checkin:scan`** → choose checkpoint → camera |
 | 42 | Scan a **paid** pass → **NEW** — green, Seva name large, wristband colour block, beep |
 | 43 | Re-scan at the **same** checkpoint → **DUPLICATE** + prior count |
 | 44 | Scan the same pass at a **different** checkpoint → **NEW** again |
@@ -140,7 +140,7 @@
 | 52 | Wrong password / unknown user / deactivated user → rejected |
 | 53 | Session expires (8h) → back to login |
 | 54 | Log out |
-| 55 | Volunteer sees only the tabs/panels their permissions allow (12 permissions) |
+| 55 | Volunteer sees only the tabs/panels their permissions allow (**13 permissions**, incl. `checkin:scan`) |
 | 56 | Break-glass: `npm run create-admin` re-creates/resets an account |
 
 ### A3.2 Dashboard
@@ -245,7 +245,9 @@ Each case: **ID | Title | Pre-conditions | Steps | Expected**.
 | ENV-02 | Migration idempotency | Run `supabase/run_all.sql` **twice** | Second run completes with no error (regression: `day_label_hi` crash) | P0 |
 | ENV-03 | Buckets exist | Supabase → Storage | `qr-codes` (private), `payment-proofs` (private), `admin-docs` (private), `event-media` (public) | P0 |
 | ENV-04 | service_role grants | Insert into `admin_audit_logs`, `message_log`, `media_library`, `sponsors`, `registration_notes` via app | No silent failures; rows appear | P0 |
-| ENV-05 | Env vars complete | Admin → Dashboard → Launch Check | All 14 checks green (Razorpay keys, webhook secret, SESSION_SECRET, ≥1 admin account, email key, email sender, WhatsApp, SCANNER_PIN, SITE_URL, active event, payable tier, checkpoints, qr-codes bucket, payment-proofs bucket) | P0 |
+| ENV-05 | Env vars complete | Admin → Dashboard → Launch Check | All 14 checks green (Razorpay keys, webhook secret, SESSION_SECRET, ≥1 admin account, email key, email sender, WhatsApp, **Gate scanner access**, SITE_URL, active event, payable tier, checkpoints, qr-codes bucket, payment-proofs bucket) | P0 |
+| ENV-05a | Gate scanner access check | Remove `checkin:scan` from every volunteer, keep 1 admin | Launch Check | Green, reporting the admin count — an admin can always scan | P1 |
+| ENV-05b | No leftover SCANNER_PIN | Grep the repo + Vercel env | No `SCANNER_PIN` reference remains; the launch check no longer mentions it | P1 |
 | ENV-06 | `NEXT_PUBLIC_SITE_URL` correct in prod | Trigger a QR send | Links point to the production domain, **not** `localhost:3000` | P0 |
 | ENV-07 | Email DC matches token | Settings → Templates & Config → Gateway → Send test email | Email arrives; no 401 (India `api.zeptomail.in` vs `.com`) | P0 |
 | ENV-08 | Razorpay test vs live | Gateway status panel | Correctly reports test/live from key prefix; key id masked; secret never returned | P0 |
@@ -326,7 +328,10 @@ Each case: **ID | Title | Pre-conditions | Steps | Expected**.
 |---|---|---|---|---|---|
 | PUB-REG-20 | Core fields always present | Any tier | Open form | firstName, lastName, phone, email always visible + required; cannot be hidden from admin | P0 |
 | PUB-REG-21 | Optional built-ins toggle | Hide `gotra` for a tier | Reload form | Gotra absent for that tier, present for others | P0 |
-| PUB-REG-22 | Required toggle | Mark `pincode` optional | Submit without it | Accepted (note: `/api/razorpay` **also hard-requires pincode** — see DEV-02) | P1 |
+| PUB-REG-22 | Required toggle honoured | Mark `pincode` **optional** for a tier | Submit with pincode blank | **Accepted** — online, offline and enquiry paths alike (regression: all three used to hard-require it) | P0 |
+| PUB-REG-22a | Hidden field honoured | **Hide** `pincode` for a tier | Open the form | Field not rendered; submit succeeds; taluka/state simply aren't auto-filled | P0 |
+| PUB-REG-22b | Required toggle still enforced | Mark `pincode` **required** | Submit blank | Rejected client-side **and** server-side (`validateSubmission`) | P0 |
+| PUB-REG-22c | Only core fields are hardcoded | Try to hide/optional-ise firstName, lastName, email, phone | Not possible in Form Fields; the submit routes also reject a blank one | P0 |
 | PUB-REG-23 | Field order | Reorder fields | Reload | Rendered in the configured order | P1 |
 | PUB-REG-24 | Custom text field | Add custom text field, opt tier in | Fill and submit | Value lands in `registrations.custom_fields` | P0 |
 | PUB-REG-25 | Custom number/date/select/textarea | Add one of each | Submit | All stored correctly; select only accepts listed options | P1 |
@@ -343,7 +348,9 @@ Each case: **ID | Title | Pre-conditions | Steps | Expected**.
 | PUB-REG-42 | Phone with prefixes | `+919876543210`, `09876543210`, `919876543210` | All normalized and accepted | P0 |
 | PUB-REG-43 | Phone invalid | `1234567890`, `98765`, `98765432101`, `abcdefghij` | Rejected — "valid 10-digit Indian number" | P0 |
 | PUB-REG-44 | Phone stored E.164 | Register with `07264810290` | DB stores `+917264810290`; matches `profiles.phone` | P0 |
-| PUB-REG-45 | Pincode | `12345`, `1234567`, `abc123` | Rejected — 6-digit required | P0 |
+| PUB-REG-45 | Pincode format (value present) | `12345`, `1234567`, `abc123` | Rejected — "Enter a valid 6-digit pincode." — **whether or not the field is marked required** | P0 |
+| PUB-REG-45a | Pincode blank + optional | Leave blank on a tier where it's optional | Accepted; stored NULL | P0 |
+| PUB-REG-45b | Pincode autofill | Enter a valid 6-digit PIN | Taluka + state auto-fill | P1 |
 | PUB-REG-46 | DOB future | Tomorrow's date | Rejected — "cannot be a future date" | P0 |
 | PUB-REG-47 | Age below min | `min_age=18`, DOB gives 17 | Rejected with the tier's age message (client **and** server) | P0 |
 | PUB-REG-48 | Age above max | `max_age=60`, DOB gives 65 | Rejected | P0 |
@@ -576,12 +583,23 @@ Each case: **ID | Title | Pre-conditions | Steps | Expected**.
 
 | ID | Title | Pre-conditions | Steps | Expected | Pri |
 |---|---|---|---|---|---|
-| SCAN-01 | PIN gate | `/scan` | Enter wrong PIN | Rejected | P0 |
-| SCAN-02 | PIN accepted | Correct `SCANNER_PIN` | Checkpoint picker appears | P0 |
+> **Auth model changed 2026-07-22.** `/scan` is no longer PIN-protected — it signs in with the same named `admin_users` accounts as the admin panel and requires the **`checkin:scan`** permission. `SCANNER_PIN` and `/api/checkin/verify-pin` no longer exist.
+
+| SCAN-01 | Wrong credentials | `/scan` | Enter a bad username/password | Rejected with "Incorrect username or password."; IP throttle applies after 5 fails | P0 |
+| SCAN-02 | Valid gate account | Volunteer with `checkin:scan` | Sign in | Checkpoint picker appears; footer shows "Signed in as \<name\>" | P0 |
+| SCAN-02a | Account without the permission | Volunteer with only `scanlog:view` | Sign in at `/scan` | Refused: "This account cannot scan entry passes…" **and** the session is ended (cookie cleared) — verify `/admin` also requires a fresh login | P0 |
+| SCAN-02b | Admin always passes | Admin account | Sign in | Allowed without any permission ticked | P0 |
+| SCAN-02c | Session rehydrate | Signed in, mid-shift | Refresh the page / lock and unlock the phone | Returns straight to the checkpoint picker — **no re-login** (shows "Checking your session…" briefly) | P0 |
+| SCAN-02d | Session expiry mid-shift | Signed in; expire the cookie (or deactivate the account), then scan | Scan | Drops back to the sign-in screen with "Your session ended. Please sign in again." — **not** a phantom `INVALID` | P0 |
+| SCAN-02e | Sign out | Click "Signed in as … — sign out" | Session destroyed; back to sign-in; camera stopped | P1 |
+| SCAN-02f | PIN is really gone | Grep the repo / set a `SCANNER_PIN` env var and try it | No PIN field exists; `/api/checkin/verify-pin` returns 404 | P0 |
 | SCAN-03 | Checkpoint list | Active + inactive checkpoints exist | Picker | Only active ones listed, in `sort_order` | P0 |
+| SCAN-03a | Checkpoints not public | Log out entirely | `GET /api/checkpoints` | **401** (no longer a public endpoint) | P0 |
+| SCAN-03b | Checkpoints permission | Volunteer without `checkin:scan` | `GET /api/checkpoints` | 403 | P0 |
 | SCAN-04 | No checkpoint chosen | `POST /api/checkin/[id]` without `checkpointId` | `INVALID` / `no_checkpoint` | P1 |
 | SCAN-05 | First scan | Paid reg, checkpoint A | Scan | **NEW**; `checkins` row inserted; beep; green banner | P0 |
-| SCAN-06 | Duplicate scan | Same reg + checkpoint A again | Scan | **DUPLICATE** + count; **no second row inserted** (see DEV-01) | P0 |
+| SCAN-06 | Duplicate scan | Same reg + checkpoint A again | Scan | **DUPLICATE** + count; **no second row inserted** — verify in the DB that `checkins` still has exactly 1 row for that reg+checkpoint | P0 |
+| SCAN-06a | Count is not inflated | Scan the same pass 5× at checkpoint A | Dashboard **Checked In** tile + Scan Log | Counted **once**; Scan Log shows one row | P0 |
 | SCAN-07 | Second checkpoint | Same reg, checkpoint B | Scan | **NEW** again | P0 |
 | SCAN-08 | Unpaid | `pending`/`advance_paid`/`payment_review` reg | Scan | **NOT_PAID** | P0 |
 | SCAN-09 | Cancelled | Cancelled reg | Scan | **NOT_PAID** (pass void) | P0 |
@@ -595,11 +613,15 @@ Each case: **ID | Title | Pre-conditions | Steps | Expected**.
 | SCAN-17 | `/entry/[id]` valid | Paid reg | Open in a phone camera | VALID green, name, gotra, Seva (large), band, **Bands to give = attendees**, amount, phone, payment ref | P0 |
 | SCAN-18 | `/entry/[id]` invalid | Unpaid reg | Open | INVALID + the actual status | P0 |
 | SCAN-19 | Multi-kiosk | Two devices, different checkpoints | Scan the same pass on both | Each records NEW independently | P1 |
-| SCAN-20 | Session instead of PIN | Logged-in admin, no PIN | `POST /api/checkin/[id]` | Accepted (see SEC-12 for the RBAC note) | P1 |
+| SCAN-20 | Check-in RBAC | Volunteer with **zero** permissions, logged in | `POST /api/checkin/[id]` | **403** (regression: used to be accepted by `requireAdmin:false`) | P0 |
+| SCAN-20a | Unauthenticated check-in | No session | `POST /api/checkin/[id]` | 401 | P0 |
 | SCAN-21 | Camera denied | Deny permission | Clear message + fallback (manual entry) | P1 |
 | SCAN-22 | Offline network | Drop network mid-scan | Error surfaced, no silent false NEW | P1 |
 | SCAN-23 | Scan speed | 20 scans in a row | Each resolves <2s; no UI lock-up | P1 |
 | SCAN-24 | QR contrast config | Set low-contrast/inverted QR colours | Regenerate + scan | **Known risk** — verify the QR still scans at the gate before going live | P0 |
+| SCAN-25 | Manual check-in gating | Volunteer with `scanlog:view` only | Open Scan Log | **Manual check-in block hidden**; **Undo column hidden**; `DELETE /api/admin/checkins` 403s if forced | P0 |
+| SCAN-26 | Undo permitted | Volunteer with `checkin:scan` | Undo a check-in | Row removed; person can be scanned in again; `checkin.undo` audit entry written | P0 |
+| SCAN-27 | Manual check-in permitted | Same volunteer | Manual check-in a paid reg | Row inserted with `manual=true`; MANUAL tag in the Scan Log | P1 |
 
 ---
 
@@ -627,20 +649,26 @@ Each case: **ID | Title | Pre-conditions | Steps | Expected**.
 | ADM-RBAC-02 | `dashboard:view` | Dashboard tiles (server-computed, no PII) | `registrations` array is `[]`; no analytics rows | P0 |
 | ADM-RBAC-03 | `registrations:view` | Registrations tab, read-only | Cannot change status, verify, refund, cancel | P0 |
 | ADM-RBAC-04 | `registrations:manage` | Add/edit/status (implies `registrations:view`) | **Cannot cancel** (admin-only) | P0 |
-| ADM-RBAC-05 | `qr:send` | Send QR (implies view) | Cannot verify payments | P0 |
+| ADM-RBAC-05 | `qr:send` | Bulk Send QR **and** the per-row QR download (implies view) | Cannot verify payments | P0 |
+| ADM-RBAC-05a | `registrations:view` only | Rows visible | **QR download icon hidden**; `GET /api/admin/qr/[id]` **403** (regression: was `registrations:view`) | P0 |
 | ADM-RBAC-06 | `export:data` | Exports (implies view) | Cannot mutate | P1 |
 | ADM-RBAC-07 | `payments:verify` | Approve/reject/cheque/record/reconcile, Sync all, payment proofs, adjust donation | Cannot refund | P0 |
 | ADM-RBAC-08 | `payments:refund` | Refund / reverse | Cannot verify offline | P0 |
 | ADM-RBAC-09 | `reminders:send` | Balance reminders, message-log resend | Cannot read the message log without `audit:view` | P1 |
 | ADM-RBAC-10 | `enquiries:manage` | Enquiries tab, notes, request payment, close/reopen | Ledger actions blocked | P0 |
-| ADM-RBAC-11 | `scanlog:view` | Scan Log tab + `checkedInRegs` stat | `/api/admin/checkins` blocked without it | P0 |
+| ADM-RBAC-11 | `scanlog:view` | Scan Log tab (read-only) + `checkedInRegs` stat | `GET /api/admin/checkins` blocked without it; **Undo column + Manual check-in hidden**; `DELETE` 403s | P0 |
+| ADM-RBAC-11a | `checkin:scan` | Opens `/scan`; `GET /api/checkpoints`; records check-ins; Undo + Manual check-in | Cannot read the Scan Log without `scanlog:view` | P0 |
 | ADM-RBAC-12 | `audit:view` | Audit tab + Message Log sub-tab | Message Log sub-tab **hidden** if they have `settings:manage` but not `audit:view` | P0 |
-| ADM-RBAC-13 | `settings:manage` | All Settings panels except Message Log; `donations` stats | Cannot cancel/refund | P0 |
+| ADM-RBAC-13 | `settings:manage` | All Settings panels except Message Log; `donations` stats; `GET /api/admin/app-settings` | Cannot cancel/refund | P0 |
+| ADM-RBAC-13a | app-settings is not open | Volunteer **without** `settings:manage` (e.g. `checkin:scan` only) | `GET /api/admin/app-settings` | **403** — no bank/UPI details, contact record or message templates leak (regression: was any authenticated) | P0 |
 | ADM-RBAC-14 | Admin role | Everything, always | — | P0 |
 | ADM-RBAC-15 | Implied permissions | Grant only `qr:send` | `registrations:view` auto-granted | P1 |
 | ADM-RBAC-16 | Unknown permission key | Save a volunteer with a bogus key | Dropped silently, no crash | P2 |
 | ADM-RBAC-17 | PII boundary (the real one) | Volunteer without `registrations:view` calls `/api/admin/data` directly | `registrations: []` — the tab-hide is cosmetic, this is the guard | P0 |
-| ADM-RBAC-18 | Every admin route guarded | Call all 40+ `/api/admin/*` routes unauthenticated | Every one 401/403 | P0 |
+| ADM-RBAC-18 | Every admin route guarded | Call all 60+ `/api/admin/*` verbs unauthenticated | Every one 401 (only `login`, `logout`, `session` are unguarded by design, and `session` returns only the caller's own role/name/permissions) | P0 |
+| ADM-RBAC-19 | No `:view` grants a write | Review every route's `authorize()` | No route accepts a `*:view` permission for a POST/PATCH/DELETE | P0 |
+| ADM-RBAC-20 | Permission matches effect | Review every route | The permission reflects what the call *does*, not which tab the button is on (e.g. `qr/[id]` → `qr:send`) | P0 |
+| ADM-RBAC-21 | Unauthenticated public probe | Hit `/api/checkpoints`, `/api/admin/app-settings`, `/api/admin/qr/[id]` logged out | All 401 | P0 |
 
 ---
 
@@ -664,7 +692,7 @@ Each case: **ID | Title | Pre-conditions | Steps | Expected**.
 | ADM-DASH-14 | Health: stale offline queue | `payment_review` older than 2 days | Issue listed | P1 |
 | ADM-DASH-15 | Health: oversold tier | Seats held > `max_capacity` | ERROR issue naming tier and counts | P0 |
 | ADM-DASH-16 | Health badge | Any ERROR-severity issue | Dashboard tab shows the error count badge | P1 |
-| ADM-DASH-17 | Launch check red | Unset `SCANNER_PIN` | That row goes red with the fix hint | P1 |
+| ADM-DASH-17 | Launch check red | Unset `RAZORPAY_WEBHOOK_SECRET` | That row goes red with the fix hint | P1 |
 | ADM-DASH-18 | Analytics 14-day | Data across 14 days | Registrations / revenue / Seva bars correct | P1 |
 | ADM-DASH-19 | Conversion | — | Paid ÷ payment attempts (documented meaning) | P2 |
 | ADM-DASH-20 | Enquiry funnel | Enquiries across statuses | Funnel matches | P1 |
@@ -1122,8 +1150,9 @@ Each case: **ID | Title | Pre-conditions | Steps | Expected**.
 | SEC-09 | XSS — name | Register as `<img src=x onerror=alert(1)>` | Escaped in admin, emails, `/entry`, `/pass`, exports | P0 |
 | SEC-10 | XSS — custom field / message / comment | Same payload | Stripped/escaped everywhere | P0 |
 | SEC-11 | SQL injection | `'; DROP TABLE registrations;--` in search + form fields | Parameterised; no effect | P0 |
-| SEC-12 | Check-in authorization | Volunteer with **no** permissions, logged in, calls `/api/checkin/[id]` | ⚠️ Currently accepted (`requireAdmin:false`). Decide: acceptable for gate ops, or tighten to `scanlog:view` | P1 |
-| SEC-13 | Scanner PIN brute force | Repeated wrong PINs | Consider rate limiting; verify no lockout bypass | P1 |
+| SEC-12 | Check-in authorization | Volunteer with **no** permissions, logged in, calls `/api/checkin/[id]` | **403** — gate access is now a real permission (`checkin:scan`), not "any session" | P0 |
+| SEC-13 | Scanner login brute force | 6 wrong passwords at `/scan` | Same IP throttle as `/admin` (5 fails → 15-min lockout, fail-open on DB error) | P0 |
+| SEC-13a | Revoking gate access | Untick `checkin:scan` (or deactivate the account) mid-event | Next scan 403s → the kiosk returns to sign-in. **No redeploy needed** (the whole point of dropping the shared PIN) | P0 |
 | SEC-14 | Self-service abuse | 50 lookups | Rate limit holds; no inbox bomb | P0 |
 | SEC-15 | Registration spam | Scripted repeat submissions | 3-min duplicate guard holds | P1 |
 | SEC-16 | Donation abuse | ₹1 spam | Bounds enforced; no crash | P2 |
@@ -1214,8 +1243,8 @@ Only **`completed`** and **`advance_paid`** hold a seat. Verify each of the othe
 4. **PUB-REG-01/04/08** Declaration → step 2 → consent recorded
 5. **PUB-PAY-07/09/10** Full payment → completed → confirmation received
 6. **ADM-QR-01/05/06/09** Send QR → renders → `/pass` link
-7. **SCAN-02/05/13** Scan → NEW + wristband colour
-8. **SCAN-06** Re-scan → DUPLICATE
+7. **SCAN-02/05/13** Sign in at `/scan` → scan → NEW + wristband colour
+8. **SCAN-06/06a** Re-scan → DUPLICATE, count not inflated
 9. **PUB-PART-03/09/10/12** Advance → balance link → pay → completed
 10. **PUB-OFF-10** Offline submit → payment_review
 11. **ADM-VER-03** Approve → completed + ticket
@@ -1224,6 +1253,8 @@ Only **`completed`** and **`advance_paid`** hold a seat. Verify each of the othe
 14. **ADM-MONEY-03/05/06** Cancel → seat released → pass void
 15. **SYS-REC-02** Reconcile heals a missed webhook
 16. **ADM-RBAC-17** Volunteer without `registrations:view` gets no PII
+16b. **SCAN-02a / SCAN-20 / ADM-RBAC-13a** Gate account can't scan without `checkin:scan`; no-permission volunteer 403s on check-in and on app-settings
+16c. **PUB-REG-22** Optional pincode really submits blank
 17. **PUB-REG-77** Capacity 409
 18. **PUB-I18N-03** All three languages, no raw keys
 19. **NFR-05** Mobile 360px, no horizontal scroll
@@ -1236,7 +1267,8 @@ Only **`completed`** and **`advance_paid`** hold a seat. Verify each of the othe
 | Wristband colours assigned for every Seva | Day before |
 | Every paid registration has `qr_sent_at` (Health check) | Day before |
 | Checkpoints created and active | Day before |
-| `SCANNER_PIN` distributed; one device tested per gate | Morning |
+| Each gate volunteer has an account with **`checkin:scan`**, and has signed in on their device once | Day before |
+| One device tested per gate (sign in → checkpoint → live scan) | Morning |
 | Scanner tested on the actual venue network + HTTPS | Morning |
 | Health panel shows zero ERROR issues | Morning |
 | Sync all run once | Morning |
@@ -1244,14 +1276,27 @@ Only **`completed`** and **`advance_paid`** hold a seat. Verify each of the othe
 
 ---
 
-# Appendix — Known doc/code discrepancies
+# Appendix — Discrepancy log (all resolved 2026-07-22)
 
-Found while writing this plan. Worth resolving before the test pass so testers know which behaviour is correct.
+Found while writing this plan; all three have since been fixed in code and/or docs. Kept here as the record of what changed and which cases were rewritten.
 
-| ID | Where | Doc says | Code does | Suggested action |
-|---|---|---|---|---|
-| **DEV-01** | Check-ins | `PROJECT_REFERENCE.md` §6 and §10: *"one row per scan (full audit trail; duplicates allowed)"* / *"Every scan inserts a `checkins` row"* | [app/api/checkin/[id]/route.js](app/api/checkin/[id]/route.js) inserts **only on the first scan** per registration+checkpoint; duplicates return `DUPLICATE` with a count and insert nothing | Decide: if you want a true scan audit trail, insert every time and derive NEW/DUPLICATE from the count. Otherwise correct the doc. **Affects SCAN-06.** |
-| **DEV-02** | Pincode | Form Fields lets an admin mark `pincode` optional | [app/api/razorpay/route.js:43](app/api/razorpay/route.js#L43) hard-requires `pincode` in its `required` array (same in `/api/enquiry`) | Either drop it from the hardcoded list and rely on `validateSubmission`, or lock the pincode toggle in the admin UI. **Affects PUB-REG-22.** |
-| **DEV-03** | Check-in RBAC | §17 lists `/api/checkin/[id]` as PIN-or-session | The session path uses `authorize({ requireAdmin: false })` — **any** authenticated user, including a volunteer with zero permissions | Consider requiring `scanlog:view` for the session path. **Affects SEC-12 / SCAN-20.** |
+| ID | Issue | Resolution | Cases rewritten |
+|---|---|---|---|
+| **DEV-01** | `PROJECT_REFERENCE.md` §6/§10 claimed *"every scan inserts a `checkins` row"*; the route inserts **only on the first scan** per registration+checkpoint | **Code was right, doc was wrong.** One row per registration+checkpoint is intended — it stops `checkedInRegs` being inflated by a double-wave. §6 and §10 corrected | SCAN-06, SCAN-25 (new) |
+| **DEV-02** | `pincode` could be marked optional in Form Fields, but three submit routes hardcoded it as required | All three now hardcode **only the CORE fields** (`firstName, lastName, email, phone`); everything else is decided by `validateSubmission` per category. Format still validated when present. `CheckoutForm` matches | PUB-REG-22, PUB-REG-45, PUB-REG-45a/b (new) |
+| **DEV-03** | `/scan` used a shared `SCANNER_PIN`, and its session fallback was `authorize({ requireAdmin: false })` — any authenticated user could record entries | **PIN and `/api/checkin/verify-pin` deleted.** `/scan` now signs in with named accounts and requires the new **`checkin:scan`** permission. `/api/checkpoints` and `DELETE /api/admin/checkins` gated the same way | Whole B13 block, SCAN-01/02/20, SEC-12, ENV-05 |
+
+## Additional RBAC fixes made in the same pass
+
+| Route | Was | Now | Why |
+|---|---|---|---|
+| `GET /api/admin/app-settings` | any authenticated | `settings:manage` | Returns bank/UPI details, the contact record and every message template |
+| `GET /api/admin/qr/[id]` | `registrations:view` | `qr:send` | Handing over the PNG **is** issuing a working entry pass |
+| `DELETE /api/admin/checkins` | `scanlog:view` | `checkin:scan` | A *view* permission must never authorise a delete |
+
+## Two invariants any future permission must respect
+
+1. **A `:view` permission never authorises a write.**
+2. **A route's permission matches its *effect*, not the screen the button sits on.**
 </content>
 </invoke>

@@ -263,11 +263,12 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
     if (formData.donation !== "" && formData.donation != null && !/^\d+(\.\d{1,2})?$/.test(String(formData.donation))) {
       errs.donation = "Enter a valid amount (numbers only).";
     }
-    // Pincode is always required (6-digit Indian PIN), regardless of tier config.
+    // Pincode FORMAT is checked whenever a value is present; whether it is
+    // *required* is the admin's call per tier (Form Fields) and is handled by the
+    // generic isVisible/isRequired loop below — same as gotra, DOB, etc. The
+    // servers mirror this exactly, so an optional pincode really is optional.
     const pin = String(formData.pincode || "").trim();
-    if (!pin) {
-      errs.pincode = `${t("form_pincode")} is required.`;
-    } else if (!/^\d{6}$/.test(pin)) {
+    if (pin && !/^\d{6}$/.test(pin)) {
       errs.pincode = "Enter a valid 6-digit pincode.";
     }
     if (isVisible("dob") && formData.dob && formData.dob > TODAY_STR) {
@@ -858,22 +859,26 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
               input: adorn(<Mail className="w-5 h-5 text-neutral-400" />),
             }}
           />
-          {/* Pincode is always shown & required (drives taluka/state autofill). */}
-          <TextField
-            fullWidth
-            label={t("form_pincode")}
-            name="pincode"
-            required
-            value={formData.pincode}
-            onChange={handlePincodeChange}
-            variant="outlined"
-            error={!!fieldErrors.pincode}
-            helperText={fieldErrors.pincode}
-            slotProps={{
-              htmlInput: { maxLength: 6, inputMode: "numeric" },
-              input: adorn(<MapPin className="w-5 h-5 text-neutral-400" />),
-            }}
-          />
+          {/* Pincode follows the tier's Form Fields config like every other
+              non-core field. It drives the taluka/state autofill, so hiding it
+              simply means those are typed by hand (or hidden too). */}
+          {isVisible("pincode") && (
+            <TextField
+              fullWidth
+              label={t("form_pincode")}
+              name="pincode"
+              required={isRequired("pincode")}
+              value={formData.pincode}
+              onChange={handlePincodeChange}
+              variant="outlined"
+              error={!!fieldErrors.pincode}
+              helperText={fieldErrors.pincode}
+              slotProps={{
+                htmlInput: { maxLength: 6, inputMode: "numeric" },
+                input: adorn(<MapPin className="w-5 h-5 text-neutral-400" />),
+              }}
+            />
+          )}
           <div className="flex gap-2">
               <TextField
                 fullWidth
