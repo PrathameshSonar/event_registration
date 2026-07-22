@@ -87,7 +87,15 @@ export async function POST(request) {
         ok = await sendEmail({ to: msg.recipient, subject: msg.subject, html: msg.body, skipLog: true });
     } else if (msg.channel === 'whatsapp') {
         if (msg.template) {
-            ok = await sendWhatsAppTemplate(msg.recipient, msg.template, msg.template_params || [], null, true);
+            // A media-header template MUST be replayed with its header — resending
+            // without one fails at Meta ("expected 1 parameter for component header")
+            // and would look like an unrelated outage. The header was stored at send
+            // time (image_url + metadata.header) precisely so this replays verbatim.
+            const h = msg.metadata?.header;
+            const opts = (h?.type && msg.image_url)
+                ? { header: { type: h.type, link: msg.image_url, filename: h.filename || undefined } }
+                : {};
+            ok = await sendWhatsAppTemplate(msg.recipient, msg.template, msg.template_params || [], null, true, opts);
         } else if (msg.image_url) {
             ok = await sendWhatsAppImage(msg.recipient, msg.image_url, msg.body || '', null, true);
         } else if (msg.body) {

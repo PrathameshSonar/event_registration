@@ -581,6 +581,33 @@ Use **"Send this template as a test"** to mail yourself the version you're editi
 
 **WhatsApp templates.** Meta requires pre-approved templates, so the *wording lives in Meta* — only the template **names** are set here. If a template gets re-approved under a new name, change it here; no redeploy needed.
 
+### How WhatsApp actually works (read this before the event)
+
+WhatsApp will only let you message someone **out of the blue** if you use a template Meta has approved in advance. You can send anything you like for 24 hours *after they message you* — but your registrants sign up on the website and never message your number, so **in practice every message you send them must be a template.**
+
+This is not a limitation on *pictures and files*. A template has a **header**, and that header can be an **image** or a **document**. Meta approves the wording once; the file changes with every send. So one approved `entry_pass` template carries a different QR code to every single attendee.
+
+**The six templates to get approved**, with exactly what to submit:
+
+| Name | Header | What goes in the body |
+|---|---|---|
+| `ticket_confirmation` | none | name, Seva, payment reference |
+| `payment_link` | none | name, Seva, amount, link |
+| `waitlist_open` | none | name, Seva, register link |
+| `announcement` | none | your message |
+| **`entry_pass`** | **Image** | name, Seva, attendees, pass link |
+| **`document_announcement`** | **Document** | your message |
+
+> ⚠️ **Do not add a "visit website" button to any of them.** The system sends the header and body only; a template expecting a button will fail. Put links in the message text instead.
+
+**Sending a document.** Upload it in Settings → Media Library as a **public** document, then pick it in the **Attach a document** box when you compose a Broadcast. It goes out as an email attachment *and* a WhatsApp document.
+
+> Private files can't be sent — WhatsApp downloads the file from its link, and a private file has no public link. That's deliberate: it stops a contract or invoice being broadcast by accident.
+
+**These messages are *not* templates and only reach someone who messaged you in the last 24 hours:** offline payment received/rejected, cancellation notices, the "find my pass" reply, and the feedback request. Treat them as a bonus — **email is the channel that always arrives** for those. If one of them matters to you, ask for a template to be added for it.
+
+**Check the Message Log after any big send.** Every WhatsApp attempt is recorded there with Meta's own error text, so an unapproved name, an expired token or a rejected message is visible immediately rather than at the gate.
+
 **QR settings.** Size, download size, margin, colours, link lifetime. ⚠️ **Low-contrast or inverted colours produce a QR that looks fine and fails to scan at the gate.** Test any change with a real phone before the event.
 
 **Gateway status** is **read-only by design**: it tells you whether Razorpay is configured and whether you're on **test or live** keys, whether the webhook secret and cron secret are set, and whether email/WhatsApp are working. The key is masked and the secret is never shown. Payment keys stay in the server environment — putting a live payment secret in a database row an admin panel can read would be a real security downgrade.
@@ -669,7 +696,8 @@ You don't need the internals, but you do need to know the three layers, because 
 | **Give a volunteer access** | Settings → Admin Users → create → tick only what they need |
 | **Set up a gate volunteer** | Settings → Admin Users → create → tick **"Scan entry passes at the gate"**. They sign in at `/scan` with that account |
 | **Remove someone's gate access** | Untick `checkin:scan` (or deactivate the account). Their next scan is refused immediately — no redeploy |
-| **Prepare for entry day** | Checkpoints → wristband colours → gate accounts created and tested → Send QR to all Paid → check Health has no unsent QRs → test one scan end-to-end |
+| **Prepare for entry day** | Approve the `entry_pass` WhatsApp template → checkpoints → wristband colours → gate accounts created and tested → Send QR to all Paid → check Health has no unsent QRs and the Message Log has no failures → test one scan end-to-end |
+| **Send a file to everyone** | Settings → Media Library → upload as a **public** document → Registrations → Broadcast → pick it under "Attach a document" |
 
 ---
 

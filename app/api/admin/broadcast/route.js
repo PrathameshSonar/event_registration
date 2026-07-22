@@ -26,12 +26,32 @@ export async function POST(request) {
     const { response, session } = await authorize({ requirePermission: 'reminders:send' });
     if (response) return response;
 
-    const { segment, categoryId, channels = {}, subject, body } = await request.json();
+    const { segment, categoryId, channels = {}, subject, body, attachmentId } = await request.json();
     if (!SEGMENTS.includes(segment)) return NextResponse.json({ error: 'Invalid segment.' }, { status: 400 });
     const text = String(body || '').trim();
     if (!text) return NextResponse.json({ error: 'Message body is required.' }, { status: 400 });
     if (!channels.email && !channels.whatsapp) return NextResponse.json({ error: 'Pick at least one channel.' }, { status: 400 });
     if (channels.email && !String(subject || '').trim()) return NextResponse.json({ error: 'Email needs a subject.' }, { status: 400 });
+
+    // ── Optional document attachment (media library) ─────────────────────────
+    // Rides the email as a normal attachment AND the WhatsApp message as a
+    // DOCUMENT-header template (a plain document message is free-form, so it would
+    // only reach people inside the 24h window).
+    // ⚠️ PUBLIC documents only, enforced here and not merely in the picker: Meta
+    // downloads the file from the URL server-side, so a private `admin-docs` file
+    // has no URL it could ever fetch — and sending one would mean publishing a
+    // contract or invoice to a broadcast list.
+    let attachment = null;
+    if (attachmentId) {
+        const { data: media } = await supabaseAdmin
+            .from('media_library').select('id, kind, visibility, url, filename, title').eq('id', attachmentId).single();
+        if (!media) return NextResponse.json({ error: 'That attachment no longer exists.' }, { status: 400 });
+        if (media.kind !== 'document') return NextResponse.json({ error: 'Only documents can be attached.' }, { status: 400 });
+        if (media.visibility !== 'public' || !media.url) {
+            return NextResponse.json({ error: 'That file is private. Only public documents can be sent to recipients.' }, { status: 400 });
+        }
+        attachment = { url: media.url, filename: media.filename || media.title || 'attachment' };
+    }
 
     // ── Resolve recipients ───────────────────────────────────────────────────
     let recipients = [];
@@ -76,12 +96,21 @@ export async function POST(request) {
                 to: r.email,
                 subject: String(subject).trim(),
                 html: emailShell(`<p style="color:#404040;font-size:14px;line-height:1.7;margin:0;">Namaste ${escapeHtml(r.first_name || '')},<br><br>${htmlBody}</p>`, siteName),
+                attachments: attachment ? [attachment] : null,
                 log: { kind: 'broadcast', registrationId: r.id },
             });
             if (ok) emailSent++;
         }
         if (channels.whatsapp && r.phone && waConfigured()) {
-            if (await sendWhatsAppTemplate(r.phone, 'announcement', [text], { kind: 'broadcast', registrationId: r.id })) waSent++;
+            // With a file → the DOCUMENT-header template; without → the plain one.
+            // They are separate Meta templates because a template's header format is
+            // fixed at approval time and cannot be switched per send.
+            const log = { kind: 'broadcast', registrationId: r.id };
+            const sent = attachment
+                ? await sendWhatsAppTemplate(r.phone, 'documentAnnouncement', [text], log, false,
+                    { header: { type: 'document', link: attachment.url, filename: attachment.filename } })
+                : await sendWhatsAppTemplate(r.phone, 'announcement', [text], log);
+            if (sent) waSent++;
         }
     }
 

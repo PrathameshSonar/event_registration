@@ -1156,6 +1156,28 @@ Each case: **ID | Title | Pre-conditions | Steps | Expected**.
 | SYS-MSG-14 | WhatsApp not configured | Unset the token | Email still sent; WA skipped | P0 |
 | SYS-MSG-15 | Wrong DC | Point at the `.com` host with an India token | Every send 401s — caught by the test email + message log | P0 |
 | SYS-MSG-16 | Unapproved WA template | Use an unapproved name | Failure captured in the message log | P0 |
+
+#### WhatsApp media / template headers (SYS-MSG-16a…n)
+> **The core regression:** a plain image or document message is free-form and is rejected outside the 24h window. Media must ride a template **header**.
+
+| ID | Title | Steps | Expected | Pri |
+|---|---|---|---|---|
+| SYS-MSG-16a | QR uses a template | Send QR to a registrant who has **never** messaged the business number | Arrives as an image + text. Message log row shows `template: entry_pass`, not a raw image send | P0 |
+| SYS-MSG-16b | Header payload shape | Inspect the outgoing body | `components[0] = {type:'header', parameters:[{type:'image', image:{link}}]}`, `components[1] = body` with 4 params | P0 |
+| SYS-MSG-16c | Signed URL is fetchable | Open `qrPublicUrl` in a logged-out browser | Loads — this is what Meta needs. A private path would 403 and the send would fail | P0 |
+| SYS-MSG-16d | Unapproved template | Point `entryPass` at a name Meta hasn't approved | Send fails; message log carries Meta's error; **email still goes out** | P0 |
+| SYS-MSG-16e | Wrong header format | Approve `entry_pass` with a TEXT header instead of IMAGE | Fails at Meta with a component error — verify the log makes this diagnosable | P1 |
+| SYS-MSG-16f | Dynamic-URL button | Approve a template with a URL button | Fails ("expected parameter for component button") — confirms links must be body variables | P1 |
+| SYS-MSG-16g | Missing bucket fallback | Delete the `qr-codes` bucket, send QR | Falls back to free-form text; **expected to fail outside 24h**; Data Health flags the missing bucket | P1 |
+| SYS-MSG-16h | Resend replays the header | Message Log → Re-send a QR row | Re-sends **with** the image header; a new log row is written with `metadata.resend_of` | P0 |
+| SYS-MSG-16i | Resend of a header-less template | Re-send a `ticketConfirmation` row | Sends body-only; no phantom header | P1 |
+| SYS-MSG-16j | Broadcast with a document | Attach a public media-library doc, send to a segment | Email carries it as an attachment; WhatsApp uses `document_announcement` with a DOCUMENT header and the right filename | P0 |
+| SYS-MSG-16k | Broadcast without a document | Leave attachment empty | Uses the plain `announcement` template; no header | P0 |
+| SYS-MSG-16l | Private doc refused | Force `attachmentId` of a **private** doc via the API | **400** "That file is private" — never sent | P0 |
+| SYS-MSG-16m | Non-document refused | Force an image's id | 400 "Only documents can be attached" | P1 |
+| SYS-MSG-16n | Deleted doc | Force a stale id | 400 "no longer exists" | P2 |
+| SYS-MSG-16o | Template shape hints | Settings → Templates & Config → WhatsApp | Each row shows its required header format + body variables | P1 |
+| SYS-MSG-16p | Size limits | Attach a >100 MB document / >5 MB QR | Meta rejects; failure visible in the message log | P2 |
 | SYS-MSG-17 | `sendWhatsAppText` arg order | Review call sites | `previewUrl` passed explicitly so `log` lands in the right slot | P1 |
 | SYS-MSG-18 | Attachment inlining | Ticket with an attached doc | Fetched and inlined as base64 with the right MIME | P1 |
 | SYS-MSG-19 | Attachment >5 MB | Flag a big doc | Not attached | P1 |
@@ -1292,6 +1314,8 @@ Only **`completed`** and **`advance_paid`** hold a seat. Verify each of the othe
 
 | Check | When |
 |---|---|
+| `entry_pass` template approved in Meta with an **IMAGE** header, and a real QR received on a test number | Week before |
+| `document_announcement` approved if you plan to broadcast a file | Week before |
 | Wristband colours assigned for every Seva | Day before |
 | Every paid registration has `qr_sent_at` (Health check) | Day before |
 | Checkpoints created and active | Day before |

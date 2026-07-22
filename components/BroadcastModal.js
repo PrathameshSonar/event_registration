@@ -3,8 +3,8 @@
 // Email is free-form; WhatsApp uses a pre-approved template (see note in the UI).
 "use client";
 
-import { useState, useMemo } from "react";
-import { X, Send, Megaphone } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { X, Send, Megaphone, Paperclip } from "lucide-react";
 import { toast, confirmDialog } from "@/lib/uiStore";
 
 const SEGMENTS = [
@@ -28,6 +28,20 @@ export default function BroadcastModal({ categories = [], onClose }) {
     const [body, setBody] = useState("");
     const [sending, setSending] = useState(false);
 
+    // Optional document attachment from the media library. Only PUBLIC documents
+    // are offered: WhatsApp fetches the file from its URL, so a private file has
+    // no URL it could ever reach — and attaching one would publish it to the whole
+    // list. The server re-checks this; the filter here is just to avoid offering
+    // a choice that would be rejected.
+    const [docs, setDocs] = useState([]);
+    const [attachmentId, setAttachmentId] = useState("");
+    useEffect(() => {
+        fetch("/api/admin/media-library?kind=document&visibility=public")
+            .then((r) => (r.ok ? r.json() : { items: [] }))
+            .then((d) => setDocs(d.items || []))
+            .catch(() => setDocs([]));
+    }, []);
+
     const send = async () => {
         if (!body.trim()) { toast.error("Write a message."); return; }
         if (!email && !whatsapp) { toast.error("Pick at least one channel."); return; }
@@ -40,7 +54,7 @@ export default function BroadcastModal({ categories = [], onClose }) {
             const res = await fetch("/api/admin/broadcast", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ segment, categoryId: segment === "tier" ? categoryId : undefined, channels: { email, whatsapp }, subject, body }),
+                body: JSON.stringify({ segment, categoryId: segment === "tier" ? categoryId : undefined, channels: { email, whatsapp }, subject, body, attachmentId: attachmentId || undefined }),
             });
             const data = await res.json().catch(() => ({}));
             setSending(false);
@@ -102,9 +116,24 @@ export default function BroadcastModal({ categories = [], onClose }) {
                         <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={6} className={input} placeholder="Type your announcement… (Namaste <name> is added automatically for email)" />
                     </div>
 
+                    <div>
+                        <label className={lbl}><Paperclip className="w-3 h-3 inline mr-1" />Attach a document (optional)</label>
+                        <select value={attachmentId} onChange={(e) => setAttachmentId(e.target.value)} className={input}>
+                            <option value="">No attachment</option>
+                            {docs.map((d) => (
+                                <option key={d.id} value={d.id}>{d.title || d.filename}</option>
+                            ))}
+                        </select>
+                        <p className="text-[11px] text-neutral-400 mt-1">
+                            Public documents from the Media Library only — WhatsApp downloads the file from its link, so a private file can’t be sent. Upload one in Settings → Media Library.
+                        </p>
+                    </div>
+
                     {whatsapp && (
                         <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                            WhatsApp policy requires a <b>pre-approved template</b> for broadcasts. This uses the <b>announcement</b> template configured in <code>lib/whatsapp.js</code> (one body variable). If it isn’t approved yet, WhatsApp sends are skipped — email still goes out.
+                            WhatsApp policy requires a <b>pre-approved template</b> for broadcasts. This uses the{" "}
+                            <b>{attachmentId ? "document_announcement" : "announcement"}</b> template
+                            {attachmentId ? " (DOCUMENT header + one body variable)" : " (one body variable)"} — set the approved name in Settings → Templates &amp; Config. If it isn’t approved yet, WhatsApp sends are skipped and email still goes out.
                         </p>
                     )}
                 </div>

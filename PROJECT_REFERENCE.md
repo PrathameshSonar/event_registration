@@ -601,6 +601,38 @@ The only legitimate literals left are `DEFAULT_BRANDING.site_name` in [lib/appSe
 - ⚠️ **`balance_link` and `balance_reminder` are separate on purpose.** The first is "thanks, your advance is received"; the second is the admin's later chase ("this is a reminder…"). Collapsing them makes a chase email read like a fresh confirmation.
 - **Send this template as a test** (under the variable palette): posts the currently-selected `kind` + the editor's current `subject`/`html` (unsaved edits included) to [/api/admin/test-email](app/api/admin/test-email/route.js), which renders it with sample data (a real QR for `qr`) and emails it. Lets an admin see a real render in an inbox before saving.
 
+### WhatsApp: free-form vs template, and how media actually reaches people
+
+The single most misunderstood part of the system, so it is spelled out here.
+
+Meta delivers a message to someone **outside the 24-hour customer-service window** only if it is a **pre-approved template**. Registrants sign up on the *website* and never message the business number, so **that window is never open for them** — a free-form send is simply rejected.
+
+**Media is not excluded from templates.** A template is `HEADER | BODY | FOOTER | BUTTONS`, and the header format may be TEXT, **IMAGE**, **DOCUMENT** or VIDEO, chosen at approval. Approval fixes the *wording*; the **file is a per-send parameter**, so one approval covers every attendee.
+
+`sendWhatsAppTemplate(phone, key, bodyParams, log, skipLog, { header })` takes:
+```js
+{ header: { type: 'image',    link } }
+{ header: { type: 'document', link, filename } }
+```
+⚠️ `link` must be a **publicly fetchable https URL** — Meta downloads it server-side. A Supabase **signed** URL qualifies (the token is in the URL); a private path never can. Limits: image 5 MB, document 100 MB, video 16 MB.
+
+| Template key | Header | Body params | Used by |
+|---|---|---|---|
+| `ticketConfirmation` | — | name, tier, paymentRef | [ticket.js](lib/ticket.js) |
+| `paymentLink` | — | name, tier, amount, payLink | [payments.js](lib/payments.js), resend-balance, enquiry payment |
+| `waitlistOpen` | — | name, tier, registerLink | admin waitlist |
+| `announcement` | — | message | broadcast |
+| **`entryPass`** | **IMAGE** | name, tier, attendees, passLink | [send-qr](app/api/admin/send-qr/route.js) |
+| **`documentAnnouncement`** | **DOCUMENT** | message | broadcast with an attachment |
+
+⚠️ **`sendWhatsAppTemplate` builds only `header` + `body` components.** A template approved with a **dynamic-URL button** fails ("expected parameter for component button") — keep links in the body as variables.
+
+⚠️ **Still free-form (24h window only):** `notify.js` offline/cancellation notices, the `/my-pass` self-service reply, the feedback blast, and the send-qr fallback used only when the `qr-codes` bucket is missing. Anything that *must* arrive needs a template.
+
+**Broadcast attachments** — an admin can attach a **public** media-library document; it rides the email as a normal attachment and WhatsApp as a `documentAnnouncement` header. ⚠️ **Public documents only, enforced server-side** in [broadcast/route.js](app/api/admin/broadcast/route.js): Meta fetches the file from its URL, so a private `admin-docs` file could never be delivered — and offering one would mean publishing a contract to a broadcast list.
+
+**Message-log resend replays the header** (stored as `image_url` + `metadata.header`). Replaying a media template without its header fails at Meta and would read as an unrelated outage.
+
 ### WhatsApp templates
 Meta requires a **pre-approved template** for any business-initiated message, so **the message bodies live in Meta, not here** — only the *names* are configurable. Senders now pass a **key** (`'ticketConfirmation'`, `'announcement'`, `'paymentLink'`, `'waitlistOpen'`) and `sendWhatsAppTemplate()` resolves the real name at send time: **Settings → env var → built-in default**. So a template re-approved under a new name needs no redeploy. A literal name still works (that's how the message-log **resend** replays a stored send).
 
@@ -678,6 +710,14 @@ form → offline method → payment_review ──approve full──────�
 
 Keep newest first. Add an entry for every meaningful change.
 
+- **2026-07-22 (WhatsApp media: the QR pass now actually arrives)**
+  - **🔴 The bug:** [send-qr](app/api/admin/send-qr/route.js) sent the QR with `sendWhatsAppImage()` — a **free-form** image message. Meta only delivers free-form inside the 24-hour customer-service window, and a registrant who signed up on the website has never messaged the business, so **that window is never open**. Every QR WhatsApp was being rejected (error 131047) and logged as failed. Email was unaffected.
+  - **The fix — media rides in a template HEADER.** A template's header format may be TEXT/**IMAGE**/**DOCUMENT**/VIDEO; approval fixes only the *wording*, so the file is a per-send parameter and **one approval covers every attendee**. `sendWhatsAppTemplate()` gained a trailing `{ header: { type, link, filename } }` option (a trailing options object, not a 6th positional — this file already has the `sendWhatsAppText(previewUrl)` footgun and shouldn't grow another).
+  - **Two new template keys:** `entryPass` (HEADER = IMAGE; body `[name, tier, attendees, passLink]`) and `documentAnnouncement` (HEADER = DOCUMENT; body `[message]`). Both are in `DEFAULT_WHATSAPP_TEMPLATES`, the `.env.example`, and Settings → Templates & Config — which now also prints each template's **required shape** (header format + variable list) so an admin can submit them to Meta without opening the source.
+  - **Broadcast can attach a document.** A **public** media-library document rides the email as a normal attachment and WhatsApp as a `documentAnnouncement` header. ⚠️ **Public only, enforced server-side** — Meta fetches the file from its URL, so a private `admin-docs` file could never be delivered, and offering one would mean publishing a contract to a broadcast list.
+  - **Message-log resend replays the header** (stored as `image_url` + `metadata.header`). Replaying a media template without its header fails at Meta and would look like an unrelated outage.
+  - ⚠️ **Deploy step:** approve `entry_pass` (IMAGE header) and `document_announcement` (DOCUMENT header) in Meta. **Until then the QR WhatsApp keeps failing** — as it already was. Also: `sendWhatsAppTemplate` builds only `header` + `body`, so a template approved with a **dynamic-URL button** will fail; keep links as body variables.
+  - Documented the free-form sends that remain (offline/cancellation notices, `/my-pass` reply, feedback blast, and the send-qr fallback when the `qr-codes` bucket is missing) — each only delivers inside the 24h window and needs its own template to be guaranteed.
 - **2026-07-22 (One brand name: `branding.site_name` is now the only source)**
   - **The problem:** the literal `BaglaBhairav` was hardcoded in **~50 places** — every email subject and header, WhatsApp bodies, Razorpay checkout + payment-link descriptions, the QR caption, the entry/pass screens, the scanner header, the canvas receipt, admin export filenames, the homepage JSON-LD organizer. A rename in Settings → Branding & SEO changed the nav and footer and **nothing else**, so the old name survived in customers' inboxes and on their receipts.
   - **Now:** `branding.site_name` is the single source. New **`getSiteName()`** in [lib/branding.js](lib/branding.js) (server, cached, tagged `branding`, so a save applies immediately) + `useBranding()` for client components — the root layout already provides it, which is why `/scan` and `/admin` can read it with no new plumbing.

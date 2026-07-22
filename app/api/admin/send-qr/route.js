@@ -6,7 +6,7 @@ import { authorize } from '@/lib/adminGuard';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAudit } from '@/lib/auditLog';
 import { sendTemplatedEmail } from '@/lib/email';
-import { sendWhatsAppText, sendWhatsAppImage, waConfigured } from '@/lib/whatsapp';
+import { sendWhatsAppText, sendWhatsAppTemplate, waConfigured } from '@/lib/whatsapp';
 import { getQrConfig } from '@/lib/settingsServer';
 import { getSiteName } from '@/lib/branding';
 
@@ -124,12 +124,30 @@ export async function POST(request) {
         // ── WHATSAPP ──────────────────────────────────────────
         if (reg.phone && waConfigured()) {
             try {
-                const caption = `🎟️ *${siteName} Entry Pass*\n\n👤 *Name:* ${fullName}\n🏷️ *Category:* ${categoryTitle}\n👥 *Attendees:* ${reg.attendees_count}\n💰 *Paid:* ₹${reg.total_amount}\n\n📲 *View your pass:*\n${passUrl}`;
-
-                // Send as image if we have a public URL; otherwise fall back to text with link.
-                const ok = qrPublicUrl
-                    ? await sendWhatsAppImage(reg.phone, qrPublicUrl, caption, { kind: 'qr', registrationId: reg.id })
-                    : await sendWhatsAppText(reg.phone, caption, true, { kind: 'qr', registrationId: reg.id });
+                // The QR rides in the TEMPLATE HEADER, not as a plain image message.
+                // A plain image is free-form, so Meta only delivers it inside the 24h
+                // customer-service window — and a registrant who signed up on the
+                // website has never messaged us, so that window is never open. The
+                // `entryPass` template (approved with HEADER FORMAT = IMAGE) carries
+                // the same picture and delivers any time. The signed bucket URL is
+                // publicly fetchable, which is what Meta needs to pull the file.
+                const log = { kind: 'qr', registrationId: reg.id };
+                let ok;
+                if (qrPublicUrl) {
+                    ok = await sendWhatsAppTemplate(
+                        reg.phone, 'entryPass',
+                        [fullName, categoryTitle, String(reg.attendees_count), passUrl],
+                        log, false,
+                        { header: { type: 'image', link: qrPublicUrl } },
+                    );
+                } else {
+                    // No hosted QR (the qr-codes bucket is missing or the upload
+                    // failed). Nothing to put in the header, so this degrades to
+                    // free-form text — which will only land inside the 24h window.
+                    // The Data Health "qr-codes bucket" check exists to stop this.
+                    const caption = `🎟️ *${siteName} Entry Pass*\n\n👤 *Name:* ${fullName}\n🏷️ *Category:* ${categoryTitle}\n👥 *Attendees:* ${reg.attendees_count}\n💰 *Paid:* ₹${reg.total_amount}\n\n📲 *View your pass:*\n${passUrl}`;
+                    ok = await sendWhatsAppText(reg.phone, caption, true, log);
+                }
                 if (ok) { waSent++; delivered = true; } else { waFailed++; }
             } catch (e) {
                 console.error('WhatsApp QR failed for', reg.id, e);

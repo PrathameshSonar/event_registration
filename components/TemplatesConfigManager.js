@@ -17,12 +17,27 @@ const WA_LABELS = {
     announcement: "Broadcast announcement",
     paymentLink: "Payment / balance link",
     waitlistOpen: "Waitlist — seat open",
+    entryPass: "Entry pass (QR image)",
+    documentAnnouncement: "Broadcast with a document",
 };
 const WA_BUILTIN = {
     ticketConfirmation: "ticket_confirmation",
     announcement: "announcement",
     paymentLink: "payment_link",
     waitlistOpen: "waitlist_open",
+    entryPass: "entry_pass",
+    documentAnnouncement: "document_announcement",
+};
+// What Meta must have approved for each template, so an admin submitting them can
+// read it off this screen instead of the source. Header format is fixed at
+// approval time — it cannot be varied per send.
+const WA_SHAPE = {
+    ticketConfirmation: "No header · body vars: name, tier, payment ref",
+    announcement: "No header · body vars: message",
+    paymentLink: "No header · body vars: name, tier, amount, link",
+    waitlistOpen: "No header · body vars: name, tier, register link",
+    entryPass: "Header: IMAGE · body vars: name, tier, attendees, pass link",
+    documentAnnouncement: "Header: DOCUMENT · body vars: message",
 };
 
 const Status = ({ ok, children, warn }) => (
@@ -294,7 +309,9 @@ export default function TemplatesConfigManager() {
                                 onChange={(e) => { setWa((p) => ({ ...p, [k]: e.target.value })); setDirty(true); }}
                                 placeholder={WA_BUILTIN[k]}
                             />
-                            <p className="text-[11px] text-neutral-400 mt-1">Leave empty to use <code>{WA_BUILTIN[k]}</code>.</p>
+                            <p className="text-[11px] text-neutral-400 mt-1">
+                                {WA_SHAPE[k]} · leave empty to use <code>{WA_BUILTIN[k]}</code>.
+                            </p>
                         </div>
                     ))}
 
