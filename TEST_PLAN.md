@@ -1178,6 +1178,13 @@ Each case: **ID | Title | Pre-conditions | Steps | Expected**.
 | SYS-MSG-16n | Deleted doc | Force a stale id | 400 "no longer exists" | P2 |
 | SYS-MSG-16o | Template shape hints | Settings → Templates & Config → WhatsApp | Each row shows its required header format + body variables | P1 |
 | SYS-MSG-16p | Size limits | Attach a >100 MB document / >5 MB QR | Meta rejects; failure visible in the message log | P2 |
+| SYS-MSG-16q | **Multi-line broadcast** | Type a 3-paragraph announcement, send to email + WhatsApp | **Both succeed.** WhatsApp arrives as one flattened block; email keeps the paragraphs (regression: every WhatsApp used to fail) | P0 |
+| SYS-MSG-16r | Line-break warning | Type a newline with WhatsApp ticked | UI warns that line breaks are removed on WhatsApp | P1 |
+| SYS-MSG-16s | Tabs / space runs | Include a tab and 8 spaces | Sanitised; send succeeds | P1 |
+| SYS-MSG-16t | Length guard (UI) | Type 950 chars with WhatsApp ticked | Counter turns red; Send is refused with a clear message | P0 |
+| SYS-MSG-16u | Length guard (API) | POST 1200 chars with `channels.whatsapp` | **400** before any send — no partial fan-out | P0 |
+| SYS-MSG-16v | Long email-only | 1200 chars, WhatsApp unticked | Allowed — the cap is a WhatsApp limit, not an email one | P1 |
+| SYS-MSG-16w | Log stores sanitised text | Multi-line broadcast → Message Log | Stored params are already flattened, so **Re-send succeeds** rather than failing identically | P1 |
 | SYS-MSG-17 | `sendWhatsAppText` arg order | Review call sites | `previewUrl` passed explicitly so `log` lands in the right slot | P1 |
 | SYS-MSG-18 | Attachment inlining | Ticket with an attached doc | Fetched and inlined as base64 with the right MIME | P1 |
 | SYS-MSG-19 | Attachment >5 MB | Flag a big doc | Not attached | P1 |

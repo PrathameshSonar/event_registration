@@ -46,6 +46,7 @@ export default function BroadcastModal({ categories = [], onClose }) {
         if (!body.trim()) { toast.error("Write a message."); return; }
         if (!email && !whatsapp) { toast.error("Pick at least one channel."); return; }
         if (email && !subject.trim()) { toast.error("Email needs a subject."); return; }
+        if (whatsapp && body.length > 900) { toast.error(`WhatsApp allows about 900 characters; this is ${body.length}.`); return; }
         if (segment === "tier" && !categoryId) { toast.error("Choose a tier."); return; }
         const segLabel = SEGMENTS.find((s) => s.v === segment)?.label;
         if (!(await confirmDialog({ title: "Send broadcast", message: `Send this message to "${segLabel}" via ${[email && "email", whatsapp && "WhatsApp"].filter(Boolean).join(" + ")}? This cannot be undone.`, confirmLabel: "Send" }))) return;
@@ -130,11 +131,22 @@ export default function BroadcastModal({ categories = [], onClose }) {
                     </div>
 
                     {whatsapp && (
-                        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                            WhatsApp policy requires a <b>pre-approved template</b> for broadcasts. This uses the{" "}
-                            <b>{attachmentId ? "document_announcement" : "announcement"}</b> template
-                            {attachmentId ? " (DOCUMENT header + one body variable)" : " (one body variable)"} — set the approved name in Settings → Templates &amp; Config. If it isn’t approved yet, WhatsApp sends are skipped and email still goes out.
-                        </p>
+                        <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 space-y-1.5">
+                            <p>
+                                WhatsApp policy requires a <b>pre-approved template</b> for broadcasts. This uses the{" "}
+                                <b>{attachmentId ? "document_announcement" : "announcement"}</b> template
+                                {attachmentId ? " (DOCUMENT header + one body variable)" : " (one body variable)"} — set the approved name in Settings → Templates &amp; Config. If it isn’t approved yet, WhatsApp sends are skipped and email still goes out.
+                            </p>
+                            {/* Both of these are hard Meta limits on template parameters, not
+                                our choices — surfaced here because they only bite on WhatsApp
+                                and the email would go out looking perfect. */}
+                            {/\r|\n/.test(body) && (
+                                <p><b>Line breaks are removed on WhatsApp.</b> Meta doesn’t allow them inside a template — your paragraphs arrive as one block. Email keeps the formatting.</p>
+                            )}
+                            <p className={body.length > 900 ? "font-bold text-rose-700" : ""}>
+                                {body.length} / 900 characters{body.length > 900 ? " — too long for WhatsApp. Shorten it, or untick WhatsApp." : ""}
+                            </p>
+                        </div>
                     )}
                 </div>
 

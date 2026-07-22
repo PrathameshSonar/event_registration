@@ -32,6 +32,15 @@ export async function POST(request) {
     if (!text) return NextResponse.json({ error: 'Message body is required.' }, { status: 400 });
     if (!channels.email && !channels.whatsapp) return NextResponse.json({ error: 'Pick at least one channel.' }, { status: 400 });
     if (channels.email && !String(subject || '').trim()) return NextResponse.json({ error: 'Email needs a subject.' }, { status: 400 });
+    // Meta caps a rendered template body at 1024 chars. Check BEFORE fanning out to
+    // a thousand recipients — otherwise every WhatsApp fails one by one while the
+    // emails go out fine, and the operator only finds out from the Message Log.
+    // 900 leaves room for any fixed wording around {{1}} in the approved template.
+    if (channels.whatsapp && text.length > 900) {
+        return NextResponse.json({
+            error: `WhatsApp allows about 900 characters; this message is ${text.length}. Shorten it, or send it by email only.`,
+        }, { status: 400 });
+    }
 
     // ── Optional document attachment (media library) ─────────────────────────
     // Rides the email as a normal attachment AND the WhatsApp message as a

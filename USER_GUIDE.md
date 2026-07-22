@@ -600,6 +600,24 @@ This is not a limitation on *pictures and files*. A template has a **header**, a
 
 > ⚠️ **Do not add a "visit website" button to any of them.** The system sends the header and body only; a template expecting a button will fail. Put links in the message text instead.
 
+### Sending a broadcast — what actually happens
+
+You write **one** message; it goes out on two channels that behave differently.
+
+| | Email | WhatsApp |
+|---|---|---|
+| Greeting | "Namaste \<their name\>," added automatically | Not added — write it yourself if you want one |
+| Your text | Exactly as typed, paragraphs kept | **Line breaks removed** — arrives as one block |
+| Length | No practical limit | **~900 characters** |
+| Attachment | Normal file attachment | Sent as a WhatsApp document |
+| Approval | none | needs `announcement` (or `document_announcement` with a file) approved |
+
+**Why WhatsApp is stricter.** Your text is inserted into the approved template as a variable, and Meta forbids line breaks, tabs and long space runs inside a variable. That isn't something we can work around — the message is rejected outright if it contains them. So the system flattens your paragraphs into one block rather than letting the send fail.
+
+The compose box tells you both things live: a warning as soon as you type a line break, and a **`n / 900`** counter that turns red when you're over. Over 900, Send is refused — untick WhatsApp and send it by email, or shorten it.
+
+> **Practical advice:** write the WhatsApp version short and punchy (one paragraph, under 900 characters, with the detail on a link), and use email when you need real formatting or length. If you need both, send two broadcasts.
+
 **Sending a document.** Upload it in Settings → Media Library as a **public** document, then pick it in the **Attach a document** box when you compose a Broadcast. It goes out as an email attachment *and* a WhatsApp document.
 
 > Private files can't be sent — WhatsApp downloads the file from its link, and a private file has no public link. That's deliberate: it stops a contract or invoice being broadcast by accident.
