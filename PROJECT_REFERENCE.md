@@ -4,7 +4,9 @@
 >
 > **⚠️ KEEP THIS UPDATED.** Whenever a feature, route, column, env var, or flow changes, update the relevant section **and** the Changelog at the bottom. This file is meant to stay accurate.
 >
-> Last updated: 2026-07-19.
+> **Companion docs:** [`TEST_PLAN.md`](TEST_PLAN.md) — the full scenario inventory + ~600 test cases (public / staff / admin / system), status-transition and capacity matrices, and the pre-launch smoke suite. [`USER_GUIDE.md`](USER_GUIDE.md) — end-user documentation for devotees (Part 1) and admins/volunteers (Part 2).
+>
+> Last updated: 2026-07-22.
 
 ---
 
@@ -654,6 +656,13 @@ form → offline method → payment_review ──approve full──────�
 
 Keep newest first. Add an entry for every meaningful change.
 
+- **2026-07-22 (Test plan + user guide — the two docs this reference didn't cover)**
+  - **[`TEST_PLAN.md`](TEST_PLAN.md)** — Part A is a scenario inventory (102 numbered scenarios across public / staff / admin / system); Part B is ~600 executable test cases in 30 modules (ENV, PUB-SITE/REG/PAY/PART/OFF/ENQ/DON/WL/PASS/MSC/LIVE/I18N, SCAN, ADM-AUTH/RBAC/DASH/REG/VER/MONEY/QR/ENQ/SCAN/SET/LOG/EXP, SYS-WH/REC/MSG, SEC, NFR) each with pre-conditions, steps, expected result and P0–P2 priority; Part C is the tier matrix, status seed matrix, **status-transition matrix**, the **capacity allowlist check**, a ~45-minute pre-launch smoke suite and an event-day runbook.
+  - **[`USER_GUIDE.md`](USER_GUIDE.md)** — Part 1 for devotees (registering, the 2-step declaration, part payment, offline payment, entry passes, `/my-pass`, donations, waitlist, troubleshooting); Part 2 for admins/volunteers (roles + the 12 permissions, all 6 tabs, the offline verification state machine, the cancel-vs-refund-vs-reverse distinction, all 20 settings panels, entry-day runbook, task recipes, and 10 rules of thumb).
+  - **Three doc/code discrepancies found while writing them**, recorded in the test plan's appendix as DEV-01…03 rather than silently fixed:
+    - **DEV-01** — §6/§10 here say *"every scan inserts a `checkins` row"*; [checkin/[id]](app/api/checkin/[id]/route.js) actually inserts **only on the first scan** per registration+checkpoint and returns `DUPLICATE` with a count thereafter. Either the doc or the route should change — as written there is no per-scan audit trail.
+    - **DEV-02** — `pincode` can be marked optional in Form Fields, but [razorpay](app/api/razorpay/route.js) and [enquiry](app/api/enquiry/route.js) hard-require it in their `required` array, so the toggle has no effect.
+    - **DEV-03** — the session path of [checkin/[id]](app/api/checkin/[id]/route.js) uses `authorize({ requireAdmin: false })`, so **any** authenticated user (including a volunteer with zero permissions) can record a check-in. Consider gating on `scanlog:view`.
 - **2026-07-22 (Manual add on a full tier is an audited override)**
   - **Admin manual add deliberately ignores capacity** — [create-registration](app/api/admin/create-registration/route.js) has no `max_capacity`/`is_full` check, so a walk-in or VIP can always be seated even on a sold-out tier. That override is now **visible instead of silent**: `flagCapacityOverage()` runs after a seat-holding manual add, writing a `capacity.oversold` audit entry, and the modal shows *"This tier is now oversold — 12 of 10 seats held"*. Capacity limits remain enforced on the **public** paths only (`/api/razorpay`, `/api/offline-payment`).
 - **2026-07-22 (Admin hardening: identity, linked donations, oversell alerting)**
