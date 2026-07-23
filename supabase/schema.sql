@@ -587,10 +587,11 @@ ALTER TABLE events
 
 CREATE TABLE IF NOT EXISTS contact_messages (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name       TEXT, email TEXT, subject TEXT, message TEXT,
+    name       TEXT, email TEXT, phone TEXT, subject TEXT, message TEXT,
     is_read    BOOLEAN DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT now()
 );
+ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS phone TEXT;
 GRANT ALL ON contact_messages TO service_role;
 
 -- Consent / Samanti Patra acceptance records (see run_all.sql for the full note).

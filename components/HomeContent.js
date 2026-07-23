@@ -25,8 +25,9 @@ import DonateLive from "@/components/site/home/DonateLive";
 import Testimonials from "@/components/site/home/Testimonials";
 import Gallery from "@/components/site/home/Gallery";
 import FinalCta from "@/components/site/home/FinalCta";
+import GeneralEnquiry from "@/components/site/home/GeneralEnquiry";
 
-export default function HomeContent({ pageData, contact, categories, mediaItems, seatsTaken, schedule, highlights, guests, testimonials }) {
+export default function HomeContent({ pageData, contact, categories, mediaItems, seatsTaken, schedule, highlights, guests, testimonials, generalEnquiry }) {
   const [waitlistCat, setWaitlistCat] = useState(null);
   const registrationOpen = useRegistrationOpen();
 
@@ -45,9 +46,13 @@ export default function HomeContent({ pageData, contact, categories, mediaItems,
   return (
     <>
       <div className={`bg-ivory text-brown ${stickyBar ? "pb-20 md:pb-0" : ""}`}>
-        <Hero event={pageData} hasCategories={hasCategories} />
+        <Hero event={pageData} hasCategories={hasCategories} showEnquiry={!!generalEnquiry?.enabled} />
         {isLive && <Livestream event={pageData} />}
         <AboutMahayagya event={pageData} />
+        {/* Enquiry sits HIGH on purpose — it's the primary ask before any Seva is
+            live, and a visitor shouldn't have to scroll the whole page to reach it.
+            Renders itself only when enabled in Settings → General Enquiry. */}
+        <GeneralEnquiry config={generalEnquiry} />
         {featuredGuests.map((g, i) => <Leadership key={g.id} guest={g} flip={i % 2 === 1} primary={i === 0} />)}
         <Lineup guests={lineupGuests} />
         <Pillars items={bySection("pillars")} />

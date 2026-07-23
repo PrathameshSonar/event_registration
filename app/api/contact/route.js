@@ -8,16 +8,23 @@ const clean = (s, max) => String(s || '').replace(/<[^>]*>/g, '').replace(/javas
 
 export async function POST(request) {
   try {
-    const { name, email, subject, message } = await request.json();
+    const { name, email, phone, subject, message } = await request.json();
     if (!name?.trim() || !email?.trim() || !message?.trim()) {
       return NextResponse.json({ error: 'Name, email and message are required.' }, { status: 400 });
     }
     if (!/^\S+@\S+\.\S+$/.test(String(email))) {
       return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 });
     }
+    // Mobile: required, Indian 10-digit (accepts +91/0/91 prefixes, stored as the
+    // bare 10 digits) so the admin can call/WhatsApp back.
+    const cleanPhone = String(phone || '').replace(/\s+/g, '').replace(/^(\+91|0091|91|0)/, '');
+    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+      return NextResponse.json({ error: 'Enter a valid 10-digit Indian mobile number.' }, { status: 400 });
+    }
     const { error } = await supabaseAdmin.from('contact_messages').insert({
       name: clean(name, 120),
       email: clean(email, 200),
+      phone: cleanPhone,
       subject: clean(subject, 200),
       message: clean(message, 4000),
     });

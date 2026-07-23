@@ -18,6 +18,7 @@ import HomeContentManager from '@/components/HomeContentManager';
 import ContactSocialManager from '@/components/ContactSocialManager';
 import ContactMessagesManager from '@/components/ContactMessagesManager';
 import DeclarationManager from '@/components/DeclarationManager';
+import GeneralEnquiryManager from '@/components/GeneralEnquiryManager';
 import ConsentsManager from '@/components/ConsentsManager';
 import PageHeadersManager from '@/components/PageHeadersManager';
 import AuditLogPanel from '@/components/AuditLogPanel';
@@ -69,7 +70,7 @@ export default function AdminDashboard() {
     const can = (perm: string) => isAdmin || permissions.includes(perm);
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'enquiries' | 'scanlog' | 'settings' | 'audit'>('dashboard');
-    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'library' | 'branding' | 'pageheaders' | 'templates' | 'checkpoints' | 'formfields' | 'homecontent' | 'contactsocial' | 'contactmessages' | 'declaration' | 'consents' | 'payment' | 'users' | 'waitlist' | 'donations' | 'sevacategories' | 'sponsors' | 'messages' | 'feedback'>('events');
+    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'library' | 'branding' | 'pageheaders' | 'templates' | 'checkpoints' | 'formfields' | 'homecontent' | 'contactsocial' | 'contactmessages' | 'declaration' | 'generalenquiry' | 'consents' | 'payment' | 'users' | 'waitlist' | 'donations' | 'sevacategories' | 'sponsors' | 'messages' | 'feedback'>('events');
     const [settingsQuery, setSettingsQuery] = useState('');
 
     const [loading, setLoading] = useState(false);
@@ -1421,6 +1422,7 @@ export default function AdminDashboard() {
                                         { k: 'tiers', Icon: Ticket, label: 'Sevas & Tiers', kw: 'category price perks colour capacity ticket' },
                                         { k: 'formfields', Icon: ListFilter, label: 'Form Fields', kw: 'registration form custom fields' },
                                         { k: 'declaration', Icon: ScrollText, label: 'Declaration', kw: 'samanti patra consent terms' },
+                                        { k: 'generalenquiry', Icon: MessageSquare, label: 'General Enquiry', kw: 'homepage enquire now lead contact question pre-launch' },
                                         { k: 'consents', Icon: ScrollText, label: 'Consent Records', kw: 'samanti patra signed accepted' },
                                         { k: 'waitlist', Icon: ListFilter, label: 'Waitlist', kw: 'full sold out' },
                                         { k: 'checkpoints', Icon: QrCode, label: 'Entry Checkpoints', kw: 'scan gate qr band wristband colour color' },
@@ -1675,6 +1677,7 @@ export default function AdminDashboard() {
                             {settingsSubTab === 'contactsocial' && <ContactSocialManager />}
                             {settingsSubTab === 'contactmessages' && <ContactMessagesManager />}
                             {settingsSubTab === 'declaration' && <DeclarationManager />}
+                            {settingsSubTab === 'generalenquiry' && <GeneralEnquiryManager />}
                             {settingsSubTab === 'consents' && <ConsentsManager />}
                             {settingsSubTab === 'payment' && <PaymentSettingsManager />}
                             {settingsSubTab === 'users' && <AdminUsersManager />}

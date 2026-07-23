@@ -600,6 +600,7 @@ CREATE TABLE IF NOT EXISTS contact_messages (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT false;
+ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS phone TEXT;
 GRANT ALL ON contact_messages TO service_role;
 
 -- Consent / Samanti Patra acceptance records. One row per registration / donation /

@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { supabase } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getBranding, getSeo } from '@/lib/branding';
-import { getContact } from '@/lib/siteEvent';
+import { getContact, getGeneralEnquiry } from '@/lib/siteEvent';
 import HomeContent from '@/components/HomeContent';
 
 export const revalidate = 60;
@@ -53,6 +53,9 @@ export default async function Home() {
 
     // Contact + social links (app_settings, decoupled from the event).
     const contact = await getContact();
+
+    // Homepage "Enquire Now" config — always-on lead capture, Seva-independent.
+    const generalEnquiry = await getGeneralEnquiry();
 
     // 2. Registration tiers — only show categories for the active event
     let categories: any[] = [];
@@ -139,6 +142,7 @@ export default async function Home() {
                 highlights={highlights}
                 guests={guests}
                 testimonials={testimonials}
+                generalEnquiry={generalEnquiry}
             />
         </>
     );

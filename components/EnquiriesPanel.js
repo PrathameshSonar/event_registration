@@ -181,16 +181,25 @@ export default function EnquiriesPanel({ registrations = [], isAdmin = false, on
                             <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-semibold text-neutral-900 truncate">{reg.first_name} {reg.last_name}</span>
                                 <span className={`inline-flex items-center py-0.5 px-2 rounded-full text-[11px] font-bold border ${STATUS_CLASS[reg.payment_status] || ""}`}>{STATUS_LABEL[reg.payment_status]}</span>
+                                {/* A category-less lead came from the homepage "Enquire Now" — no
+                                    Seva chosen. Badge it so it's distinguishable from a tier enquiry. */}
+                                {!reg.category_id && <span className="inline-flex items-center py-0.5 px-2 rounded-full text-[11px] font-bold border bg-sky-50 text-sky-700 border-sky-200">General enquiry</span>}
                             </div>
                             <div className="text-xs text-neutral-500 mt-0.5">
-                                {reg.phone} · {reg.categories?.title || "—"}{reg.gotra ? ` · Gotra: ${reg.gotra}` : ""}
+                                {reg.phone} · {reg.categories?.title || (reg.category_id ? "—" : "No Seva selected")}{reg.gotra ? ` · Gotra: ${reg.gotra}` : ""}
                             </div>
+                            {!reg.category_id && reg.problem_samasya && (
+                                <div className="text-xs text-neutral-600 mt-1 italic">“{reg.problem_samasya}”</div>
+                            )}
                         </div>
                         <div className="flex items-center gap-2 flex-wrap">
                             <button onClick={() => openDrawer(reg)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs font-semibold text-neutral-700 hover:bg-neutral-100 transition" title="Notes / contact history">
                                 <MessageSquarePlus className="w-3.5 h-3.5" /> Notes
                             </button>
-                            {isAdmin && (reg.payment_status === "enquired" || reg.payment_status === "contacted") && (
+                            {/* Request Payment needs a Seva price. A general (Seva-less) lead
+                                has none — the admin assigns a Seva first (Edit details), so the
+                                button is hidden until then rather than erroring on click. */}
+                            {isAdmin && reg.category_id && (reg.payment_status === "enquired" || reg.payment_status === "contacted") && (
                                 <button onClick={() => requestPayment(reg)} disabled={busyId === reg.id} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-orange-200 rounded-lg text-xs font-semibold text-orange-700 bg-orange-50 hover:bg-orange-100 transition disabled:opacity-50" title="Send a payment link at the tier price">
                                     <IndianRupee className="w-3.5 h-3.5" /> Request Payment
                                 </button>

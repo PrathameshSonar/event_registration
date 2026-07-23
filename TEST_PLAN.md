@@ -243,6 +243,7 @@ Each case: **ID | Title | Pre-conditions | Steps | Expected**.
 |---|---|---|---|---|
 | ENV-01 | Fresh DB provisioning | Run `supabase/schema.sql` on an empty project | All base + feature tables, RLS, grants created; no error | P0 |
 | ENV-02 | Migration idempotency | Run `supabase/run_all.sql` **twice** | Second run completes with no error (regression: `day_label_hi` crash) | P0 |
+| ENV-02a | Contact phone column | Run `run_all.sql`, then submit a contact form with a mobile | `contact_messages.phone` exists and is populated (added 2026-07-23 — **re-run required**) | P0 |
 | ENV-03 | Buckets exist | Supabase → Storage | `qr-codes` (private), `payment-proofs` (private), `admin-docs` (private), `event-media` (public) | P0 |
 | ENV-04 | service_role grants | Insert into `admin_audit_logs`, `message_log`, `media_library`, `sponsors`, `registration_notes` via app | No silent failures; rows appear | P0 |
 | ENV-05 | Env vars complete | Admin → Dashboard → Launch Check | All 14 checks green (Razorpay keys, webhook secret, SESSION_SECRET, ≥1 admin account, email key, email sender, WhatsApp, **Gate scanner access**, SITE_URL, active event, payable tier, checkpoints, qr-codes bucket, payment-proofs bucket) | P0 |
@@ -472,6 +473,36 @@ Each case: **ID | Title | Pre-conditions | Steps | Expected**.
 | PUB-ENQ-06 | Enquiry holds no seat | Fill a tier with enquiries | Paid registration still possible | P0 |
 | PUB-ENQ-07 | Enquiry not in ledger tabs | Open Registrations → Master List | `enquired` rows are **not** listed there (they're in Enquiries) | P1 |
 
+### Homepage general enquiry (PUB-GENQ) — Seva-independent lead capture
+| ID | Title | Pre-conditions | Steps | Expected | Pri |
+|---|---|---|---|---|---|
+| PUB-GENQ-00 | Reachable without scrolling | `general_enquiry.enabled=true` | Open `/` | An **"Enquire Now"** button is visible in the hero (above the fold); clicking it jumps to the `#enquire` section | P0 |
+| PUB-GENQ-00a | Hero button hidden when disabled | Toggle off | Open `/` | No hero Enquire button | P1 |
+| PUB-GENQ-01 | Section shows when enabled | `general_enquiry.enabled=true` | Open `/` | "Enquire Now" section renders **high (just after the About section)** | P0 |
+| PUB-GENQ-02 | Works with **0 Sevas** | No categories at all | Open `/` | Section still shows — it's independent of Sevas (the whole point) | P0 |
+| PUB-GENQ-03 | Hidden when disabled | Toggle off in Settings → General Enquiry | Open `/` | Section absent | P0 |
+| PUB-GENQ-04 | Disabled server-side | Toggle off, then force `POST /api/general-enquiry` | Submit | 400 "not being accepted right now" — the toggle is a real guard, not cosmetic | P0 |
+| PUB-GENQ-05 | Not gated by registration-open | `registration_open=false` (or event ended) | Submit an enquiry | **Accepted** — general enquiry ignores registration-open by design | P0 |
+| PUB-GENQ-06 | Modal opens | Click Enquire Now | Modal with first/last name, mobile, email, message, T&C | P1 |
+| PUB-GENQ-07 | Valid submission | Fill all + accept T&C | Success screen ("Thank you!"); a lead appears in admin Enquiries → New | P0 |
+| PUB-GENQ-08 | Lead is category-less | Same | Admin Enquiries row shows **"General enquiry"** badge + "No Seva selected" + the message | P0 |
+| PUB-GENQ-09 | Name required | Blank name | Blocked with a clear message | P1 |
+| PUB-GENQ-10 | Phone validation | `12345` / non-Indian | Rejected client + server | P0 |
+| PUB-GENQ-11 | Email validation | `abc@` | Rejected | P1 |
+| PUB-GENQ-12 | Terms required | Leave T&C unticked | Blocked; server 400s if forced | P0 |
+| PUB-GENQ-13 | Message optional | Submit with no message | Accepted; row shows no quote | P1 |
+| PUB-GENQ-14 | Message sanitised | HTML / `javascript:` in message | Stripped; capped at 1000 chars | P0 |
+| PUB-GENQ-15 | Idempotent double-submit | Submit twice within 10 min, same phone | Second returns success without a duplicate lead | P1 |
+| PUB-GENQ-16 | Holds no seat | Submit on a capacity-limited setup | No seat reserved | P1 |
+| PUB-GENQ-17 | Profile upsert | Submit, then register later with the same phone | Both share the `profile_id` | P2 |
+| PUB-GENQ-18 | Request Payment hidden | Open the general lead in Enquiries | **No Request Payment button** (no Seva → no price) | P0 |
+| PUB-GENQ-19 | Convert after assigning a Seva | Edit details → set a Seva with a price → Request Payment | Now works via the normal `awaiting_payment` path | P1 |
+| PUB-GENQ-20 | Notes + Close work | Add a note / close the lead | Same pipeline actions as a tier enquiry | P1 |
+| PUB-GENQ-21 | Localised | Switch EN/HI/MR | Heading, subtext, form labels all translate | P1 |
+| PUB-GENQ-22 | Admin heading edit | Change title/subtext in Settings | Homepage reflects it on next load (tag revalidated) | P1 |
+| PUB-GENQ-23 | Homepage stays static | Build | `/` still prerenders as `○` (cached reader) | P1 |
+| PUB-GENQ-24 | Not the contact form | Compare | Lands in **Enquiries** (`registrations`), not Contact Messages (`contact_messages`) | P2 |
+
 ---
 
 ## B7. Donations / Seva (PUB-DON)
@@ -535,9 +566,13 @@ Each case: **ID | Title | Pre-conditions | Steps | Expected**.
 
 | ID | Title | Steps | Expected | Pri |
 |---|---|---|---|---|
-| PUB-MSC-01 | Contact form | Submit name+email+message | Row in `contact_messages`; unread badge in admin inbox | P1 |
+| PUB-MSC-01 | Contact form | Submit name+mobile+email+message | Row in `contact_messages` (incl. phone); unread badge in admin inbox | P1 |
 | PUB-MSC-02 | Contact validation | Missing name/email/message | 400 "Name, email and message are required." | P1 |
 | PUB-MSC-03 | Contact email format | `abc@` | 400 | P1 |
+| PUB-MSC-03a | Contact mobile required | Valid name/email/message, blank mobile | 400 "valid 10-digit Indian mobile number" (client + server) | P1 |
+| PUB-MSC-03b | Contact mobile format | `12345` / `+1 555…` | Rejected | P1 |
+| PUB-MSC-03c | Contact mobile prefixes | `+919876543210`, `09876543210` | Accepted, stored as bare 10 digits | P1 |
+| PUB-MSC-03d | Phone shows in admin | Submit, open Contact Messages | Phone appears as a click-to-call `tel:` link | P1 |
 | PUB-MSC-04 | Contact sanitisation | HTML + `javascript:` in message | Stripped; message capped at 4000 chars | P0 |
 | PUB-MSC-05 | Feedback rating | Submit rating 1..5 | Saved, attached to the active event | P1 |
 | PUB-MSC-06 | Feedback rating bounds | 0 or 6 | 400 "rating from 1 to 5" | P1 |

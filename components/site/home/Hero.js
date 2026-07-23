@@ -3,13 +3,13 @@
 // glass countdown, gold CTAs. All copy from the active event + language dict.
 "use client";
 
-import { Calendar, MapPin, ArrowRight, Sparkles } from "lucide-react";
+import { Calendar, MapPin, ArrowRight, Sparkles, MessageCircle } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { useRegistrationOpen } from "@/components/RegistrationProvider";
 import { pick } from "@/lib/i18n";
 import LuxuryCountdown from "@/components/site/LuxuryCountdown";
 
-export default function Hero({ event, hasCategories }) {
+export default function Hero({ event, hasCategories, showEnquiry }) {
   const { t, lang } = useLanguage();
   const registrationOpen = useRegistrationOpen();
 
@@ -65,6 +65,14 @@ export default function Hero({ event, hasCategories }) {
             <a href="/donate" className="btn-outline-gold !border-gold/70 !text-gold-400 hover:!bg-gold/15">
               <Sparkles className="h-4 w-4" /> {t("nav_donate") || "Donate Now"}
             </a>
+            {/* Above-the-fold entry to the enquiry — jumps to the #enquire section
+                (which holds the form). Shown only when General Enquiry is enabled;
+                doubly useful with no Sevas live, when the Register CTA is hidden. */}
+            {showEnquiry && (
+              <a href="#enquire" className="inline-flex h-11 items-center gap-2 rounded-full border border-white/40 px-6 text-[15px] font-semibold text-ivory hover:bg-white/10 transition">
+                <MessageCircle className="h-4 w-4" /> {t("enquiry_home_cta") || "Enquire Now"}
+              </a>
+            )}
           </div>
 
           {event?.start_at && (

@@ -13,7 +13,7 @@ import SectionKicker from "@/components/site/SectionKicker";
 export default function ContactPageContent({ event, contact, hero }) {
   const { t } = useLanguage();
   const h = hero || {};
-  const [form, setForm] = useState({ name: "", email: "", subject: "", message: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", subject: "", message: "" });
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -30,6 +30,10 @@ export default function ContactPageContent({ event, contact, hero }) {
     e.preventDefault();
     if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
       toast.error(t("contact_err_fields") || "Please fill in name, email and message.");
+      return;
+    }
+    if (!/^[6-9]\d{9}$/.test(form.phone.replace(/\D/g, "").replace(/^(91|0)/, ""))) {
+      toast.error(t("contact_err_phone") || "Enter a valid 10-digit Indian mobile number.");
       return;
     }
     setBusy(true);
@@ -99,8 +103,9 @@ export default function ContactPageContent({ event, contact, hero }) {
               <form onSubmit={submit} noValidate className="luxury-card p-8 md:p-10 space-y-5">
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div><label className="text-xs font-semibold text-brown/60 uppercase tracking-wider">{t("contact_name") || "Name"}</label><input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={inputCls} /></div>
-                  <div><label className="text-xs font-semibold text-brown/60 uppercase tracking-wider">{t("contact_email") || "Email"}</label><input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className={inputCls} /></div>
+                  <div><label className="text-xs font-semibold text-brown/60 uppercase tracking-wider">{t("contact_phone") || "Mobile number"}</label><input inputMode="numeric" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} className={inputCls} placeholder={t("contact_phone_ph") || "10-digit mobile"} /></div>
                 </div>
+                <div><label className="text-xs font-semibold text-brown/60 uppercase tracking-wider">{t("contact_email") || "Email"}</label><input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className={inputCls} /></div>
                 <div><label className="text-xs font-semibold text-brown/60 uppercase tracking-wider">{t("contact_subject") || "Subject"}</label><input value={form.subject} onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))} className={inputCls} placeholder={t("contact_subject_ph") || "Registration query, sponsorship, seva…"} /></div>
                 <div><label className="text-xs font-semibold text-brown/60 uppercase tracking-wider">{t("contact_message") || "Message"}</label><textarea rows={6} value={form.message} onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))} className="mt-2 w-full px-4 py-3 rounded-xl border border-gold/25 bg-white text-sm focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20" placeholder={t("contact_message_ph") || "Write to us…"} /></div>
                 <button type="submit" disabled={busy} className="btn-gold w-full justify-center disabled:opacity-50">{busy ? (t("contact_sending") || "Sending…") : (t("contact_send") || "Send Message")}</button>

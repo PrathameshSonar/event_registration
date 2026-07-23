@@ -19,7 +19,7 @@
 | Learn about the Mahotsav | **About** / **Event** |
 | See the programme, timings, venue and facilities | **Event** |
 | Register for a Seva and pay | **Registration** → pick a Seva |
-| Ask a question before committing | **Registration** → a Seva with **Enquire Now**, or **Contact** |
+| Ask a question before committing | The **Enquire Now** button on the homepage, a Seva with **Enquire Now**, or **Contact** |
 | Offer a donation / Seva contribution | **Donate** |
 | Watch the live stream | **Live** (a red bar appears site-wide when we're live) |
 | Find my entry pass again | **Registration** page → *Already registered?* → or go to `/my-pass` |
@@ -176,7 +176,7 @@ If a Seva is full, join the **waitlist** with your name and mobile. If a seat fr
 | **Add to calendar** | Home page | Downloads a calendar entry |
 | **Share** the event | Home page share buttons | — |
 | **Watch live** | The red bar appears when we're streaming; or open **Live** | Works while you're on any page |
-| **Send us a message** | **Contact** form | Name, email and message required |
+| **Send us a message** | **Contact** form | Name, **mobile**, email and message required |
 | **Give feedback** | `/feedback` | 1–5 stars plus an optional comment; you can stay anonymous |
 | **See past events** | **Previous Events** | Archived Mahayagyas |
 | **Download the brochure / parking map / programme** | **Event** page → Downloads | If published |
@@ -452,8 +452,13 @@ Kept separate from the ledger on purpose. Tabs: **New · Contacted · Payment Li
 
 **Where enquiries come from:** a Seva marked *Enquiry Only*, or a paid Seva with *Allow Enquiry* (which shows both "Pay" and "Enquire Now"). Enquiries **hold no seat**.
 
+### Where leads come from
+- A Seva marked **Enquiry Only** or **Paid + Enquire** (the "Enquire Now" on a Seva).
+- The **homepage "Enquire Now"** — a general enquiry not tied to any Seva. This one works **even before you've created any Sevas**, so you can collect interest while you're still setting up. These show a blue **"General enquiry"** badge, the person's message, and **"No Seva selected"**.
+
 ### Working a lead
 1. **Notes** — add as many timestamped notes as you like. The **first note on a New lead automatically moves it to Contacted.**
+   > **A general (homepage) enquiry has no Seva yet, so "Request Payment" is hidden.** To charge them, open **Edit details**, assign a Seva with a price, then Request Payment as normal. Or just work it with notes and close it.
 2. **Request Payment** — sets the total to the **Seva's fixed price** and sends a Razorpay payment link by email + WhatsApp. Status → ⌛ Payment Link Sent.
    > You never type an amount. It's always the tier's price.
 3. When they pay, **the same record** completes automatically and the entry pass becomes available. If the webhook is missed, the nightly reconcile or **Sync all** picks it up.
@@ -531,6 +536,7 @@ Use the **search box** at the top of the Settings sidebar — type "upi", "wrist
 | **Sevas & Tiers** | Create Sevas: price, descriptions, image, colour theme, capacity, max attendees per registration, age limits, and the flags below |
 | **Form Fields** | Choose which questions each Seva asks |
 | **Declaration** | The Samanti Patra text (per language) and whether it's required |
+| **General Enquiry** | The always-on **"Enquire Now"** on the homepage — on/off + heading/subtext per language. Works with no Sevas live, so you can collect leads before launch; turn it off once your Sevas are live if you don't need it |
 | **Consent Records** | Every acceptance — searchable, exportable, printable per person |
 | **Waitlist** | People waiting on full Sevas, oldest first |
 | **Entry Checkpoints** | Gates + wristband colours |
@@ -565,7 +571,7 @@ Use the **search box** at the top of the Settings sidebar — type "upi", "wrist
 | Panel | Use it to |
 |---|---|
 | **Contact & Social** | The single place for phone, email, address, Instagram, Facebook, YouTube. Feeds the footer, the Contact page and the floating WhatsApp button |
-| **Contact Messages** | Inbox for the public contact form — read/unread, reply by email, delete |
+| **Contact Messages** | Inbox for the public contact form — read/unread, reply by email, **click-to-call the mobile**, delete |
 | **Feedback** | Post-event ratings and comments |
 | **Templates & Config** | Email templates, WhatsApp template names, QR appearance, gateway status |
 | **Message Log** | Every email and WhatsApp we sent, and whether it landed |
@@ -706,6 +712,7 @@ You don't need the internals, but you do need to know the three layers, because 
 | **An offline proof is unreadable** | **Reject** with a clear reason — they'll be emailed to resubmit |
 | **A Seva sold out** | Settings → Sevas & Tiers → tick **Full** (or let capacity do it). Waitlist opens automatically |
 | **Stop all registrations** | Home Page Content → **Registration open/closed** → closed |
+| **Collect leads before Sevas are ready** | Settings → General Enquiry → toggle on, set the heading. The homepage "Enquire Now" collects leads into the Enquiries tab with no Seva needed |
 | **Publish an announcement** | Home Page Content → News → add → publish with the eye toggle |
 | **Go live** | Home Page Content → Live Stream → paste URL → save → **🔴 Go live** |
 | **Email isn't arriving** | Settings → Templates & Config → Gateway → **Send test email**, then check the Message Log for the provider's error |

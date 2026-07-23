@@ -14,7 +14,7 @@ export async function GET() {
     if (response) return response;
     const { data, error } = await supabaseAdmin
         .from('contact_messages')
-        .select('id, name, email, subject, message, is_read, created_at')
+        .select('id, name, email, phone, subject, message, is_read, created_at')
         .order('created_at', { ascending: false })
         .limit(1000);
     if (error) return NextResponse.json({ error: 'Failed to load messages.' }, { status: 500 });

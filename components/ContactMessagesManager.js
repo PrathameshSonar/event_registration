@@ -100,6 +100,7 @@ export default function ContactMessagesManager() {
                                         {!m.is_read && <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />}
                                         <span className="font-bold text-neutral-900">{m.name || "—"}</span>
                                         {m.email && <a href={`mailto:${m.email}?subject=Re: ${encodeURIComponent(m.subject || "Your enquiry")}`} className="text-sm text-orange-600 hover:underline">{m.email}</a>}
+                                        {m.phone && <a href={`tel:${m.phone}`} className="text-sm text-neutral-500 hover:text-orange-600 hover:underline">📞 {m.phone}</a>}
                                     </div>
                                     {m.subject && <p className="mt-1 text-sm font-semibold text-neutral-700">{m.subject}</p>}
                                     <p className="mt-1.5 text-sm text-neutral-600 whitespace-pre-wrap break-words">{m.message}</p>
