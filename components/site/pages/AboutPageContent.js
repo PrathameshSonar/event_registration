@@ -14,7 +14,36 @@ import LuxuryHeading from "@/components/site/LuxuryHeading";
 import Leadership from "@/components/site/home/Leadership";
 import Pillars from "@/components/site/home/Pillars";
 
-export default function AboutPageContent({ event, featuredGuests, pillars, valueCards, legacy, gallery, hero }) {
+// One admin-editable About section (Pitham or Guruji): image + heading + body,
+// with the image alternating side. Renders nothing until it has a title or body.
+function AboutSection({ section, lang, flip, kicker }) {
+  const tr = (o) => (o && (o[lang] || o.en)) || "";
+  const title = tr(section?.title);
+  const body = tr(section?.body);
+  const image = section?.image_url;
+  if (!title && !body) return null;
+  return (
+    <section className="section-y">
+      <div className="container-luxury">
+        <div className={`grid items-center gap-10 ${image ? "lg:grid-cols-2" : "max-w-3xl mx-auto"}`}>
+          {image && (
+            <Reveal className={flip ? "lg:order-2" : ""}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={image} alt={title} loading="lazy" className="w-full rounded-3xl object-cover aspect-[4/3] shadow-luxury" />
+            </Reveal>
+          )}
+          <Reveal delay={80}>
+            {kicker && <SectionKicker>{kicker}</SectionKicker>}
+            {title && <LuxuryHeading className="mt-4" main={title} />}
+            {body && <p className="mt-5 text-brown/80 leading-[1.85] whitespace-pre-wrap" style={{ fontSize: "1.0625rem" }}>{body}</p>}
+          </Reveal>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export default function AboutPageContent({ event, featuredGuests, pillars, valueCards, legacy, gallery, hero, aboutPage }) {
   const { t, lang } = useLanguage();
   const h = hero || {};
   const about = pick(event, "long_description", lang) || pick(event, "short_description", lang);
@@ -52,6 +81,10 @@ export default function AboutPageContent({ event, featuredGuests, pillars, value
           </div>
         </section>
       )}
+
+      {/* Admin-editable Pitham/temple + Guruji sections (Settings → About Us Page). */}
+      <AboutSection section={aboutPage?.pitham} lang={lang} flip={false} kicker={t("about_pitham_kicker") || "Our Sanctum"} />
+      <AboutSection section={aboutPage?.guruji} lang={lang} flip kicker={t("about_guruji_kicker") || "Under the Guidance Of"} />
 
       {/* Mission / Vision / Purpose / Importance — value cards */}
       {cards.length > 0 && (

@@ -17,7 +17,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   const registrationOpen = isRegistrationOpen(event);
   return (
     <RegistrationProvider open={registrationOpen}>
-      <LuxuryNavbar />
+      <LuxuryNavbar officialUrl={contact?.website_url || ""} />
       <main className="min-h-screen bg-ivory text-brown">{children}</main>
       <LuxuryFooter event={event} contact={contact} />
     </RegistrationProvider>

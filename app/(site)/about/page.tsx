@@ -1,16 +1,17 @@
 // app/(site)/about/page.tsx — About page. Nav/footer from the (site) layout.
 import { supabase } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { getPageHeroes } from '@/lib/siteEvent';
+import { getPageHeroes, getAboutPage } from '@/lib/siteEvent';
 import AboutPageContent from '@/components/site/pages/AboutPageContent';
 
 export const revalidate = 300;
-export const metadata = { title: 'About' };
+export const metadata = { title: 'About Us' };
 
 export default async function AboutPage() {
-  const [{ data: event }, heroes] = await Promise.all([
+  const [{ data: event }, heroes, aboutPage] = await Promise.all([
     supabase.from('events').select('*').eq('is_active', true).single(),
     getPageHeroes(),
+    getAboutPage(),
   ]);
 
   let featuredGuests: any[] = [];
@@ -35,5 +36,5 @@ export default async function AboutPage() {
     .from('events').select('id, title, date_time, translations, hero_image_url')
     .eq('show_in_archive', true).order('created_at', { ascending: false }).limit(3);
 
-  return <AboutPageContent event={event} featuredGuests={featuredGuests} pillars={pillars} valueCards={valueCards} legacy={legacy || []} gallery={gallery} hero={heroes?.about || {}} />;
+  return <AboutPageContent event={event} featuredGuests={featuredGuests} pillars={pillars} valueCards={valueCards} legacy={legacy || []} gallery={gallery} hero={heroes?.about || {}} aboutPage={aboutPage} />;
 }

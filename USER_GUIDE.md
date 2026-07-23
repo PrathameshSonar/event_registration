@@ -515,8 +515,11 @@ Use the **search box** at the top of the Settings sidebar — type "upi", "wrist
 | **Event Setup** | Title, descriptions, date/time, venue, map, hero image, start/end dates, the "by the numbers" stats strip, venue facility cards. Create events, **set the active one**, delete (needs your password) |
 | **Home Page Content** | Programme/schedule, guests & artists (★ marks a featured guest who becomes the Leadership hero), highlight cards (filed as Highlights / Pillars / Blessings / About), FAQ, News & Announcements, Testimonials, countdown, **Registration open/closed toggle**, **Live Stream** |
 | **Page Headers** | The hero banner for each inner page |
+| **About Us Page** | Two sections on the public About Us page — one about the **Pitham/temple**, one about **Guruji** — each with a heading, body and image per language. Leave a section blank to hide it |
 | **Media Gallery** | The public photo/video gallery |
 | **Media Library** | Every uploaded file — browse, reuse, publish flags, delete |
+
+**Linking your official website:** the **"Official Website"** button in the top navigation comes from **Settings → Contact & Social → Official website**. Paste the Pitham's website URL there; leave it blank to hide the button. It opens in a new tab.
 
 **Going live with a stream:** paste the URL and save it *first*, then hit **🔴 Go live**. They're two separate saves so going live can never also commit half-typed edits. **A live toggle with no URL is treated as not live** — the panel won't let you. Once live, a player appears high on the homepage and a red bar appears on *every* page, including for people already sitting on the registration form.
 
@@ -571,7 +574,7 @@ Use the **search box** at the top of the Settings sidebar — type "upi", "wrist
 ### Messages & Contact
 | Panel | Use it to |
 |---|---|
-| **Contact & Social** | The single place for phone, email, address, Instagram, Facebook, YouTube. Feeds the footer, the Contact page and the floating WhatsApp button |
+| **Contact & Social** | The single place for phone, email, address, Instagram, Facebook, YouTube, and the **official website** (shown as a nav button). Feeds the footer, the Contact page and the floating WhatsApp button |
 | **Contact Messages** | Inbox for the public contact form — read/unread, reply by email, **click-to-call the mobile**, delete |
 | **Feedback** | Post-event ratings and comments |
 | **Templates & Config** | Email templates, WhatsApp template names, QR appearance, gateway status |

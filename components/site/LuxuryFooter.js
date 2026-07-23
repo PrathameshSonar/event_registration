@@ -13,7 +13,7 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { useRegistrationOpen } from "@/components/RegistrationProvider";
 
 const NAV = [
-  { key: "nav_about", fallback: "About", to: "/about" },
+  { key: "nav_about", fallback: "About Us", to: "/about" },
   { key: "nav_event_details", fallback: "Event", to: "/event" },
   { key: "nav_register", fallback: "Registration", to: "/registration" },
   { key: "nav_gallery", fallback: "Gallery", to: "/gallery" },

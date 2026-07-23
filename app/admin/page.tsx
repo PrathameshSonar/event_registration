@@ -19,6 +19,7 @@ import ContactSocialManager from '@/components/ContactSocialManager';
 import ContactMessagesManager from '@/components/ContactMessagesManager';
 import DeclarationManager from '@/components/DeclarationManager';
 import GeneralEnquiryManager from '@/components/GeneralEnquiryManager';
+import AboutPageManager from '@/components/AboutPageManager';
 import ConsentsManager from '@/components/ConsentsManager';
 import PageHeadersManager from '@/components/PageHeadersManager';
 import AuditLogPanel from '@/components/AuditLogPanel';
@@ -70,7 +71,7 @@ export default function AdminDashboard() {
     const can = (perm: string) => isAdmin || permissions.includes(perm);
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'enquiries' | 'scanlog' | 'settings' | 'audit'>('dashboard');
-    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'library' | 'branding' | 'pageheaders' | 'templates' | 'checkpoints' | 'formfields' | 'homecontent' | 'contactsocial' | 'contactmessages' | 'declaration' | 'generalenquiry' | 'consents' | 'payment' | 'users' | 'waitlist' | 'donations' | 'sevacategories' | 'sponsors' | 'messages' | 'feedback'>('events');
+    const [settingsSubTab, setSettingsSubTab] = useState<'events' | 'tiers' | 'media' | 'library' | 'branding' | 'pageheaders' | 'templates' | 'checkpoints' | 'formfields' | 'homecontent' | 'contactsocial' | 'contactmessages' | 'declaration' | 'generalenquiry' | 'aboutpage' | 'consents' | 'payment' | 'users' | 'waitlist' | 'donations' | 'sevacategories' | 'sponsors' | 'messages' | 'feedback'>('events');
     const [settingsQuery, setSettingsQuery] = useState('');
 
     const [loading, setLoading] = useState(false);
@@ -1415,6 +1416,7 @@ export default function AdminDashboard() {
                                         { k: 'events', Icon: CalendarDays, label: 'Event Setup', kw: 'venue date title event' },
                                         { k: 'homecontent', Icon: LayoutDashboard, label: 'Home Page Content', kw: 'schedule guests highlights faq news testimonials countdown registration open close' },
                                         { k: 'pageheaders', Icon: ImageIcon, label: 'Page Headers', kw: 'hero banner about gallery' },
+                                        { k: 'aboutpage', Icon: ScrollText, label: 'About Us Page', kw: 'pitham temple guruji about us sections' },
                                         { k: 'media', Icon: ImageIcon, label: 'Media Gallery', kw: 'photos images videos' },
                                         { k: 'library', Icon: FolderOpen, label: 'Media Library', kw: 'files upload documents downloads' },
                                     ] },
@@ -1678,6 +1680,7 @@ export default function AdminDashboard() {
                             {settingsSubTab === 'contactmessages' && <ContactMessagesManager />}
                             {settingsSubTab === 'declaration' && <DeclarationManager />}
                             {settingsSubTab === 'generalenquiry' && <GeneralEnquiryManager />}
+                            {settingsSubTab === 'aboutpage' && <AboutPageManager />}
                             {settingsSubTab === 'consents' && <ConsentsManager />}
                             {settingsSubTab === 'payment' && <PaymentSettingsManager />}
                             {settingsSubTab === 'users' && <AdminUsersManager />}

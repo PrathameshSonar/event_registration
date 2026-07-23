@@ -7,7 +7,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Save, Phone, Mail, MapPin } from "lucide-react";
+import { Save, Phone, Mail, MapPin, Globe } from "lucide-react";
 import { InstagramIcon, YoutubeIcon, FacebookIcon } from "@/components/site/BrandIcons";
 import { DEFAULT_CONTACT } from "@/lib/appSettings";
 
@@ -79,6 +79,7 @@ export default function ContactSocialManager() {
                 <Field label="Instagram" Icon={InstagramIcon} type="url" placeholder="https://instagram.com/..." value={c.instagram_url} onChange={set("instagram_url")} />
                 <Field label="Facebook" Icon={FacebookIcon} type="url" placeholder="https://facebook.com/..." value={c.facebook_url} onChange={set("facebook_url")} />
                 <Field label="YouTube" Icon={YoutubeIcon} type="url" placeholder="https://youtube.com/@..." value={c.youtube_url} onChange={set("youtube_url")} />
+                <Field label="Official website" Icon={Globe} type="url" placeholder="https://pitham.example.org" value={c.website_url} onChange={set("website_url")} hint="Shown as an 'Official Website' button in the top navigation (opens in a new tab)." />
             </div>
 
             <div className="flex items-center gap-3">

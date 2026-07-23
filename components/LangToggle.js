@@ -9,7 +9,12 @@ import { LANGUAGES } from '@/lib/i18n';
 // Language switcher — a custom popover (not a native <select>) so it matches the
 // luxury theme. Driven by LANGUAGES in lib/i18n: add a language there and it
 // appears here automatically.
-export default function LangToggle() {
+//
+// `dropUp` opens the list ABOVE the button. Needed inside the mobile nav menu,
+// which is an `overflow-hidden` max-height accordion: a downward list is clipped
+// at the card's bottom edge, so the last language (Marathi) becomes unclickable.
+// Opening upward keeps every option inside the visible menu.
+export default function LangToggle({ dropUp = false }) {
     const { lang, setLanguage } = useLanguage();
     const [open, setOpen] = useState(false);
     const ref = useRef(null);
@@ -37,7 +42,7 @@ export default function LangToggle() {
             </button>
 
             {open && (
-                <div className="absolute right-0 z-50 mt-2 w-40 overflow-hidden rounded-2xl border border-gold/20 bg-white shadow-luxury">
+                <div className={`absolute right-0 z-[60] w-40 overflow-hidden rounded-2xl border border-gold/20 bg-white shadow-luxury ${dropUp ? "bottom-full mb-2" : "mt-2"}`}>
                     {LANGUAGES.map((l) => {
                         const active = l.code === lang;
                         return (
