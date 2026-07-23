@@ -93,7 +93,7 @@ export default function AboutPageContent({ event, featuredGuests, pillars, value
         <section className="pb-4 -mt-6">
           <div className="container-luxury text-center">
             <a href={officialUrl} target="_blank" rel="noopener noreferrer" className="btn-outline-gold inline-flex items-center gap-2">
-              {t("nav_official_site") || "Official Website"} <ExternalLink className="h-4 w-4" />
+              {t("nav_official_site") || "Pitham Official Website"} <ExternalLink className="h-4 w-4" />
             </a>
           </div>
         </section>

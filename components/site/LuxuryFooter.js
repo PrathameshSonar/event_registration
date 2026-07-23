@@ -6,7 +6,7 @@
 
 import Link from "next/link";
 import { DEFAULT_BRANDING } from "@/lib/appSettings";
-import { Flame, Phone, Mail, MapPin, MessageCircle } from "lucide-react";
+import { Flame, Phone, Mail, MapPin, MessageCircle, Globe } from "lucide-react";
 import { InstagramIcon, YoutubeIcon, FacebookIcon } from "@/components/site/BrandIcons";
 import { useBranding } from "@/components/BrandingProvider";
 import { useLanguage } from "@/components/LanguageProvider";
@@ -34,6 +34,7 @@ export default function LuxuryFooter({ event, contact }) {
   const phone = contact?.phone;
   const location = contact?.address || event?.venue;
   const email = contact?.email;
+  const website = contact?.website_url;
   const socials = [
     { Icon: InstagramIcon, href: contact?.instagram_url, label: "instagram" },
     { Icon: YoutubeIcon, href: contact?.youtube_url, label: "youtube" },
@@ -120,6 +121,9 @@ export default function LuxuryFooter({ event, contact }) {
               )}
               {email && (
                 <li className="flex items-center gap-3"><Mail className="h-4 w-4 text-gold-400" /><a href={`mailto:${email}`} className="text-ivory/75 hover:text-gold-400">{email}</a></li>
+              )}
+              {website && (
+                <li className="flex items-center gap-3"><Globe className="h-4 w-4 text-gold-400" /><a href={website} target="_blank" rel="noopener noreferrer" className="text-ivory/75 hover:text-gold-400">{t("nav_official_site") || "Pitham Official Website"}</a></li>
               )}
             </ul>
           </div>

@@ -79,7 +79,7 @@ export default function ContactSocialManager() {
                 <Field label="Instagram" Icon={InstagramIcon} type="url" placeholder="https://instagram.com/..." value={c.instagram_url} onChange={set("instagram_url")} />
                 <Field label="Facebook" Icon={FacebookIcon} type="url" placeholder="https://facebook.com/..." value={c.facebook_url} onChange={set("facebook_url")} />
                 <Field label="YouTube" Icon={YoutubeIcon} type="url" placeholder="https://youtube.com/@..." value={c.youtube_url} onChange={set("youtube_url")} />
-                <Field label="Official website" Icon={Globe} type="url" placeholder="https://pitham.example.org" value={c.website_url} onChange={set("website_url")} hint="Shown as an 'Official Website' button in the top navigation (opens in a new tab)." />
+                <Field label="Pitham official website" Icon={Globe} type="url" placeholder="https://pitham.example.org" value={c.website_url} onChange={set("website_url")} hint="Shown as a 'Pitham Official Website' link in the footer, the mobile menu, and on the About Us page (opens in a new tab)." />
             </div>
 
             <div className="flex items-center gap-3">

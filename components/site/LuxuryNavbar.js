@@ -18,15 +18,14 @@ import LangToggle from "@/components/LangToggle";
 // `t(key) || fallback` keeps it working before the i18n keys are added.
 function useNavLinks() {
   const { t } = useLanguage();
-  // News + Live intentionally kept OFF the primary nav (they live in the footer
-  // and the live banner) so the bar stays uncluttered.
+  // News, Live and FAQ are intentionally kept OFF the primary nav (they live in
+  // the footer / live banner / their own pages) so the bar stays uncluttered.
   return [
     { label: t("nav_home") || "Home", to: "/" },
     { label: t("nav_about") || "About Us", to: "/about" },
     { label: t("nav_event_details") || "Event", to: "/event" },
     { label: t("nav_register") || "Registration", to: "/registration" },
     { label: t("nav_gallery") || "Gallery", to: "/gallery" },
-    { label: t("nav_faq") || "FAQ", to: "/faq" },
     { label: t("nav_contact") || "Contact", to: "/contact" },
   ];
 }
@@ -93,13 +92,9 @@ export default function LuxuryNavbar({ officialUrl = "" }) {
               {l.label}
             </Link>
           ))}
-          {/* Pitham's official website — external, so a plain <a> (not next/link),
-              opening in a new tab. Only shown when a URL is configured. */}
-          {officialUrl && (
-            <a href={officialUrl} target="_blank" rel="noopener noreferrer" className="relative px-3 py-2 text-[15px] font-medium tracking-wide text-brown/85 hover:text-vermillion inline-flex items-center gap-1">
-              {t("nav_official_site") || "Official Website"} <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-          )}
+          {/* The Pitham's official website is deliberately NOT a top-level desktop
+              nav item — it crowded the bar. It lives in the mobile menu (which has
+              vertical room) and as a button on the About Us page. */}
         </nav>
 
         <div className="hidden xl:flex items-center gap-3">
@@ -138,7 +133,7 @@ export default function LuxuryNavbar({ officialUrl = "" }) {
               {officialUrl && (
                 <li>
                   <a href={officialUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-2 py-3.5 text-[16px] font-medium text-brown/85">
-                    {t("nav_official_site") || "Official Website"} <ExternalLink className="h-4 w-4" />
+                    {t("nav_official_site") || "Pitham Official Website"} <ExternalLink className="h-4 w-4" />
                   </a>
                 </li>
               )}
