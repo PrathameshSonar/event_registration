@@ -820,6 +820,10 @@ Each case: **ID | Title | Pre-conditions | Steps | Expected**.
 | ADM-MONEY-40 | Copy link (silent) | `advance_paid` row → Copy | Link returned; **no email/WhatsApp sent** | P0 |
 | ADM-MONEY-41 | Copy creates if missing | Row with no link | Creates one with a unique `bal_<id>_<ts>` reference | P0 |
 | ADM-MONEY-42 | Razorpay error surfaced | Break the gateway config | 502 with Razorpay's own message (not a blank error) | P1 |
+| ADM-MONEY-42a | Copy link reference length | Advance-paid row with a real UUID id → **Copy balance link** | Link created; **no** "reference_id: length must be no more than 40" 502 (regression) | P0 |
+| ADM-MONEY-42b | Reference is unique on re-create | Copy, then clear the stored link, then Copy again | Second creation succeeds — no Razorpay duplicate-reference error | P0 |
+| ADM-MONEY-42c | Resend link reference length | Advance-paid row → **Resend balance link** | Sends; reference ≤ 40 chars | P0 |
+| ADM-MONEY-42d | Paid link still maps back | Pay a link created with the compact reference | Webhook `payment_link.paid` matches via `notes.registration_id` → row completes | P0 |
 | ADM-MONEY-43 | Re-send (notifies) | Click ₹ | Email + WhatsApp sent with the **reminder** wording (`balance_reminder`, not `balance_link`) | P0 |
 | ADM-MONEY-44 | Resend confirmation (all) | `completed` row → Resend confirmation | Both channels re-sent | P1 |
 | ADM-MONEY-45 | Resend only the failed channel | Email delivered, WhatsApp failed → click the ⚠ retry | **Only WhatsApp** re-sent; no duplicate email | P0 |

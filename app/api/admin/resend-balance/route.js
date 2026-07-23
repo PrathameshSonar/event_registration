@@ -8,6 +8,7 @@ import { logAudit } from '@/lib/auditLog';
 import { sendTemplatedEmail } from '@/lib/email';
 import { sendWhatsAppTemplate } from '@/lib/whatsapp';
 import { getSiteName } from '@/lib/branding';
+import { balanceReference } from '@/lib/payments';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,7 +47,7 @@ export async function POST(request) {
                 currency: 'INR',
                 accept_partial: false,
                 description: `Balance payment — ${categoryTitle} (${await getSiteName()})`,
-                reference_id: `bal_${reg.id}_${Date.now()}`,
+                reference_id: balanceReference(reg.id),
                 customer: { name: `${reg.first_name} ${reg.last_name}`.trim(), email: reg.email || undefined, contact: cleanPhone || undefined },
                 notify: { sms: false, email: false },
                 reminder_enable: true,
