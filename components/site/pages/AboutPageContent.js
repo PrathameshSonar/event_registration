@@ -4,7 +4,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ExternalLink } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { pick } from "@/lib/i18n";
 import PageHero from "@/components/site/PageHero";
@@ -28,8 +28,10 @@ function AboutSection({ section, lang, flip, kicker }) {
         <div className={`grid items-center gap-10 ${image ? "lg:grid-cols-2" : "max-w-3xl mx-auto"}`}>
           {image && (
             <Reveal className={flip ? "lg:order-2" : ""}>
+              {/* Natural aspect ratio (h-auto, no object-cover) so the image is
+                  shown in full and never cropped. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={image} alt={title} loading="lazy" className="w-full rounded-3xl object-cover aspect-[4/3] shadow-luxury" />
+              <img src={image} alt={title} loading="lazy" className="w-full h-auto rounded-3xl shadow-luxury" />
             </Reveal>
           )}
           <Reveal delay={80}>
@@ -43,7 +45,7 @@ function AboutSection({ section, lang, flip, kicker }) {
   );
 }
 
-export default function AboutPageContent({ event, featuredGuests, pillars, valueCards, legacy, gallery, hero, aboutPage }) {
+export default function AboutPageContent({ event, featuredGuests, pillars, valueCards, legacy, gallery, hero, aboutPage, officialUrl }) {
   const { t, lang } = useLanguage();
   const h = hero || {};
   const about = pick(event, "long_description", lang) || pick(event, "short_description", lang);
@@ -82,9 +84,20 @@ export default function AboutPageContent({ event, featuredGuests, pillars, value
         </section>
       )}
 
-      {/* Admin-editable Pitham/temple + Guruji sections (Settings → About Us Page). */}
+      {/* Admin-editable Pitham/temple section (Settings → About Us Page). Guruji is
+          covered by the featured-guest "Guiding Light" block below. */}
       <AboutSection section={aboutPage?.pitham} lang={lang} flip={false} kicker={t("about_pitham_kicker") || "Our Sanctum"} />
-      <AboutSection section={aboutPage?.guruji} lang={lang} flip kicker={t("about_guruji_kicker") || "Under the Guidance Of"} />
+
+      {/* Official website — also surfaced here under About Us, not only in the nav. */}
+      {officialUrl && (
+        <section className="pb-4 -mt-6">
+          <div className="container-luxury text-center">
+            <a href={officialUrl} target="_blank" rel="noopener noreferrer" className="btn-outline-gold inline-flex items-center gap-2">
+              {t("nav_official_site") || "Official Website"} <ExternalLink className="h-4 w-4" />
+            </a>
+          </div>
+        </section>
+      )}
 
       {/* Mission / Vision / Purpose / Importance — value cards */}
       {cards.length > 0 && (

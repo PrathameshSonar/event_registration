@@ -515,7 +515,7 @@ Use the **search box** at the top of the Settings sidebar — type "upi", "wrist
 | **Event Setup** | Title, descriptions, date/time, venue, map, hero image, start/end dates, the "by the numbers" stats strip, venue facility cards. Create events, **set the active one**, delete (needs your password) |
 | **Home Page Content** | Programme/schedule, guests & artists (★ marks a featured guest who becomes the Leadership hero), highlight cards (filed as Highlights / Pillars / Blessings / About), FAQ, News & Announcements, Testimonials, countdown, **Registration open/closed toggle**, **Live Stream** |
 | **Page Headers** | The hero banner for each inner page |
-| **About Us Page** | Two sections on the public About Us page — one about the **Pitham/temple**, one about **Guruji** — each with a heading, body and image per language. Leave a section blank to hide it |
+| **About Us Page** | The **Pitham/temple** section on the public About Us page — heading, body and image per language. Leave it blank to hide it. (Guruji is covered by the featured guest in Home Page Content) |
 | **Media Gallery** | The public photo/video gallery |
 | **Media Library** | Every uploaded file — browse, reuse, publish flags, delete |
 

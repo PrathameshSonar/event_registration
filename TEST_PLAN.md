@@ -271,7 +271,7 @@ Each case: **ID | Title | Pre-conditions | Steps | Expected**.
 | PUB-SITE-02b | Nav label | — | Open any page | Nav reads **"About Us"** (not "About"), desktop + mobile + footer | P1 |
 | PUB-SITE-02c | Mobile language dropdown | Mobile viewport, open the hamburger menu → language popover | Tap it | All three languages incl. **Marathi** are visible and selectable (regression: Marathi was clipped) | P0 |
 | PUB-SITE-02d | Official website button | Set Contact & Social → Official website URL | Open nav (desktop + mobile) | "Official Website" button present, opens the URL in a new tab; **absent** when the URL is blank | P1 |
-| PUB-SITE-02e | About Us — Pitham/Guruji sections | Fill both in Settings → About Us Page | Open `/about` | Both sections render (image + heading + body), localised; a blank section is hidden | P1 |
+| PUB-SITE-02e | About Us — Pitham section | Fill it in Settings → About Us Page with a tall/wide image | Open `/about` | Section renders (image + heading + body), localised; **image shown in full, not cropped**; hidden when blank. No separate Guruji section (covered by the featured guest) | P1 |
 | PUB-SITE-02f | About Us static | Build | `/about` still prerenders `○` (cached reader) | P1 |
 | PUB-SITE-04 | Stats strip hidden | `events.stats` empty | Open `/` | Strip absent (no empty band) | P2 |
 | PUB-SITE-05 | Countdown | `start_at` in future | Open `/` | Counts down d/h/m/s; ticks live | P1 |

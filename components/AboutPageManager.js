@@ -19,7 +19,6 @@ const LANGS = [
 
 const SECTIONS = [
     { key: "pitham", label: "Pitham / Temple", titlePh: "About the Pitham" },
-    { key: "guruji", label: "Guruji", titlePh: "About Guruji" },
 ];
 
 export default function AboutPageManager() {
@@ -68,7 +67,7 @@ export default function AboutPageManager() {
         <div className="max-w-3xl space-y-8">
             <div>
                 <h3 className="text-lg font-bold text-neutral-900">About Us Page</h3>
-                <p className="text-sm text-neutral-500">Two sections shown on the public <span className="font-semibold">About Us</span> page — one about the <span className="font-semibold">Pitham / temple</span>, one about <span className="font-semibold">Guruji</span>. Leave a section blank to hide it. The <span className="font-semibold">Official Website</span> button is set in <span className="font-semibold">Contact &amp; Social</span>.</p>
+                <p className="text-sm text-neutral-500">A <span className="font-semibold">Pitham / temple</span> section shown on the public <span className="font-semibold">About Us</span> page. Leave it blank to hide it. (Guruji is covered by the featured guest in <span className="font-semibold">Home Page Content</span>.) The <span className="font-semibold">Official Website</span> button is set in <span className="font-semibold">Contact &amp; Social</span>.</p>
             </div>
 
             {SECTIONS.map((sec) => (
