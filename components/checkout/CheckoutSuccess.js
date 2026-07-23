@@ -17,84 +17,84 @@ export default function CheckoutSuccess({ data }) {
       </div>
       <h2 className="text-2xl font-black text-neutral-900 mb-1">
         {data.offlineReview
-          ? "Payment Submitted!"
+          ? t("success_offline_title")
           : data.isEnquiry
-            ? "Enquiry Received!"
+            ? t("success_enquiry_title")
             : data.partial
-              ? "Advance Received!"
-              : "Payment Successful!"}
+              ? t("success_partial_title")
+              : t("success_paid_title")}
       </h2>
       <p className="text-neutral-500 text-sm mb-6">
         {data.offlineReview
-          ? "Your payment is under verification. We'll confirm your registration shortly."
+          ? t("success_offline_desc")
           : data.isEnquiry
-            ? "Our team will contact you shortly."
+            ? t("success_enquiry_desc")
             : data.partial
-              ? "Pay the balance to confirm your registration."
-              : "Your registration is confirmed."}
+              ? t("success_partial_desc")
+              : t("success_paid_desc")}
       </p>
 
       <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-5 text-left space-y-3 max-w-sm mx-auto mb-6">
         <div className="flex justify-between text-sm">
-          <span className="text-neutral-500">Name</span>
+          <span className="text-neutral-500">{t("success_field_name")}</span>
           <span className="font-semibold text-neutral-900">{data.name}</span>
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-neutral-500">Email</span>
+          <span className="text-neutral-500">{t("success_field_email")}</span>
           <span className="font-semibold text-neutral-900 break-all">{data.email}</span>
         </div>
         {!data.isEnquiry && (
           <>
             <div className="flex justify-between text-sm">
-              <span className="text-neutral-500">Category</span>
+              <span className="text-neutral-500">{t("success_field_category")}</span>
               <span className="font-semibold text-neutral-900">{data.category}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-neutral-500">Attendees</span>
-              <span className="font-semibold text-neutral-900">{data.attendees} Person(s)</span>
+              <span className="text-neutral-500">{t("success_field_attendees")}</span>
+              <span className="font-semibold text-neutral-900">{data.attendees} {t("success_person_suffix")}</span>
             </div>
             <div className="flex justify-between text-sm border-t border-neutral-200 pt-3 mt-1">
-              <span className="text-neutral-500">Payment Status</span>
+              <span className="text-neutral-500">{t("success_status")}</span>
               <span className={`font-bold ${data.offlineReview || data.partial ? "text-amber-600" : "text-green-600"}`}>
-                {data.offlineReview ? "⌛ Under Verification" : data.partial ? "◐ Advance Paid" : "✓ Paid"}
+                {data.offlineReview ? t("success_status_review") : data.partial ? t("success_status_advance") : t("success_status_paid")}
               </span>
             </div>
             {data.partial ? (
               <>
                 <div className="flex justify-between text-sm">
-                  <span className="text-neutral-500">Advance Paid</span>
+                  <span className="text-neutral-500">{t("success_advance_paid")}</span>
                   <span className="font-bold text-neutral-900">₹{data.paidNow.toLocaleString("en-IN")}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-neutral-500">Balance Due</span>
+                  <span className="text-neutral-500">{t("success_balance_due")}</span>
                   <span className="font-bold text-orange-600">₹{data.balance.toLocaleString("en-IN")}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-neutral-500">Total</span>
+                  <span className="text-neutral-500">{t("success_total")}</span>
                   <span className="font-bold text-neutral-900">₹{data.amount.toLocaleString("en-IN")}</span>
                 </div>
               </>
             ) : (
               <div className="flex justify-between text-sm">
-                <span className="text-neutral-500">Amount</span>
+                <span className="text-neutral-500">{t("success_amount")}</span>
                 <span className="font-bold text-neutral-900">₹{data.amount.toLocaleString("en-IN")}</span>
               </div>
             )}
             {data.paymentId && (
               <div className="flex justify-between text-sm">
-                <span className="text-neutral-500">Payment Ref</span>
+                <span className="text-neutral-500">{t("success_payment_ref")}</span>
                 <span className="font-mono text-xs text-neutral-600 break-all">{data.paymentId}</span>
               </div>
             )}
             {data.offlineReview && (
               <>
                 <div className="flex justify-between text-sm">
-                  <span className="text-neutral-500">Method</span>
+                  <span className="text-neutral-500">{t("success_method")}</span>
                   <span className="font-semibold text-neutral-900">{t(`form_method_${data.method}`)}</span>
                 </div>
                 {data.reference && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-neutral-500">Reference</span>
+                    <span className="text-neutral-500">{t("success_reference")}</span>
                     <span className="font-mono text-xs text-neutral-600 break-all">{data.reference}</span>
                   </div>
                 )}
@@ -108,12 +108,12 @@ export default function CheckoutSuccess({ data }) {
         <Mail className="w-4 h-4 flex-shrink-0" />
         <span>
           {data.offlineReview
-            ? `We'll verify your payment and email ${data.email} once your registration is confirmed.`
+            ? t("success_email_offline", data.email)
             : data.partial
-              ? `Balance payment link sent to ${data.email} & your WhatsApp. Your QR entry pass is sent before the event, after full payment.`
+              ? t("success_email_partial", data.email)
               : data.isEnquiry
-                ? `Confirmation sent to ${data.email}`
-                : `Confirmation email sent to ${data.email}. Your QR entry pass will be sent a few days before the event.`}
+                ? t("success_email_enquiry", data.email)
+                : t("success_email_paid", data.email)}
         </span>
       </div>
 
@@ -126,7 +126,7 @@ export default function CheckoutSuccess({ data }) {
             className="inline-flex items-center gap-2 bg-neutral-900 hover:bg-neutral-800 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
           >
             <Download className="w-4 h-4" />
-            Download Receipt
+            {t("success_download_receipt")}
           </button>
         )}
 
@@ -134,7 +134,7 @@ export default function CheckoutSuccess({ data }) {
           onClick={() => window.location.reload()}
           className="text-sm text-orange-600 hover:text-orange-700 font-semibold underline"
         >
-          Register another person
+          {t("success_register_another")}
         </button>
       </div>
     </div>

@@ -65,7 +65,8 @@ Your name, DOB and mobile carry over. Fill in the rest:
 | **Mobile** | Always required. Indian 10-digit, starting 6–9. `+91`, `0` or `91` prefixes are fine — we clean them up |
 | **Email** | Always required — your confirmation and entry pass go here |
 | **Pincode** | 6 digits if asked for. The organisers can make it optional or hide it per Seva — when it's there, it auto-fills your taluka and state |
-| Salutation, gotra, gender, taluka, state, "your samasya" | Shown if the organisers have enabled them for this Seva |
+| Salutation, gotra, gender, taluka, state | Shown if the organisers have enabled them for this Seva |
+| Any custom questions (e.g. "your samasya") | Shown if the organisers added them for this Seva |
 | Any extra questions | Set by the organisers for this Seva |
 | **Total attendees** | How many people are coming on this registration. There's a per-Seva limit (usually 5) |
 | **Attendee names** | Name each person coming |

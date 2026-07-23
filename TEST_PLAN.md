@@ -365,7 +365,14 @@ Each case: **ID | Title | Pre-conditions | Steps | Expected**.
 | PUB-REG-56 | HTML in Problem field | `<script>alert(1)</script>` | Tags stripped before storage; never executes anywhere in admin | P0 |
 | PUB-REG-57 | `javascript:` scheme | Enter `javascript:alert(1)` in a text field | Stripped | P0 |
 | PUB-REG-58 | Scroll-to-error | Submit with an error at the top, page scrolled down | Scrolls to + focuses first invalid field, shows "fix the highlighted fields" | P1 |
-| PUB-REG-59 | Button gating | Any required field empty | Pay/Submit/Enquire disabled with a hint | P1 |
+| PUB-REG-59 | Button NOT dead-ended | Leave a subtly-invalid field (name with a digit); do not fill everything | Pay button is **clickable** (not greyed); clicking surfaces the specific field error + scrolls to it — the "complete required fields" hint still shows below | P0 |
+| PUB-REG-59a | Offline proof nudge | Offline method, everything valid except proof | Hint shows; clicking Pay says to attach the proof | P1 |
+| PUB-REG-63a | DOB not forced at declaration | Tier with DOB hidden + no age limit; open a declaration-enabled register page | Step 1 asks name + mobile only — **no DOB field**; Continue works without it | P0 |
+| PUB-REG-63b | DOB still required when needed | Age-limited tier | Step 1 shows + requires DOB | P0 |
+| PUB-REG-64a | Trilingual checkout | Switch HI/MR through a full paid + advance flow | Part-payment cards, validation errors, attendee placeholders, and the **success screen** all render translated — no stray English | P0 |
+| PUB-REG-64b | Donation quick-add | Tap a ₹1,100 chip | Donation set to 1100; chip highlights; total updates; typing still works | P1 |
+| PUB-REG-64c | Problem field gone | Open any tier's form | No "Problem / Samasya" field; not offered as a built-in in Form Fields | P1 |
+| PUB-REG-64d | Problem via custom field | Add a custom textarea "Samasya", opt a tier in | Renders and stores in `custom_fields` (not `problem_samasya`) | P2 |
 | PUB-REG-60 | Donation cap | Enter 99,99,999 | Clamped to ₹10,00,000 | P1 |
 | PUB-REG-61 | Negative donation | Enter `-500` | Clamped to 0 | P1 |
 | PUB-REG-62 | Non-numeric donation | Enter `abc` | Treated as 0 | P1 |

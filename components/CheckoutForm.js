@@ -8,7 +8,6 @@ import {
   AlertCircle,
   MapPin,
   Calendar,
-  MessageSquare,
   Mail,
   Phone,
   Users,
@@ -240,30 +239,29 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
   const validate = () => {
     const errs = {};
     if (!validatePhone(formData.phone)) {
-      errs.phone =
-        "Enter a valid 10-digit Indian mobile number (starts with 6-9).";
+      errs.phone = t("form_err_phone");
     }
     if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
-      errs.email = "Enter a valid email address.";
+      errs.email = t("form_err_email");
     }
     // Names + gotra: letters only (allows spaces, . ' - and any language script).
     const lettersOnly = /^[\p{L}\s.'-]+$/u;
     if (!String(formData.firstName || "").trim()) {
-      errs.firstName = `${t("form_first_name")} is required.`;
+      errs.firstName = t("form_err_required", t("form_first_name"));
     } else if (!lettersOnly.test(formData.firstName.trim())) {
-      errs.firstName = "Only letters are allowed.";
+      errs.firstName = t("form_err_letters");
     }
     if (!String(formData.lastName || "").trim()) {
-      errs.lastName = `${t("form_last_name")} is required.`;
+      errs.lastName = t("form_err_required", t("form_last_name"));
     } else if (!lettersOnly.test(formData.lastName.trim())) {
-      errs.lastName = "Only letters are allowed.";
+      errs.lastName = t("form_err_letters");
     }
     if (isVisible("gotra") && formData.gotra && !lettersOnly.test(formData.gotra.trim())) {
-      errs.gotra = "Only letters are allowed.";
+      errs.gotra = t("form_err_letters");
     }
     // Donation must be a non-negative number.
     if (formData.donation !== "" && formData.donation != null && !/^\d+(\.\d{1,2})?$/.test(String(formData.donation))) {
-      errs.donation = "Enter a valid amount (numbers only).";
+      errs.donation = t("form_err_amount");
     }
     // Pincode FORMAT is checked whenever a value is present; whether it is
     // *required* is the admin's call per tier (Form Fields) and is handled by the
@@ -271,22 +269,19 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
     // servers mirror this exactly, so an optional pincode really is optional.
     const pin = String(formData.pincode || "").trim();
     if (pin && !/^\d{6}$/.test(pin)) {
-      errs.pincode = "Enter a valid 6-digit pincode.";
+      errs.pincode = t("form_err_pincode");
     }
     if (isVisible("dob") && formData.dob && formData.dob > TODAY_STR) {
-      errs.dob = "Date of birth cannot be a future date.";
+      errs.dob = t("form_err_dob_future");
     }
     // Per-tier age restriction. DOB becomes required when the tier limits age.
     if (hasAgeLimit) {
       if (!formData.dob) {
-        errs.dob = "Date of birth is required for this tier.";
+        errs.dob = t("form_err_dob_tier");
       } else {
         const ae = ageError(category, formData.dob);
         if (ae) errs.dob = ae;
       }
-    }
-    if (isVisible("problem") && hasHtml(formData.problem)) {
-      errs.problem = "Plain text only — HTML and scripts are not allowed.";
     }
 
     const labels = {
@@ -295,7 +290,6 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
       gender: t("form_gender"),
       dob: t("form_dob"),
       pincode: t("form_pincode"),
-      problem: t("form_problem"),
     };
     for (const key of [
       "salutation",
@@ -303,7 +297,6 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
       "gender",
       "dob",
       "pincode",
-      "problem",
     ]) {
       if (
         isVisible(key) &&
@@ -311,14 +304,14 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
         !errs[key] &&
         !String(formData[key] || "").trim()
       ) {
-        errs[key] = `${labels[key]} is required.`;
+        errs[key] = t("form_err_required", labels[key]);
       }
     }
 
     for (const f of customFields) {
       const v = customValues[f.field_key];
       if (typeof v === "string" && hasHtml(v)) {
-        errs[f.field_key] = `${customLabel(f)} must be plain text.`;
+        errs[f.field_key] = t("form_err_plaintext_field", customLabel(f));
       } else if (f.is_required && !String(v || "").trim()) {
         errs[f.field_key] = `${customLabel(f)} is required.`;
       }
@@ -372,7 +365,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
     const asEnquiry = isEnquiry || intent === "enquire";
     const asOffline = !asEnquiry && isOffline;
     if (asOffline && needsProof && !proofFile) {
-      setFormError(paymentMethod === "cheque" ? "Please attach a photo of the cheque." : "Please attach a payment screenshot.");
+      setFormError(paymentMethod === "cheque" ? t("form_err_cheque_proof") : t("form_err_proof"));
       return;
     }
     setSubmitAction(asEnquiry ? "enquire" : asOffline ? "offline" : "pay");
@@ -604,10 +597,17 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
   const twoStep = !!(declaration?.enabled && declBody);
 
   const nameOk = (v) => !!String(v || "").trim() && /^[\p{L}\s.'-]+$/u.test(String(v).trim());
+  // Ask for DOB at the declaration step ONLY when the tier actually uses it — an
+  // age-limited tier, or one that shows/requires DOB in its form fields. A plain
+  // tier's declaration then asks just name + mobile, not a needless birth date.
+  const dobStep1Shown = hasAgeLimit || isVisible("dob");
+  const dobStep1Required = hasAgeLimit || isRequired("dob");
+  const dobStep1Ok = !dobStep1Required
+    || (!!formData.dob && formData.dob <= TODAY_STR && (!hasAgeLimit || !ageError(category, formData.dob)));
   const step1Valid =
     declAccepted &&
     nameOk(formData.firstName) && nameOk(formData.lastName) &&
-    !!formData.dob && formData.dob <= TODAY_STR && (!hasAgeLimit || !ageError(category, formData.dob)) &&
+    dobStep1Ok &&
     validatePhone(formData.phone);
 
   const onDeclScroll = (e) => {
@@ -653,7 +653,9 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 sm:gap-x-4 gap-y-5">
             <TextField fullWidth size="small" label={t("form_first_name")} name="firstName" required value={formData.firstName} onChange={handleChange} variant="outlined" />
             <TextField fullWidth size="small" label={t("form_last_name")} name="lastName" required value={formData.lastName} onChange={handleChange} variant="outlined" />
-            <TextField fullWidth size="small" label={t("form_dob")} name="dob" type="date" required value={formData.dob} onChange={handleChange} variant="outlined" slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: TODAY_STR }, input: adorn(<Calendar className="w-5 h-5 text-neutral-400" />) }} />
+            {dobStep1Shown && (
+              <TextField fullWidth size="small" label={t("form_dob")} name="dob" type="date" required={dobStep1Required} value={formData.dob} onChange={handleChange} variant="outlined" slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: TODAY_STR }, input: adorn(<Calendar className="w-5 h-5 text-neutral-400" />) }} />
+            )}
             <TextField fullWidth size="small" label={t("form_whatsapp")} name="phone" type="tel" required value={formData.phone} onChange={handleChange} variant="outlined" slotProps={{ input: adorn(<Phone className="w-5 h-5 text-neutral-400" />), htmlInput: { inputMode: "numeric", maxLength: 13 } }} />
           </div>
         </div>
@@ -668,7 +670,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
           {t("declaration_continue") || "Accept & Continue"} <ArrowRight className="w-4 h-4" />
         </button>
         {declAtEnd && !step1Valid && (
-          <p className="text-center text-xs text-neutral-400">{t("declaration_step1_hint") || "Fill your name, date of birth and mobile, then accept to continue."}</p>
+          <p className="text-center text-xs text-neutral-400">{t("declaration_step1_hint") || "Fill your details, then accept to continue."}</p>
         )}
       </div>
       </ThemeProvider>
@@ -911,34 +913,6 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
             border, so a 16px gap leaves only ~8px of real clearance and the next
             label collides with the previous field's bottom border. */}
         <div className="space-y-6">
-          {isVisible("problem") && (
-            <TextField
-              fullWidth
-              label={t("form_problem")}
-              name="problem"
-              required={isRequired("problem")}
-              multiline
-              rows={3}
-              value={formData.problem}
-              onChange={handleChange}
-              variant="outlined"
-              error={!!fieldErrors.problem}
-              helperText={fieldErrors.problem}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment
-                      position="start"
-                      sx={{ alignSelf: "flex-start", mt: 1.5 }}
-                    >
-                      <MessageSquare className="w-5 h-5 text-neutral-400" />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-            />
-          )}
-
           {/* Admin-defined custom fields */}
           {customFields.map((f) => {
             const val = customValues[f.field_key] ?? "";
@@ -1013,7 +987,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
               (_, i) => i + 1,
             ).map((n) => (
               <MenuItem key={n} value={String(n)}>
-                {n} {n === 1 ? "Person" : "People"}
+                {n} {n === 1 ? t("form_person") : t("form_people")}
               </MenuItem>
             ))}
           </TextField>
@@ -1024,12 +998,14 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
               <p className="text-xs font-semibold text-neutral-500">{t("form_attendee_names") || "Names of accompanying attendees (optional)"}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {Array.from({ length: (parseInt(formData.attendeesCount, 10) || 1) - 1 }, (_, i) => (
-                  <input
+                  <TextField
                     key={i}
+                    fullWidth
+                    size="small"
                     value={attendeeNames[i] || ""}
                     onChange={(e) => setAttendeeName(i, e.target.value)}
-                    placeholder={`Attendee ${i + 2} name`}
-                    className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:border-orange-500"
+                    placeholder={t("form_attendee_ph", i + 2)}
+                    variant="outlined"
                   />
                 ))}
               </div>
@@ -1046,9 +1022,9 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
                 onClick={() => setPayAdvance(false)}
                 className={`text-left p-3 rounded-xl border-2 transition ${!payAdvance ? "border-vermillion bg-vermillion/5" : "border-neutral-200 hover:border-neutral-300"}`}
               >
-                <div className="font-bold text-neutral-900 text-[13px]">Pay Full</div>
+                <div className="font-bold text-neutral-900 text-[13px]">{t("form_pay_full")}</div>
                 <div className="text-lg font-bold text-vermillion mt-0.5">₹{totalAmount.toLocaleString("en-IN")}</div>
-                <div className="text-[11px] text-neutral-500 mt-0.5">Complete payment now</div>
+                <div className="text-[11px] text-neutral-500 mt-0.5">{t("form_pay_full_note")}</div>
               </button>
               <button
                 type="button"
@@ -1060,13 +1036,13 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
                 }}
                 className={`text-left p-3 rounded-xl border-2 transition ${payAdvance ? "border-vermillion bg-vermillion/5" : "border-neutral-200 hover:border-neutral-300"}`}
               >
-                <div className="font-bold text-neutral-900 text-[13px]">Pay {advancePct}% Advance</div>
+                <div className="font-bold text-neutral-900 text-[13px]">{t("form_pay_advance", advancePct)}</div>
                 <div className="text-lg font-bold text-vermillion mt-0.5">₹{advanceAmount.toLocaleString("en-IN")}</div>
-                <div className="text-[11px] text-neutral-500 mt-0.5">Balance ₹{balanceAmount.toLocaleString("en-IN")} later</div>
+                <div className="text-[11px] text-neutral-500 mt-0.5">{t("form_balance_later", balanceAmount)}</div>
               </button>
               {payAdvance && (
                 <p className="col-span-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                  We&apos;ll send a payment link for the ₹{balanceAmount.toLocaleString("en-IN")} balance by email &amp; WhatsApp. Your entry pass is issued only after full payment. <strong>No-refund policy applies.</strong>
+                  {t("form_advance_note", balanceAmount)} <strong>{t("form_norefund")}</strong>
                 </p>
               )}
             </div>
@@ -1104,6 +1080,23 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
               <p className="text-xs text-orange-700 mb-4">
                 {t("form_donation_desc")}
               </p>
+              {/* Quick-add chips — one tap beats typing an amount, and lifts the
+                  share of people who add a contribution at all. */}
+              <div className="flex flex-wrap gap-2 mb-3">
+                {[1100, 2100, 5100].map((amt) => {
+                  const active = String(formData.donation) === String(amt);
+                  return (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => { setFormData((prev) => ({ ...prev, donation: String(amt) })); clearError("donation"); }}
+                      className={`rounded-full border px-3.5 py-1.5 text-xs font-bold transition ${active ? "border-vermillion bg-vermillion text-white" : "border-orange-200 bg-white text-orange-700 hover:border-vermillion"}`}
+                    >
+                      ₹{amt.toLocaleString("en-IN")}
+                    </button>
+                  );
+                })}
+              </div>
               <TextField
                 fullWidth
                 label={t("form_donation_amount")}
@@ -1296,9 +1289,12 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
         {!isEnquiry && (
           <button
             type="submit"
-            // Disabled until the whole form is valid (required fields + terms) and,
-            // for offline bank/cheque, the payment proof is attached.
-            disabled={loading || !payValid}
+            // Intentionally NOT disabled on validity — only while a submit is in
+            // flight. A disabled button plus errors-shown-only-on-submit dead-ends
+            // a user who can't tell WHICH field is wrong (they can't click to find
+            // out). Clicking runs validate() → highlights every bad field and
+            // scrolls to the first. `payValid` still drives the hint below.
+            disabled={loading}
             className="btn-gold w-full justify-center text-[1.05rem] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
           >
             {loading && (submitAction === "pay" || submitAction === "offline") ? (
@@ -1306,7 +1302,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
             ) : isOffline ? (
               t("form_offline_submit")
             ) : usePartial ? (
-              `Pay ₹${payNow.toLocaleString("en-IN")} Advance Securely`
+              t("form_pay_advance_btn", payNow)
             ) : (
               t("form_pay_button", totalAmount)
             )}
@@ -1318,7 +1314,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
           <button
             type={isEnquiry ? "submit" : "button"}
             onClick={isEnquiry ? undefined : (e) => handlePayment(e, "enquire")}
-            disabled={loading || !coreValid}
+            disabled={loading}
             className={`${isEnquiry ? "btn-gold" : "btn-outline-gold mt-3"} w-full justify-center text-[1.05rem] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0`}
           >
             {loading && submitAction === "enquire" ? (
@@ -1329,7 +1325,7 @@ export default function CheckoutForm({ category, paymentSettings = null }) {
           </button>
         )}
 
-        {!loading && !coreValid && (
+        {!loading && !payValid && (
           <p className="text-center text-xs text-neutral-400 pt-2.5">
             {t("form_complete_required") || "Complete all required fields to continue."}
           </p>

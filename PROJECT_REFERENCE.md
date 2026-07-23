@@ -390,7 +390,7 @@ Answers the question an operator asks constantly: **"did they actually get it?"*
 
 ## 13. Dynamic form fields
 
-- **Built-ins** ([lib/formFields.js](lib/formFields.js)) map to real `registrations` columns: salutation, firstName, lastName, gotra, gender, dob, phone, email, pincode, problem. **Core** fields (firstName, lastName, phone, email) are always visible+required (payment/ticket/QR depend on them); the rest can be toggled/reordered but not deleted.
+- **Built-ins** ([lib/formFields.js](lib/formFields.js)) map to real `registrations` columns: salutation, firstName, lastName, gotra, gender, dob, phone, email, pincode. (**`problem`/Samasya was retired 2026-07-24** — add it as a custom field instead; the `problem_samasya` column is kept for old rows.) **Core** fields (firstName, lastName, phone, email) are always visible+required (payment/ticket/QR depend on them); the rest can be toggled/reordered but not deleted.
 - **Custom fields** (`form_fields` rows, `is_custom`) are global, opt-in per category, stored in `registrations.custom_fields` jsonb. Types: text, number, date, select, textarea.
 - **Per-category config** in `category_field_settings` (visible/required/order). Resolved server-side by [lib/formFieldsServer.js](lib/formFieldsServer.js) (`getCatalogForCategory`, `getActiveFields`, `validateSubmission`). Validation + HTML sanitisation happen server-side in the payment/enquiry routes.
 - Admin UI: [components/FormFieldsManager.js](components/FormFieldsManager.js) (per-category, explicit Save). Public fetch: `/api/form-fields?categoryId=`.
@@ -715,6 +715,13 @@ form → offline method → payment_review ──approve full──────�
 
 Keep newest first. Add an entry for every meaningful change.
 
+- **2026-07-24 (Registration UX pass + `problem/samasya` retired as a built-in)**
+  - **🔴 Pay/Enquire buttons no longer disabled on validity** — only while a submit is in flight ([CheckoutForm](components/CheckoutForm.js)). A disabled button + errors-shown-only-on-submit dead-ended a user who couldn't tell *which* field was wrong (they couldn't click to find out). Clicking now runs `validate()` → highlights every bad field and scrolls to the first (that UX already existed; it just couldn't be reached). `payValid` still drives the "complete required fields" hint.
+  - **DOB at the declaration step is now conditional** — asked only when the tier is age-limited or shows/requires DOB in its form fields. A plain tier's declaration asks just name + mobile, not a needless birth date.
+  - **Trilingual checkout** — localised the previously English-only strings: the whole part-payment block (Pay Full / Pay N% Advance / balance / advance note / no-refund), every validation message, attendee placeholders, Person/People, and **the entire success screen** (titles, field labels, status, the email-sent line, receipt/register-another buttons). New `form_err_*`, `form_pay_*`, `success_*` keys in en/hi/mr.
+  - **Donation quick-add chips** (₹501 / ₹1,100 / ₹2,100 / ₹5,100) above the amount field — one tap instead of typing.
+  - Attendee-name inputs converted from plain `<input>` to MUI `TextField` for visual consistency.
+  - **`problem` / Samasya retired as a built-in field** ([lib/formFields.js](lib/formFields.js)) — removed from the catalog and the checkout form. Add it as a **custom field** if a tier needs it. The `registrations.problem_samasya` column is **kept** so existing records still read; new registrations leave it null. (Note: a custom field lands in `custom_fields` jsonb, not `problem_samasya`.)
 - **2026-07-23 (Contact form gains a mobile field; Enquire Now moved above the fold)**
   - **Contact Us form now collects a mobile number** (required, Indian 10-digit). New `contact_messages.phone` column (idempotent `ADD COLUMN` in both SQL files — **re-run `run_all.sql`**). Validated + stored by [/api/contact](app/api/contact/route.js), shown as a click-to-call `tel:` link in Settings → Contact Messages, and returned by that route's select. i18n `contact_phone` / `contact_phone_ph` / `contact_err_phone` (en/hi/mr).
   - **Homepage "Enquire Now" was buried** (2nd from bottom, ~14 sections down). Moved **high — right after the About section** — and added an above-the-fold **"Enquire Now"** button in the [Hero](components/site/home/Hero.js) CTA row (anchors to `#enquire`), shown only when General Enquiry is enabled. Doubly useful with no Sevas live, when the hero's Register CTA is hidden. `HomeContent` passes `showEnquiry` to `Hero`.
